@@ -6,24 +6,30 @@ import { BookingForm } from "@/components/sections/booking-form";
 import { useLanguage } from "@/hooks/use-language";
 import { useParams } from 'next/navigation'; 
 import { BedDouble } from "lucide-react";
-import type { BookingItem } from "@/types";
+import type { BookingItem, Dormitory } from "@/types";
 
 // In a real app, you'd fetch dormitory details based on ID
-const getDormitoryDetails = (id: string): BookingItem | null => {
-  // Placeholder: find from sample data or API
-  if (id === "d001") return { id, name: "Room 101A", itemType: "dormitory" };
-  if (id === "d003") return { id, name: "Room 201A", itemType: "dormitory" };
-  // Fallback, ideally you'd have a not found mechanism
-  const sampleDorms = [
-    { id: "d001", name: "Room 101A", itemType: "dormitory" },
-    { id: "d002", name: "Room 102B", itemType: "dormitory" },
-    { id: "d003", name: "Room 201A", itemType: "dormitory" },
-  ];
-  const found = sampleDorms.find(d => d.id === id);
-  if (found) return found;
+// Placeholder data
+const sampleDormitories: Dormitory[] = [
+  { id: "d001", floor: 1, roomNumber: "101A", capacity: 2, isAvailable: true, pricePerDay: 500, images: [`https://placehold.co/300x200.png?text=Room+101A`]},
+  { id: "d002", floor: 1, roomNumber: "102B", capacity: 4, isAvailable: false, pricePerDay: 700, images: [`https://placehold.co/300x200.png?text=Room+102B`]},
+  { id: "d003", floor: 2, roomNumber: "201A", capacity: 2, isAvailable: true, pricePerDay: 550, images: [`https://placehold.co/300x200.png?text=Room+201A`]},
+  { id: "d004", floor: 2, roomNumber: "205C", capacity: 3, isAvailable: true, pricePerDay: 600, images: [`https://placehold.co/300x200.png?text=Room+205C`]},
+  { id: "d005", floor: 3, roomNumber: "301A", capacity: 1, isAvailable: true, pricePerDay: 400, images: [`https://placehold.co/300x200.png?text=Room+301A`]},
+];
 
+const getDormitoryDetails = (id: string): BookingItem | null => {
+  const foundDorm = sampleDormitories.find(d => d.id === id);
+  if (foundDorm) {
+    return { 
+      id: foundDorm.id, 
+      name: `${foundDorm.roomNumber} (Floor ${foundDorm.floor})`, 
+      itemType: "dormitory", 
+      pricePerDay: foundDorm.pricePerDay 
+    };
+  }
   console.warn(`Dormitory with ID ${id} not found in placeholder data.`);
-  return { id, name: `Dormitory ${id}`, itemType: "dormitory" }; // Or handle as not found
+  return null;
 };
 
 export default function BookDormitoryPage() {
@@ -34,11 +40,10 @@ export default function BookDormitoryPage() {
   const dormitoryDetails = getDormitoryDetails(dormitoryId);
 
   if (!dormitoryDetails) {
-    // Handle case where dormitory details are not found, e.g., redirect or show error
     return (
       <PublicLayout>
         <div className="container mx-auto py-8 px-4 text-center">
-          <h1 className="text-2xl text-destructive">{t('itemNotFound')}</h1> {/* Add to JSON */}
+          <h1 className="text-2xl text-destructive">{t('itemNotFound')}</h1>
         </div>
       </PublicLayout>
     );
@@ -59,4 +64,3 @@ export default function BookDormitoryPage() {
     </PublicLayout>
   );
 }
-

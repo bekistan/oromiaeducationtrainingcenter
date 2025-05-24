@@ -1,18 +1,19 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
-import { BarChart, DollarSign, Users, Bed, Building } from "lucide-react";
+import { BarChart, DollarSign, Users, Bed, Building, Info } from "lucide-react";
 
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
 
   const stats = [
-    { titleKey: "totalBookings", value: "152", icon: <BarChart className="h-6 w-6 text-primary" />, details: "Last 30 days" }, // Add to JSON
-    { titleKey: "totalRevenue", value: "ETB 75,600", icon: <DollarSign className="h-6 w-6 text-primary" />, details: "This month" }, // Add to JSON
-    { titleKey: "activeUsers", value: "34", icon: <Users className="h-6 w-6 text-primary" />, details: "Online now" }, // Add to JSON
-    { titleKey: "availableDorms", value: "12 / 50", icon: <Bed className="h-6 w-6 text-primary" />, details: "Dormitories" }, // Add to JSON
-    { titleKey: "availableHalls", value: "3 / 5", icon: <Building className="h-6 w-6 text-primary" />, details: "Halls/Sections" }, // Add to JSON
+    { titleKey: "totalBookings", value: "152", icon: <BarChart className="h-6 w-6 text-primary" />, details: "Last 30 days" },
+    { titleKey: "totalRevenue", value: "ETB 75,600", icon: <DollarSign className="h-6 w-6 text-primary" />, details: "This month (Placeholder)" }, // Updated details
+    { titleKey: "activeUsers", value: "34", icon: <Users className="h-6 w-6 text-primary" />, details: "Online now" },
+    { titleKey: "availableDorms", value: "12 / 50", icon: <Bed className="h-6 w-6 text-primary" />, details: "Dormitories" },
+    { titleKey: "availableHalls", value: "3 / 5", icon: <Building className="h-6 w-6 text-primary" />, details: "Halls/Sections" },
   ];
 
   return (
@@ -36,22 +37,34 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
+       <Card className="bg-blue-50 border-blue-200">
+        <CardHeader className="flex flex-row items-center space-x-3 space-y-0">
+          <Info className="h-5 w-5 text-blue-600" />
+          <CardTitle className="text-blue-700 text-base font-medium">{t('developerNote')}</CardTitle> {/* Add to JSON */}
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-blue-600">
+            {t('revenueNote')} {/* Add 'revenueNote' to JSON: "The 'Total Revenue' card currently displays static data. Dynamic calculation based on actual paid bookings needs backend implementation." */}
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>{t('recentBookings')}</CardTitle> {/* Add to JSON */}
+            <CardTitle>{t('recentBookings')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">{t('placeholderRecentBookings')}</p> {/* Add to JSON */}
+            <p className="text-muted-foreground">{t('placeholderRecentBookings')}</p>
             {/* Placeholder for recent bookings list or chart */}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>{t('systemNotifications')}</CardTitle> {/* Add to JSON */}
+            <CardTitle>{t('systemNotifications')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">{t('placeholderNotifications')}</p> {/* Add to JSON */}
+            <p className="text-muted-foreground">{t('placeholderNotifications')}</p>
             {/* Placeholder for system notifications */}
           </CardContent>
         </Card>

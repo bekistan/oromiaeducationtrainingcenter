@@ -20,11 +20,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem } from '@/types';
 import { AlertCircle, List } from 'lucide-react';
+import { differenceInCalendarDays } from 'date-fns';
+import { useRouter } from 'next/navigation'; // Added for redirection
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility'; // 'facility' for halls/sections
@@ -35,19 +38,18 @@ const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(),
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
-  dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined, {
-    message: "Date range is required.",
+  dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, { // Ensure 'to' is also defined for range
+    message: "Date range with start and end dates is required.",
   }),
 });
 
 const facilityBookingSchema = z.object({
-  // Company info might come from auth user, but can be overridden or filled if not present
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
   contactPerson: z.string().min(2, { message: "Contact person must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().min(7, { message: "Phone number seems too short." }),
-  dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined, {
-    message: "Date range is required.",
+  dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, { // Ensure 'to' is also defined
+    message: "Date range with start and end dates is required.",
   }),
   numberOfAttendees: z.coerce.number().min(1, { message: "At least 1 attendee is required." }),
   services: z.object({
@@ -63,6 +65,8 @@ type FacilityBookingValues = z.infer<typeof facilityBookingSchema>;
 export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) {
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const router = useRouter();
   const isDormitoryBooking = bookingCategory === 'dormitory';
 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
@@ -71,7 +75,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     companyName: user?.role === 'company_representative' ? user.companyName || "" : "",
     contactPerson: user?.role === 'company_representative' ? user.name || "" : "",
     email: user?.email || "",
-    phone: "", // No phone in mock user, so empty
+    phone: "",
     dateRange: undefined,
     numberOfAttendees: 1,
     services: { lunch: 'none' as const, refreshment: 'none' as const },
@@ -87,11 +91,11 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
-      form.reset({ // Pre-fill company details if user changes or logs in
+      form.reset({
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || "", // Keep phone if already entered
+        phone: (form.getValues() as FacilityBookingValues).phone || "",
         dateRange: (form.getValues() as FacilityBookingValues).dateRange,
         numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
         services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
@@ -102,49 +106,78 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
 
   function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const submissionData: any = { 
-      bookingCategory, 
-      items: itemsToBook,
-      approvalStatus: 'pending', // Default approval status
-      ...data 
-    };
+    const bookingId = `bk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`; // Mock booking ID
+    let totalCost = 0;
+    const itemName = itemsToBook.map(item => item.name).join(', ');
 
-    if (!isDormitoryBooking && user && user.role === 'company_representative') {
-        submissionData.userId = user.id;
-        submissionData.companyId = user.companyId;
-        // Ensure form values override auth user values if different and valid
-        const facilityValues = data as FacilityBookingValues;
-        submissionData.companyName = facilityValues.companyName;
-        submissionData.contactPerson = facilityValues.contactPerson;
-        submissionData.email = facilityValues.email;
-        submissionData.phone = facilityValues.phone;
-
-
-      const serviceDetails: BookingServiceDetails = {};
-      if (facilityValues.services.lunch && facilityValues.services.lunch !== 'none') {
-        serviceDetails.lunch = facilityValues.services.lunch;
-      }
-      if (facilityValues.services.refreshment && facilityValues.services.refreshment !== 'none') {
-        serviceDetails.refreshment = facilityValues.services.refreshment;
+    if (isDormitoryBooking) {
+      const dormData = data as DormitoryBookingValues;
+      const item = itemsToBook[0]; // Assuming single dormitory booking for now
+      if (item && item.pricePerDay && dormData.dateRange?.from && dormData.dateRange.to) {
+        const numberOfDays = differenceInCalendarDays(dormData.dateRange.to, dormData.dateRange.from) + 1;
+        totalCost = numberOfDays * item.pricePerDay;
+      } else {
+        toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" }); // Add 'couldNotCalculatePrice' to JSON
+        return;
       }
       
+      const queryParams = new URLSearchParams({
+        bookingId,
+        amount: totalCost.toString(),
+        itemName: item.name,
+        bookingCategory: 'dormitory',
+      });
+      router.push(`/payment/chapa?${queryParams.toString()}`);
+
+    } else { // Facility Booking
+      const facilityData = data as FacilityBookingValues;
+      // Placeholder for facility cost calculation - rentalCost + service costs
+      // For now, just using a mock total or rentalCost if available
+      totalCost = itemsToBook.reduce((acc, curr) => acc + (curr.rentalCost || 0), 0); 
+      // Add service costs (mock)
+      if (facilityData.services.lunch !== 'none') totalCost += (facilityData.numberOfAttendees * 50); // Mock price
+      if (facilityData.services.refreshment !== 'none') totalCost += (facilityData.numberOfAttendees * 25); // Mock price
+
+
+      // For facility bookings, usually admin approval comes first, then payment.
+      // Simulating submission for now.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const submissionData: any = { 
+        id: bookingId,
+        bookingCategory, 
+        items: itemsToBook,
+        approvalStatus: 'pending', 
+        paymentStatus: 'pending', // Payment will be handled later for facilities
+        totalCost,
+        bookedAt: new Date().toISOString(),
+        startDate: facilityData.dateRange?.from?.toISOString(),
+        endDate: facilityData.dateRange?.to?.toISOString(),
+        ...facilityData 
+      };
+      
+      if (user && user.role === 'company_representative') {
+        submissionData.userId = user.id;
+        submissionData.companyId = user.companyId;
+      }
+      
+      const serviceDetails: BookingServiceDetails = {};
+      if (facilityData.services.lunch && facilityData.services.lunch !== 'none') {
+        serviceDetails.lunch = facilityData.services.lunch;
+      }
+      if (facilityData.services.refreshment && facilityData.services.refreshment !== 'none') {
+        serviceDetails.refreshment = facilityData.services.refreshment;
+      }
       delete submissionData.services; 
       if (Object.keys(serviceDetails).length > 0) {
           submissionData.serviceDetails = serviceDetails;
       }
-    } else if (isDormitoryBooking && user && user.role === 'individual') {
-        submissionData.userId = user.id;
-        // For dormitory, guestName comes from fullName field
-        submissionData.guestName = (data as DormitoryBookingValues).fullName;
-        submissionData.guestEmployer = (data as DormitoryBookingValues).employer;
-    } else if (isDormitoryBooking) {
-        submissionData.guestName = (data as DormitoryBookingValues).fullName;
-        submissionData.guestEmployer = (data as DormitoryBookingValues).employer;
+      
+      console.log("Processed facility submission data:", submissionData);
+      // In a real app, you'd save this to a database.
+      // Then redirect to a company dashboard or booking status page.
+      toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') }); // Add to JSON
+      router.push('/'); // Or a dedicated company dashboard page
     }
-    
-    console.log("Processed submission data:", submissionData);
-    alert(t('bookingSubmittedPlaceholder'));
   }
   
   if (authLoading) {
@@ -160,8 +193,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           </CardTitle>
         </CardHeader>
         <CardContent className="text-center">
-          <p>{t('mustBeLoggedInAsCompany')}</p> {/* Add to JSON */}
-          {/* Optionally, add a login button here */}
+          <p>{t('mustBeLoggedInAsCompany')}</p>
         </CardContent>
       </Card>
     );
@@ -173,10 +205,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl text-center text-primary">
-          {isDormitoryBooking ? t('dormitoryBooking') : t('facilityBooking')} {/* Add 'facilityBooking' to JSON */}
+          {isDormitoryBooking ? t('dormitoryBooking') : t('facilityBooking')}
         </CardTitle>
         <p className="text-sm text-muted-foreground text-center flex items-center justify-center">
-            <List className="mr-2 h-4 w-4"/> {t('bookingForItems')}: {itemsDisplayList} {/* Add 'bookingForItems' to JSON */}
+            <List className="mr-2 h-4 w-4"/> {t('bookingForItems')}: {itemsDisplayList}
         </p>
       </CardHeader>
       <CardContent>
@@ -193,6 +225,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onDateChange={field.onChange as (date: DateRange | undefined) => void}
                   />
+                  <FormDescription>{t('selectBothStartAndEndDates')}</FormDescription> {/* Add to JSON */}
                   <FormMessage />
                 </FormItem>
               )}
@@ -203,7 +236,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <h3 className="text-lg font-medium pt-4 border-t">{t('personalInformation')}</h3>
                 <FormField
                   control={form.control}
-                  name="fullName" // This will be guestName for dormitory
+                  name="fullName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('fullName')}</FormLabel>
@@ -226,7 +259,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 />
                 <FormField
                   control={form.control}
-                  name="employer" // This will be guestEmployer
+                  name="employer"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('employer')}</FormLabel>
@@ -377,7 +410,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               </>
             )}
             <Button type="submit" className="w-full" disabled={authLoading}>
-                {authLoading ? t('loading') : t('submitBooking')}
+                {authLoading ? t('loading') : (isDormitoryBooking ? t('proceedToPayment') : t('submitBooking'))} {/* Add 'proceedToPayment' to JSON */}
             </Button>
           </form>
         </Form>
@@ -385,4 +418,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-

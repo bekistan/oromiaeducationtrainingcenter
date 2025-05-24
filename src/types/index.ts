@@ -1,4 +1,5 @@
 
+
 export type Locale = 'en' | 'om' | 'am';
 
 export type Translations = {
@@ -11,7 +12,7 @@ export interface Dormitory {
   roomNumber: string;
   capacity: number;
   isAvailable: boolean;
-  pricePerDay: number;
+  pricePerDay: number; // Ensured this is present
   images?: string[]; // URLs to images
   dataAiHint?: string; // AI hint for image generation
 }
@@ -39,6 +40,8 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
+  pricePerDay?: number; // Added for dormitories
+  rentalCost?: number; // Added for facilities
 };
 
 export interface Booking {
@@ -58,8 +61,8 @@ export interface Booking {
   endDate: string; // ISO date string
   numberOfAttendees?: number; // For hall/section services
   serviceDetails?: BookingServiceDetails;
-  totalCost: number;
-  paymentStatus: 'pending' | 'paid' | 'failed';
+  totalCost: number; // Ensured this is present
+  paymentStatus: 'pending' | 'paid' | 'failed'; // Ensured this is present
   approvalStatus: 'pending' | 'approved' | 'rejected'; // New status for admin approval
   bookedAt: string; // ISO date string
 }
