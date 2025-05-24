@@ -2,7 +2,7 @@
 "use client";
 
 import type { User as AppUser } from '@/types';
-import React, { useState, useEffect, useCallback, useContext, createContext, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, useContext, createContext, type ReactNode } from 'react';
 import { auth, db } from '@/lib/firebase';
 import {
   signInWithEmailAndPassword,
@@ -19,10 +19,20 @@ interface AuthState {
   loading: boolean;
   login: (email: string, pass: string) => Promise<AppUser | null>;
   signupCompany: (
-    companyDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId'> & { password: string; companyName: string; phone: string; name: string; email: string; }
+    companyDetails: {
+      companyName: string;
+      name: string; // Contact person's name
+      email: string;
+      phone: string;
+      password: string;
+    }
   ) => Promise<AppUser | null>;
   signupAdmin: (
-    adminDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId' | 'companyName' | 'phone'> & { password: string; name: string; email: string; }
+    adminDetails: {
+      name: string;
+      email: string;
+      password: string;
+    }
   ) => Promise<AppUser | null>;
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUser>) => Promise<void>;
@@ -46,8 +56,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userDataFromDb = userDocSnap.data();
             const processedUserData: AppUser = {
               id: fbUser.uid,
-              email: userDataFromDb.email,
-              role: userDataFromDb.role,
+              email: userDataFromDb.email || '',
+              role: userDataFromDb.role || 'individual',
               name: userDataFromDb.name,
               companyId: userDataFromDb.companyId,
               companyName: userDataFromDb.companyName,
@@ -57,12 +67,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(processedUserData);
           } else {
             console.warn("User document not found in Firestore for UID:", fbUser.uid);
-            await firebaseSignOut(auth);
+            // If user exists in Auth but not Firestore, log them out to avoid inconsistent state
+            await firebaseSignOut(auth); 
             setUser(null);
           }
         } catch (error) {
             console.error("Error fetching user document from Firestore:", error);
-            setUser(null); // Ensure user is null if there's an error
+            setUser(null); // Clear user state on error
         }
       } else {
         setUser(null);
@@ -84,8 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const userDataFromDb = userDocSnap.data();
         const appUserData: AppUser = {
           id: fbUserInstance.uid,
-          email: userDataFromDb.email,
-          role: userDataFromDb.role,
+          email: userDataFromDb.email || '',
+          role: userDataFromDb.role || 'individual',
           name: userDataFromDb.name,
           companyId: userDataFromDb.companyId,
           companyName: userDataFromDb.companyName,
@@ -98,7 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return appUserData;
       } else {
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth); // Sign out to prevent inconsistent state
+        await firebaseSignOut(auth);
         setUser(null);
         setFirebaseUser(null);
         setLoading(false);
@@ -106,19 +117,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("Login error:", error);
-      setUser(null); // Ensure user state is cleared on error
+      setUser(null);
       setFirebaseUser(null);
       setLoading(false);
-      throw error; // Re-throw to be handled by UI
+      throw error; // Re-throw to be caught by UI
     }
   }, []);
 
   const signupCompany = useCallback(
     async (
-      companyDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId'> & { password: string; companyName: string; phone: string; name: string; email: string; }
+      companyDetails: {
+        companyName: string;
+        name: string; // Contact person's name
+        email: string;
+        phone: string;
+        password: string;
+      }
     ): Promise<AppUser | null> => {
       setLoading(true);
       try {
+        // Check if email is already in use in Firestore (Auth might also throw this, but this is an extra check)
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", companyDetails.email));
         const querySnapshot = await getDocs(q);
@@ -132,21 +150,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const newCompanyUser: AppUser = {
           id: fbUserInstance.uid,
           email: companyDetails.email,
-          name: companyDetails.name,
+          name: companyDetails.name, 
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative',
-          approvalStatus: 'pending',
-          companyId: `comp-${fbUserInstance.uid.substring(0, 10)}`,
+          approvalStatus: 'pending', // Default to pending
+          companyId: `comp-${fbUserInstance.uid.substring(0, 10)}`, // Generate a simple company ID
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUser);
+        // No need to call setUser here, onAuthStateChanged will pick it up.
         setLoading(false);
-        return newCompanyUser;
+        return newCompanyUser; // Return the newly created user data
       } catch (error) {
         console.error("Company signup error:", error);
         setLoading(false);
-        throw error;
+        throw error; // Re-throw to be caught by UI
       }
     },
     []
@@ -154,7 +173,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signupAdmin = useCallback(
     async (
-      adminDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId' | 'companyName' | 'phone'> & { password: string; name: string; email: string; }
+      adminDetails: {
+        name: string;
+        email: string;
+        password: string;
+      }
     ): Promise<AppUser | null> => {
       setLoading(true);
       try {
@@ -172,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: fbUserInstance.uid,
           email: adminDetails.email,
           name: adminDetails.name,
-          role: 'admin',
+          role: 'admin', // Or 'superadmin' if you differentiate during creation
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUser);
@@ -187,7 +210,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
-
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
@@ -196,6 +218,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setFirebaseUser(null);
     } catch (error) {
       console.error("Logout error:", error);
+      // Optionally, inform the user about the logout error
     } finally {
       setLoading(false);
     }
@@ -204,14 +227,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUserDocument = useCallback(async (userId: string, data: Partial<AppUser>): Promise<void> => {
     const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, data);
+    // If the updated user is the currently logged-in user, refresh their local state
     if (user && user.id === userId) {
       const updatedUserDocSnap = await getDoc(userDocRef);
       if (updatedUserDocSnap.exists()) {
         const updatedData = updatedUserDocSnap.data();
          const refreshedUser: AppUser = {
           id: userId,
-          email: updatedData.email,
-          role: updatedData.role,
+          email: updatedData.email || '',
+          role: updatedData.role || 'individual',
           name: updatedData.name,
           companyId: updatedData.companyId,
           companyName: updatedData.companyName,
@@ -221,8 +245,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(refreshedUser);
       }
     }
-  }, [user]);
+  }, [user]); // Dependency on user to re-create if user object changes
 
+  // Explicitly define the context value object
   const contextValue: AuthState = {
     user,
     firebaseUser,
