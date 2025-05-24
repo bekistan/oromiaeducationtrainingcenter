@@ -1,17 +1,17 @@
 
 "use client";
 
-import React, { useState } from 'react'; // Added useState
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth"; // Added useAuth
-import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { useRouter } from 'next/navigation'; // Added useRouter
-import { LockKeyhole, Loader2 } from "lucide-react"; // Added Loader2
+import { useRouter } from 'next/navigation';
+import { LockKeyhole, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { t } = useLanguage();
@@ -19,31 +19,39 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
+  const [emailInput, setEmailInput] = useState(''); // Renamed for clarity
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    // Mock authentication logic
-    // Password is not checked in this mock
-    let loggedIn = false;
-    let redirectPath = '/';
+    const normalizedEmail = emailInput.trim().toLowerCase(); // Normalize email
 
-    if (email === 'individual@example.com') {
+    let loggedIn = false;
+    let redirectPath = '/'; // Default redirect
+
+    if (normalizedEmail === 'individual@example.com') {
       loginAsIndividual();
       loggedIn = true;
       redirectPath = '/';
-    } else if (email === 'company@example.com') {
+    } else if (normalizedEmail === 'company@example.com') {
       loginAsCompany('approved');
       loggedIn = true;
       redirectPath = '/company/dashboard';
-    } else if (email === 'admin@example.com') {
+    } else if (normalizedEmail === 'pending.company@example.com') { // Specific email for pending company
+      loginAsCompany('pending');
+      loggedIn = true;
+      redirectPath = '/company/dashboard';
+    } else if (normalizedEmail === 'rejected.company@example.com') { // Specific email for rejected company
+      loginAsCompany('rejected');
+      loggedIn = true;
+      redirectPath = '/company/dashboard';
+    } else if (normalizedEmail === 'admin@example.com') {
       loginAsAdmin();
       loggedIn = true;
       redirectPath = '/admin/dashboard';
-    } else if (email === 'superadmin@example.com') {
+    } else if (normalizedEmail === 'superadmin@example.com') {
       loginAsSuperAdmin();
       loggedIn = true;
       redirectPath = '/admin/dashboard';
@@ -76,8 +84,8 @@ export default function LoginPage() {
               type="email" 
               placeholder="user@example.com" 
               required 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
             />
           </div>
           <div className="space-y-2">
