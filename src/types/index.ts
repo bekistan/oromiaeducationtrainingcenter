@@ -56,14 +56,14 @@ export interface Booking {
   contactPerson?: string;
   email?: string;
   phone?: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | import('firebase/firestore').Timestamp; // Allow Timestamp for writing
+  endDate: string | import('firebase/firestore').Timestamp;   // Allow Timestamp for writing
   numberOfAttendees?: number;
   serviceDetails?: BookingServiceDetails;
   totalCost: number;
   paymentStatus: 'pending' | 'paid' | 'failed';
   approvalStatus: 'pending' | 'approved' | 'rejected';
-  bookedAt: string;
+  bookedAt: string | import('firebase/firestore').Timestamp; // Allow Timestamp for writing
 }
 
 export interface User {
@@ -74,6 +74,8 @@ export interface User {
   companyId?: string;
   companyName?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected'; // For company users
+  phone?: string;
+  createdAt?: string | import('firebase/firestore').FieldValue; // FieldValue for serverTimestamp
 }
 
 export interface CompanyProfile { // This might be merged or related to User type for companies
