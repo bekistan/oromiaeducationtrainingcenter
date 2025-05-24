@@ -21,7 +21,7 @@ import {
   where,
   getDocs,
   serverTimestamp,
-  Timestamp, // Import Timestamp
+  Timestamp,
 } from 'firebase/firestore';
 
 interface CompanyDetails {
@@ -69,13 +69,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const userDocSnap = await getDoc(userDocRef);
           if (userDocSnap.exists()) {
             const userDataFromDb = userDocSnap.data();
-            // Convert Firestore Timestamp to ISO string if it exists
+            
             let createdAtString: string | undefined = undefined;
             if (userDataFromDb.createdAt instanceof Timestamp) {
               createdAtString = userDataFromDb.createdAt.toDate().toISOString();
             } else if (typeof userDataFromDb.createdAt === 'string') {
               // If it's already a string (e.g., from older data or direct manipulation)
               createdAtString = userDataFromDb.createdAt;
+            } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number') {
+              // Handle cases where it might be a plain object from Firestore if not cast
+              createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
             }
 
             const processedUserData: AppUser = {
@@ -86,20 +89,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               companyId: userDataFromDb.companyId,
               companyName: userDataFromDb.companyName,
               approvalStatus: userDataFromDb.approvalStatus,
-              phone: userDataFromDb.phone,
-              createdAt: createdAtString,
+              phone: userDataFromDb.phone, 
+              createdAt: createdAtString, 
             };
             setUser(processedUserData);
           } else {
-            console.warn("User document not found in Firestore for UID:", fbUser.uid, "- This can happen if a user exists in Auth but not in Firestore. Signing out to prevent inconsistent state.");
-            await firebaseSignOut(auth); // Sign out the user to prevent inconsistent state
+            console.warn("User document not found in Firestore for UID:", fbUser.uid, "- Signing out to prevent inconsistent state.");
+            await firebaseSignOut(auth); // Sign out if Firestore data is missing
             setUser(null);
+            setFirebaseUser(null);
           }
         } catch (error) {
           console.error("Error fetching user document from Firestore:", error);
-          // Optionally sign out the user if Firestore fetch fails critically
-           await firebaseSignOut(auth);
+           await firebaseSignOut(auth); // Sign out on error
            setUser(null);
+           setFirebaseUser(null);
         }
       } else {
         setUser(null);
@@ -124,6 +128,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAtString = userDataFromDb.createdAt.toDate().toISOString();
         } else if (typeof userDataFromDb.createdAt === 'string') {
           createdAtString = userDataFromDb.createdAt;
+        } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number') {
+          createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
         }
 
         const appUserData: AppUser = {
@@ -137,21 +143,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           phone: userDataFromDb.phone,
           createdAt: createdAtString,
         };
-        setUser(appUserData);
+        // setUser(appUserData); // State is set by onAuthStateChanged
         setLoading(false);
         return appUserData;
       } else {
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
         await firebaseSignOut(auth);
-        setUser(null);
         setLoading(false);
         throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      setUser(null);
       setLoading(false);
-      throw error;
+      throw error; // Re-throw the error so the login page can catch it
     }
   }, []);
 
@@ -159,31 +163,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     async (companyDetails: CompanyDetails): Promise<AppUser | null> => {
       setLoading(true);
       try {
+        // Check if email already exists in 'users' collection to prevent duplicate Firestore docs
+        // Firebase Auth handles auth-level email uniqueness
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", companyDetails.email));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
+          // This email is already in the users collection, even if not in Auth (which would be strange)
+          // Firebase Auth's createUserWithEmailAndPassword will throw if the email is taken by Auth
           throw { code: 'auth/email-already-in-use', message: 'This email address is already in use by another account.' };
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
         const fbUserInstance = userCredential.user;
         
-        const companyId = `comp-${fbUserInstance.uid.substring(0, 10)}`;
+        const companyId = `comp-${fbUserInstance.uid.substring(0, 10)}`; // Generate a company ID
 
         const newCompanyUserDocData = {
           email: companyDetails.email,
-          name: companyDetails.name, 
+          name: companyDetails.name, // Contact person's name
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative' as AppUser['role'],
           approvalStatus: 'pending' as AppUser['approvalStatus'],
           companyId: companyId,
-          createdAt: serverTimestamp(),
+          createdAt: serverTimestamp(), // Use server timestamp for creation
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
         
+        // Construct the AppUser object to return (createdAt will be undefined until onAuthStateChanged fetches it)
         const appUser: AppUser = {
             id: fbUserInstance.uid,
             email: companyDetails.email,
@@ -193,14 +202,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'company_representative',
             approvalStatus: 'pending',
             companyId: companyId,
-            createdAt: new Date().toISOString(), 
+            // createdAt: new Date().toISOString(), // Temporary, will be set by onAuthStateChanged
         };
+        // setUser(appUser); // State is set by onAuthStateChanged
         setLoading(false);
-        return appUser;
+        return appUser; // Or null, as onAuthStateChanged will pick up the new user
       } catch (error) {
         console.error("Company signup error:", error);
         setLoading(false);
-        throw error;
+        throw error; // Re-throw for the form to handle
       }
     },
     []
@@ -233,8 +243,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             email: adminDetails.email,
             name: adminDetails.name,
             role: 'admin',
-            createdAt: new Date().toISOString(),
+            // createdAt: new Date().toISOString(), // Temporary
         };
+        // setUser(appUser); // State is set by onAuthStateChanged
         setLoading(false);
         return appUser;
       } catch (error) {
@@ -250,6 +261,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
+      setUser(null); // Explicitly clear local AppUser state
+      setFirebaseUser(null); // Explicitly clear local FirebaseUser state
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -261,6 +274,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
+        // If the updated user is the currently logged-in user, refresh their local state
         if (user && user.id === userId) {
           const updatedUserDocSnap = await getDoc(userDocRef);
           if (updatedUserDocSnap.exists()) {
@@ -269,7 +283,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (updatedDataFromDb.createdAt instanceof Timestamp) {
               createdAtString = updatedDataFromDb.createdAt.toDate().toISOString();
             } else if (typeof updatedDataFromDb.createdAt === 'string') {
-              createdAtString = updatedDataFromDb.createdAt;
+                createdAtString = updatedDataFromDb.createdAt;
+            } else if (updatedDataFromDb.createdAt && typeof updatedDataFromDb.createdAt.seconds === 'number') {
+                createdAtString = new Timestamp(updatedDataFromDb.createdAt.seconds, updatedDataFromDb.createdAt.nanoseconds).toDate().toISOString();
             }
             const refreshedUser: AppUser = {
               id: userId,
@@ -289,7 +305,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error("Error updating user document:", error);
         throw error;
     }
-  }, [user]);
+  }, [user]); // Dependency on user to ensure we can refresh if it's the current user
 
   const contextValue = useMemo<AuthState>(() => ({
     user,
@@ -316,5 +332,3 @@ export const useAuth = (): AuthState => {
   }
   return context;
 };
-
-    
