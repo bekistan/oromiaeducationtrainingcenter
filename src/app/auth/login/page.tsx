@@ -19,17 +19,25 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [emailInput, setEmailInput] = useState(''); // Renamed for clarity
+  const [emailInput, setEmailInput] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    const normalizedEmail = emailInput.trim().toLowerCase(); // Normalize email
+    const normalizedEmail = emailInput.trim().toLowerCase();
 
     let loggedIn = false;
     let redirectPath = '/'; // Default redirect
+
+    // Ensure you are using one of these exact emails. Password is ignored for this mock login.
+    // Approved Company: company@example.com
+    // Pending Company:  pending.company@example.com
+    // Rejected Company: rejected.company@example.com
+    // Individual User:  individual@example.com
+    // Admin User:       admin@example.com
+    // Super Admin User: superadmin@example.com
 
     if (normalizedEmail === 'individual@example.com') {
       loginAsIndividual();
@@ -39,11 +47,11 @@ export default function LoginPage() {
       loginAsCompany('approved');
       loggedIn = true;
       redirectPath = '/company/dashboard';
-    } else if (normalizedEmail === 'pending.company@example.com') { // Specific email for pending company
+    } else if (normalizedEmail === 'pending.company@example.com') {
       loginAsCompany('pending');
       loggedIn = true;
       redirectPath = '/company/dashboard';
-    } else if (normalizedEmail === 'rejected.company@example.com') { // Specific email for rejected company
+    } else if (normalizedEmail === 'rejected.company@example.com') {
       loginAsCompany('rejected');
       loggedIn = true;
       redirectPath = '/company/dashboard';
@@ -79,21 +87,22 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">{t('email')}</Label>
-            <Input 
-              id="email" 
-              type="email" 
-              placeholder="user@example.com" 
-              required 
+            <Input
+              id="email"
+              type="email"
+              placeholder="user@example.com"
+              required
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{t('password')}</Label>
-            <Input 
-              id="password" 
-              type="password" 
-              required 
+            <Input
+              id="password"
+              type="password"
+              required
+              placeholder="Password (ignored for mock)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
