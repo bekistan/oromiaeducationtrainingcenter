@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; // For mock login buttons
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, UserCheck, UserCog, Building as CompanyIcon, UserCircle } from "lucide-react"; // Added icons for mock login
+import { Menu, LogOutIcon, UserCheck, UserCog, Building as CompanyIcon, UserCircle, LayoutDashboard } from "lucide-react"; // Added icons for mock login
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +23,9 @@ import { cn } from "@/lib/utils"; // Import cn
 export function Header() {
   const { t } = useLanguage();
   const { user, loginAsAdmin, loginAsSuperAdmin, loginAsCompany, loginAsIndividual, logout, loading } = useAuth();
+
+  const isCompanyRep = user?.role === 'company_representative';
+  const isAdminOrSuper = user?.role === 'admin' || user?.role === 'superadmin';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -39,45 +42,62 @@ export function Header() {
               {t(item.labelKey)}
             </Link>
           ))}
+           {isCompanyRep && user.approvalStatus === 'approved' && (
+            <Link
+              href="/company/dashboard"
+              className="transition-colors hover:text-foreground/80 text-foreground font-medium"
+            >
+              <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('dashboard')}
+            </Link>
+          )}
+          {isAdminOrSuper && (
+             <Link
+              href="/admin/dashboard"
+              className="transition-colors hover:text-foreground/80 text-foreground font-medium"
+            >
+               <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('adminDashboard')}
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center space-x-2">
           <LanguageSwitcher />
           
-          {/* Mock Login Buttons for Testing - REMOVE FOR PRODUCTION */}
           {!loading && !user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                 <button className={cn(buttonVariants({ variant: "outline", size: "sm" }), "hidden sm:inline-flex")}>
                   <span>{t('testLogin')}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{t('loginAs')}</DropdownMenuLabel> {/* Add 'loginAs' to JSON */}
+                <DropdownMenuLabel>{t('loginAs')}</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => loginAsCompany('approved')}>
-                  <CompanyIcon className="mr-2 h-4 w-4" /> {t('companyApproved')} {/* Add to JSON */}
+                  <CompanyIcon className="mr-2 h-4 w-4" /> {t('companyApproved')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => loginAsCompany('pending')}>
-                   <CompanyIcon className="mr-2 h-4 w-4 text-orange-500" /> {t('companyPending')} {/* Add to JSON */}
+                   <CompanyIcon className="mr-2 h-4 w-4 text-orange-500" /> {t('companyPending')}
+                </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => loginAsCompany('rejected')}>
+                   <CompanyIcon className="mr-2 h-4 w-4 text-destructive" /> {t('companyRejected')} {/* Add to JSON */}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={loginAsIndividual}>
-                  <UserCircle className="mr-2 h-4 w-4" /> {t('individualUser')} {/* Add to JSON */}
+                  <UserCircle className="mr-2 h-4 w-4" /> {t('individualUser')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator/>
                 <DropdownMenuItem onClick={loginAsAdmin}>
                   <UserCog className="mr-2 h-4 w-4" /> {t('admin')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={loginAsSuperAdmin}>
-                  <UserCheck className="mr-2 h-4 w-4" /> {t('superAdmin')} {/* Add to JSON */}
+                  <UserCheck className="mr-2 h-4 w-4" /> {t('superAdmin')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {/* End Mock Login Buttons */}
           
           {user ? (
             <>
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user.name || user.email} ({t(user.role)})</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user.companyName || user.name || user.email} ({t(user.role)})</span>
               <Button variant="ghost" size="sm" onClick={logout}>
                 <LogOutIcon className="mr-1 h-4 w-4"/> {t('logout')}
               </Button>
@@ -111,10 +131,27 @@ export function Header() {
                     {t(item.labelKey)}
                   </Link>
                 ))}
+                {isCompanyRep && user.approvalStatus === 'approved' && (
+                  <Link href="/company/dashboard" className="transition-colors hover:text-foreground/80 text-foreground text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}</Link>
+                )}
+                {isAdminOrSuper && (
+                  <Link href="/admin/dashboard" className="transition-colors hover:text-foreground/80 text-foreground text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('adminDashboard')}</Link>
+                )}
                 {!user && (
                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
                       {t('registerCompanyButton')}
                     </Link>
+                )}
+                 {!user && !loading && ( // Mobile test login options
+                  <div className="pt-4 border-t">
+                    <p className="text-sm text-muted-foreground mb-2">{t('testLogin')}:</p>
+                    <Button variant="link" className="justify-start w-full" onClick={() => loginAsCompany('approved')}><CompanyIcon className="mr-2 h-4 w-4" /> {t('companyApproved')}</Button>
+                    <Button variant="link" className="justify-start w-full" onClick={() => loginAsCompany('pending')}><CompanyIcon className="mr-2 h-4 w-4 text-orange-500" /> {t('companyPending')}</Button>
+                    <Button variant="link" className="justify-start w-full" onClick={() => loginAsCompany('rejected')}><CompanyIcon className="mr-2 h-4 w-4 text-destructive" /> {t('companyRejected')}</Button>
+                    <Button variant="link" className="justify-start w-full" onClick={loginAsIndividual}><UserCircle className="mr-2 h-4 w-4" /> {t('individualUser')}</Button>
+                    <Button variant="link" className="justify-start w-full" onClick={loginAsAdmin}><UserCog className="mr-2 h-4 w-4" /> {t('admin')}</Button>
+                    <Button variant="link" className="justify-start w-full" onClick={loginAsSuperAdmin}><UserCheck className="mr-2 h-4 w-4" /> {t('superAdmin')}</Button>
+                  </div>
                 )}
               </nav>
             </SheetContent>
