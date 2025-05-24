@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { Logo } from "@/components/shared/logo";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button"; // Import buttonVariants
 import { LanguageSwitcher } from "./language-switcher";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; // For mock login buttons
@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import { cn } from "@/lib/utils"; // Import cn
 
 export function Header() {
   const { t } = useLanguage();
@@ -48,7 +48,9 @@ export function Header() {
           {!loading && !user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm"><span>{t('testLogin')}</span></Button> {/* Add 'testLogin' to JSON */}
+                <button className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                  <span>{t('testLogin')}</span>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{t('loginAs')}</DropdownMenuLabel> {/* Add 'loginAs' to JSON */}
@@ -82,9 +84,9 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link href="/auth/login" passHref>
-                <Button variant="outline" size="sm">{t('login')}</Button>
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/auth/login">{t('login')}</Link>
+              </Button>
               <Button asChild size="sm" className="hidden sm:inline-flex">
                  <Link href="/auth/register-company">{t('registerCompanyButton')}</Link> 
               </Button>
