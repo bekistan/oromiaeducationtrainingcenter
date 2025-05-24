@@ -11,9 +11,9 @@ import { Badge } from "@/components/ui/badge";
 
 // Placeholder data for halls and sections
 const sampleManageableItems: Hall[] = [
-  { id: "h001", name: "Grand Meeting Hall A (Hall)", capacity: 100, isAvailable: true, rentalCost: 5000, lunchServiceCost: 300, refreshmentServiceCost: 100 },
-  { id: "s001", name: "Training Section Alpha (Section)", capacity: 30, isAvailable: true, rentalCost: 2000, refreshmentServiceCost: 80 },
-  { id: "s002", name: "Workshop Area Beta (Section)", capacity: 20, isAvailable: false, rentalCost: 1500 },
+  { id: "h001", name: "Grand Meeting Hall A", itemType: "hall", capacity: 100, isAvailable: true, rentalCost: 5000, lunchServiceCost: 300, refreshmentServiceCost: 100 },
+  { id: "s001", name: "Training Section Alpha", itemType: "section", capacity: 30, isAvailable: true, rentalCost: 2000, refreshmentServiceCost: 80 },
+  { id: "s002", name: "Workshop Area Beta", itemType: "section", capacity: 20, isAvailable: false, rentalCost: 1500 },
 ];
 
 export default function AdminHallsAndSectionsPage() {
@@ -22,22 +22,23 @@ export default function AdminHallsAndSectionsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">{t('manageHallsAndSections')}</h1> {/* Add to JSON */}
+        <h1 className="text-3xl font-bold text-foreground">{t('manageHallsAndSections')}</h1>
         <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> {t('addHallOrSection')} {/* Add to JSON */}
+          <PlusCircle className="mr-2 h-4 w-4" /> {t('addHallOrSection')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('listHallsAndSections')}</CardTitle> {/* Add to JSON */}
-          <CardDescription>{t('viewAndManageHallsAndSections')}</CardDescription> {/* Add to JSON */}
+          <CardTitle>{t('listHallsAndSections')}</CardTitle>
+          <CardDescription>{t('viewAndManageHallsAndSections')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('name')}</TableHead> {/* Add to JSON or use existing 'hallName' if suitable */}
+                <TableHead>{t('name')}</TableHead>
+                <TableHead>{t('type')}</TableHead>
                 <TableHead>{t('capacity')}</TableHead>
                 <TableHead>{t('rentalCost')}</TableHead>
                 <TableHead>{t('availability')}</TableHead>
@@ -48,11 +49,13 @@ export default function AdminHallsAndSectionsPage() {
               {sampleManageableItems.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="capitalize">{t(item.itemType)}</TableCell> {/* Assumes 'hall' and 'section' are translation keys */}
                   <TableCell>{item.capacity}</TableCell>
                   <TableCell>{item.rentalCost} ETB</TableCell>
                   <TableCell>
-                    <Badge variant={item.isAvailable ? "default" : "destructive"}
-                           style={item.isAvailable ? {} : { backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }}
+                    <Badge 
+                        variant={item.isAvailable ? "default" : "destructive"}
+                        className={item.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
                     >
                       {item.isAvailable ? t('available') : t('unavailable')}
                     </Badge>
@@ -76,3 +79,4 @@ export default function AdminHallsAndSectionsPage() {
     </div>
   );
 }
+

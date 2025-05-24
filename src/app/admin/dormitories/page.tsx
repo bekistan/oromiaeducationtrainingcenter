@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -23,14 +24,14 @@ export default function AdminDormitoriesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageDormitories')}</h1>
         <Button>
-          <PlusCircle className="mr-2 h-4 w-4" /> {t('addDormitory')} {/* Add to JSON */}
+          <PlusCircle className="mr-2 h-4 w-4" /> {t('addDormitory')}
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('dormitoryList')}</CardTitle> {/* Add to JSON */}
-          <CardDescription>{t('viewAndManageDormitories')}</CardDescription> {/* Add to JSON */}
+          <CardTitle>{t('dormitoryList')}</CardTitle>
+          <CardDescription>{t('viewAndManageDormitories')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -41,7 +42,7 @@ export default function AdminDormitoriesPage() {
                 <TableHead>{t('capacity')}</TableHead>
                 <TableHead>{t('pricePerDay')}</TableHead>
                 <TableHead>{t('availability')}</TableHead>
-                <TableHead className="text-right">{t('actions')}</TableHead> {/* Add to JSON */}
+                <TableHead className="text-right">{t('actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -52,8 +53,9 @@ export default function AdminDormitoriesPage() {
                   <TableCell>{dorm.capacity}</TableCell>
                   <TableCell>{dorm.pricePerDay} ETB</TableCell>
                   <TableCell>
-                    <Badge variant={dorm.isAvailable ? "default" : "destructive"}
-                           style={dorm.isAvailable ? {} : { backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }}
+                    <Badge 
+                        variant={dorm.isAvailable ? "default" : "destructive"}
+                        className={dorm.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
                     >
                       {dorm.isAvailable ? t('available') : t('unavailable')}
                     </Badge>
@@ -61,11 +63,11 @@ export default function AdminDormitoriesPage() {
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="icon">
                       <Edit className="h-4 w-4" />
-                      <span className="sr-only">{t('edit')}</span> {/* Add to JSON */}
+                      <span className="sr-only">{t('edit')}</span>
                     </Button>
                     <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive">
                       <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">{t('delete')}</span> {/* Add to JSON */}
+                      <span className="sr-only">{t('delete')}</span>
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -77,3 +79,4 @@ export default function AdminDormitoriesPage() {
     </div>
   );
 }
+

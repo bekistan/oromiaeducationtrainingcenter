@@ -17,7 +17,7 @@ export interface Dormitory {
 }
 
 export interface Hall { // This type can represent both Halls and Sections
-  id: string;
+  id:string;
   name: string;
   capacity: number;
   isAvailable: boolean;
@@ -27,6 +27,7 @@ export interface Hall { // This type can represent both Halls and Sections
   images?: string[]; // URLs to images
   description?: string;
   dataAiHint?: string; // AI hint for image generation
+  itemType: 'hall' | 'section'; // To distinguish between hall and section
 }
 
 export interface BookingServiceDetails {
@@ -34,30 +35,42 @@ export interface BookingServiceDetails {
   refreshment?: 'level1' | 'level2';
 }
 
+export type BookingItem = {
+  id: string;
+  name: string;
+  itemType: 'dormitory' | 'hall' | 'section';
+};
+
 export interface Booking {
   id: string;
-  type: 'dormitory' | 'hall' | 'section';
-  itemId: string; // ID of Dormitory or Hall/Section
+  bookingCategory: 'dormitory' | 'facility'; // 'facility' for halls/sections
+  items: BookingItem[]; // List of items being booked
   userId?: string; // For registered users (admin/company reps)
+  companyId?: string; // For company bookings
   guestName?: string; // For individual dormitory bookings
   guestIdScanUrl?: string; // URL to scanned ID
   guestEmployer?: string; // Employer for individual
-  companyName?: string; // For hall/section bookings
+  companyName?: string; // For facility bookings by a company (could be derived from User)
+  contactPerson?: string; // For facility bookings
+  email?: string; // For facility bookings
+  phone?: string; // For facility bookings
   startDate: string; // ISO date string
-  endDate: string; // ISO date string for dormitory, or single day for hall/section
-  numberOfPeople?: number; // For hall/section services
-  serviceDetails?: BookingServiceDetails; // Updated from 'services'
+  endDate: string; // ISO date string
+  numberOfAttendees?: number; // For hall/section services
+  serviceDetails?: BookingServiceDetails;
   totalCost: number;
   paymentStatus: 'pending' | 'paid' | 'failed';
+  approvalStatus: 'pending' | 'approved' | 'rejected'; // New status for admin approval
   bookedAt: string; // ISO date string
 }
 
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'superadmin' | 'company_representative'; // Company reps might register
+  role: 'admin' | 'superadmin' | 'company_representative' | 'individual'; // Added 'individual'
   name?: string;
-  companyId?: string; // If representing a company
+  companyId?: string;
+  companyName?: string;
 }
 
 export interface CompanyProfile {
@@ -74,3 +87,4 @@ export interface NavItem {
   adminOnly?: boolean;
   authRequired?: boolean;
 }
+

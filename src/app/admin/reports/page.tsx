@@ -1,19 +1,21 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
-import { Download, File SpreadsheetIcon, FileText } from "lucide-react"; // Corrected: FileSpreadsheet, not FileSpreadsheetIcon
-import { DatePickerWithRange } from "@/components/ui/date-picker-with-range"; // Will create this component
+import { Download, FileSpreadsheet, FileText } from "lucide-react"; 
+// Removed DatePickerWithRange import as it was commented out, keeping placeholder
+// import { DatePickerWithRange } from "@/components/ui/date-picker-with-range"; 
 
 export default function AdminReportsPage() {
   const { t } = useLanguage();
 
   const reportTypes = [
-    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel" }, // Add to JSON
-    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF" }, // Add to JSON
-    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel" }, // Add to JSON
-    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF" }, // Add to JSON
+    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel" }, 
+    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF" }, 
+    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel" }, 
+    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF" }, 
   ];
 
   return (
@@ -22,13 +24,13 @@ export default function AdminReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('generateReports')}</CardTitle> {/* Add to JSON */}
-          <CardDescription>{t('selectReportTypeAndDateRange')}</CardDescription> {/* Add to JSON */}
+          <CardTitle>{t('generateReports')}</CardTitle> 
+          <CardDescription>{t('selectReportTypeAndDateRange')}</CardDescription> 
         </CardHeader>
         <CardContent className="space-y-8">
           <div>
-            <h3 className="text-lg font-medium mb-2">{t('selectDateRange')}</h3> {/* Add to JSON */}
-            {/* DatePickerWithRange component would be used here. Creating a placeholder. */}
+            <h3 className="text-lg font-medium mb-2">{t('selectDateRange')}</h3> 
+            {/* DatePickerWithRange component would be used here. Using the placeholder. */}
             {/* <DatePickerWithRange className="max-w-sm" /> */}
             <div className="p-4 border rounded-md bg-muted max-w-sm text-muted-foreground">
               {t('datePickerPlaceholder')} {/* Add to JSON */}
@@ -44,10 +46,10 @@ export default function AdminReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {t('format')}: {report.format} {/* Add to JSON */}
+                    {t('format')}: {report.format}
                   </p>
                   <Button className="w-full">
-                    <Download className="mr-2 h-4 w-4" /> {t('generateAndDownload')} {/* Add to JSON */}
+                    <Download className="mr-2 h-4 w-4" /> {t('generateAndDownload')}
                   </Button>
                 </CardContent>
               </Card>
@@ -58,12 +60,4 @@ export default function AdminReportsPage() {
     </div>
   );
 }
-
-// Dummy component for DatePickerWithRange as it's not standard in shadcn/ui directly.
-// In a real scenario, you'd build this using shadcn/ui Popover, Calendar and Button.
-// For now, this is not created as it requires multiple shadcn components.
-// A placeholder div is used in the AdminReportsPage instead.
-// export function DatePickerWithRange({ className }: { className?: string }) {
-//   return <div className={cn("p-4 border rounded-md bg-muted", className)}>Date Range Picker Placeholder</div>;
-// }
 

@@ -5,88 +5,134 @@ import type { Hall } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Presentation, Users, DollarSign, Utensils, Coffee, CheckCircle, XCircle } from "lucide-react";
+import { Users, DollarSign, Utensils, Coffee, CheckCircle, XCircle, CheckSquare, Square } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
+import React from "react"; // Import React
 
 interface HallListProps {
   halls: Hall[]; // Can be halls or sections
+  selectable?: boolean; // True if items can be selected (e.g., for multi-booking sections)
+  selectedItems?: Hall[];
+  onSelectionChange?: (selected: Hall[]) => void;
 }
 
-export function HallList({ halls }: HallListProps) {
+export function HallList({ halls, selectable = false, selectedItems = [], onSelectionChange }: HallListProps) {
   const { t } = useLanguage();
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  const handleSelect = (hall: Hall) => {
+    if (!selectable || !onSelectionChange) return;
+    const isSelected = selectedItems.some(item => item.id === hall.id);
+    if (isSelected) {
+      onSelectionChange(selectedItems.filter(item => item.id !== hall.id));
+    } else {
+      onSelectionChange([...selectedItems, hall]);
+    }
+  };
+
+  const handleBookNowClick = (hallId: string) => {
+    if (loading) return; // Wait for auth state to load
+
+    if (!user || user.role !== 'company_representative') {
+      alert(t('loginAsCompanyToBook')); // Add 'loginAsCompanyToBook' to JSON. In real app, redirect to login.
+      // router.push('/auth/login?redirect=/halls/' + hallId + '/book'); // Example redirect
+      return;
+    }
+    router.push(`/halls/${hallId}/book`);
+  };
 
   if (!halls || halls.length === 0) {
-    return <p className="text-center text-lg text-muted-foreground py-10">{t('noItemsAvailable')}</p>; // Add 'noItemsAvailable' to JSON (generic)
+    return <p className="text-center text-lg text-muted-foreground py-10">{t('noItemsAvailable')}</p>;
   }
   
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {halls.map((hall) => (
-        <Card key={hall.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <div className="relative w-full h-56">
-            <Image
-              src={hall.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
-              alt={hall.name}
-              layout="fill"
-              objectFit="cover"
-              data-ai-hint={hall.dataAiHint || "meeting space"}
-            />
-            <Badge 
-              variant={hall.isAvailable ? "default" : "destructive"} 
-              className="absolute top-2 right-2"
-              style={hall.isAvailable ? {} : { backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }}
-            >
-              {hall.isAvailable ? t('available') : t('unavailable')}
-            </Badge>
-          </div>
-          <CardHeader className="p-4">
-            <CardTitle className="text-xl">{hall.name}</CardTitle>
-            <CardDescription className="flex items-center text-sm text-muted-foreground mt-1">
-              <Users className="w-4 h-4 mr-1" /> {t('capacity')}: {hall.capacity}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-4 flex-grow">
-            {hall.description && <p className="text-sm text-foreground/80 mb-3">{hall.description}</p>}
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center">
-                <DollarSign className="w-4 h-4 mr-2 text-primary" />
-                <span>{t('rentalCost')}: {hall.rentalCost} ETB</span>
+      {halls.map((hall) => {
+        const isSelected = selectable && selectedItems.some(item => item.id === hall.id);
+        return (
+          <Card 
+            key={hall.id} 
+            className={`flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 ${selectable ? 'cursor-pointer' : ''} ${isSelected ? 'ring-2 ring-primary' : ''}`}
+            onClick={selectable ? () => handleSelect(hall) : undefined}
+          >
+            <div className="relative w-full h-56">
+              <Image
+                src={hall.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
+                alt={hall.name}
+                layout="fill"
+                objectFit="cover"
+                data-ai-hint={hall.dataAiHint || "meeting space"}
+              />
+              <Badge 
+                variant={hall.isAvailable ? "default" : "destructive"} 
+                className={`absolute top-2 right-2 ${hall.isAvailable ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}
+              >
+                {hall.isAvailable ? t('available') : t('unavailable')}
+              </Badge>
+              {selectable && (
+                <div className="absolute top-2 left-2 bg-background/70 p-1 rounded-md">
+                  {isSelected ? <CheckSquare className="w-6 h-6 text-primary" /> : <Square className="w-6 h-6 text-muted-foreground" />}
+                </div>
+              )}
+            </div>
+            <CardHeader className="p-4">
+              <CardTitle className="text-xl">{hall.name}</CardTitle>
+              <CardDescription className="flex items-center text-sm text-muted-foreground mt-1">
+                <Users className="w-4 h-4 mr-1" /> {t('capacity')}: {hall.capacity}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 flex-grow">
+              {hall.description && <p className="text-sm text-foreground/80 mb-3">{hall.description}</p>}
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center">
+                  <DollarSign className="w-4 h-4 mr-2 text-primary" />
+                  <span>{t('rentalCost')}: {hall.rentalCost} ETB</span>
+                </div>
+                {hall.lunchServiceCost && (
+                  <div className="flex items-center">
+                    <Utensils className="w-4 h-4 mr-2 text-primary" />
+                    <span>{t('lunchService')}: {hall.lunchServiceCost} ETB / {t('perPerson')}</span>
+                  </div>
+                )}
+                {hall.refreshmentServiceCost && (
+                  <div className="flex items-center">
+                    <Coffee className="w-4 h-4 mr-2 text-primary" />
+                    <span>{t('refreshmentService')}: {hall.refreshmentServiceCost} ETB / {t('perPerson')}</span>
+                  </div>
+                )}
               </div>
-              {hall.lunchServiceCost && (
-                <div className="flex items-center">
-                  <Utensils className="w-4 h-4 mr-2 text-primary" />
-                  <span>{t('lunchService')}: {hall.lunchServiceCost} ETB / {t('perPerson')}</span>
-                </div>
-              )}
-              {hall.refreshmentServiceCost && (
-                <div className="flex items-center">
-                  <Coffee className="w-4 h-4 mr-2 text-primary" />
-                  <span>{t('refreshmentService')}: {hall.refreshmentServiceCost} ETB / {t('perPerson')}</span>
-                </div>
-              )}
-            </div>
-             <div className="flex items-center text-sm text-muted-foreground mt-3">
-              {hall.isAvailable ? (
-                <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-              ) : (
-                <XCircle className="w-4 h-4 mr-1 text-red-500" />
-              )}
-              {hall.isAvailable ? t('available') : t('unavailable')}
-            </div>
-          </CardContent>
-          <CardFooter className="p-4">
-             {/* The link path assumes that /halls/:id can handle both hall and section IDs */}
-             <Link href={`/halls/${hall.id}/book`} className="w-full" passHref>
-                <Button className="w-full" disabled={!hall.isAvailable}>
-                  {t('bookNow')}
-                </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-      ))}
+               <div className="flex items-center text-sm text-muted-foreground mt-3">
+                {hall.isAvailable ? (
+                  <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
+                ) : (
+                  <XCircle className="w-4 h-4 mr-1 text-red-500" />
+                )}
+                {hall.isAvailable ? t('available') : t('unavailable')}
+              </div>
+            </CardContent>
+            <CardFooter className="p-4">
+               {/* For individual booking, not multi-select */}
+               {!selectable && (
+                  <Button 
+                    className="w-full" 
+                    disabled={!hall.isAvailable || loading}
+                    onClick={() => handleBookNowClick(hall.id)}
+                  >
+                    {loading ? t('loading') : t('bookNow')}
+                  </Button>
+               )}
+               {/* If selectable, the book button is outside this component */}
+            </CardFooter>
+          </Card>
+        )
+      })}
     </div>
   );
 }
+
