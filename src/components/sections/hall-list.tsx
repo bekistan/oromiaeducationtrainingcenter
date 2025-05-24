@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Hall } from "@/types";
@@ -11,14 +12,14 @@ import Link from "next/link";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
 
 interface HallListProps {
-  halls: Hall[];
+  halls: Hall[]; // Can be halls or sections
 }
 
 export function HallList({ halls }: HallListProps) {
   const { t } = useLanguage();
 
   if (!halls || halls.length === 0) {
-    return <p className="text-center text-lg text-muted-foreground py-10">{t('noHallsAvailable')}</p>; // Add 'noHallsAvailable' to JSON
+    return <p className="text-center text-lg text-muted-foreground py-10">{t('noItemsAvailable')}</p>; // Add 'noItemsAvailable' to JSON (generic)
   }
   
   return (
@@ -31,7 +32,7 @@ export function HallList({ halls }: HallListProps) {
               alt={hall.name}
               layout="fill"
               objectFit="cover"
-              data-ai-hint="meeting hall interior"
+              data-ai-hint={hall.dataAiHint || "meeting space"}
             />
             <Badge 
               variant={hall.isAvailable ? "default" : "destructive"} 
@@ -77,6 +78,7 @@ export function HallList({ halls }: HallListProps) {
             </div>
           </CardContent>
           <CardFooter className="p-4">
+             {/* The link path assumes that /halls/:id can handle both hall and section IDs */}
              <Link href={`/halls/${hall.id}/book`} className="w-full" passHref>
                 <Button className="w-full" disabled={!hall.isAvailable}>
                   {t('bookNow')}
