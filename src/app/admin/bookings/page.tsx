@@ -19,11 +19,11 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore'; // Added Timestamp for bookedAt
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 // Placeholder data for seeding
-const sampleBookingsForSeed: Omit<Booking, 'id' | 'bookedAt'>[] = [
+const sampleBookingsForSeed: Omit<Booking, 'id' | 'bookedAt' | 'startDate' | 'endDate'>[] & { startDate: string; endDate: string }[] = [
   { 
     bookingCategory: "dormitory", 
     items: [{ id: "d001_seeded", name: "Room 101A (Seeded)", itemType: "dormitory" }], 
@@ -71,7 +71,6 @@ export default function AdminBookingsPage() {
         return { 
           id: docSnap.id, 
           ...data,
-          // Ensure bookedAt is a string if it's a Firestore Timestamp
           bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
           startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
@@ -80,7 +79,7 @@ export default function AdminBookingsPage() {
       setBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
     } finally {
       setIsLoading(false);
     }
@@ -96,15 +95,22 @@ export default function AdminBookingsPage() {
       const batch = writeBatch(db);
       sampleBookingsForSeed.forEach(booking => {
         const docRef = doc(collection(db, "bookings"));
-        // Convert string dates to Timestamps for Firestore if necessary, or store as strings
-        batch.set(docRef, { ...booking, bookedAt: Timestamp.now() });
+        // Convert string dates to Timestamps for Firestore
+        const { startDate, endDate, ...restOfBooking } = booking;
+        const bookingWithTimestamps = {
+          ...restOfBooking,
+          startDate: Timestamp.fromDate(new Date(startDate)),
+          endDate: Timestamp.fromDate(new Date(endDate)),
+          bookedAt: Timestamp.now()
+        };
+        batch.set(docRef, bookingWithTimestamps);
       });
       await batch.commit();
-      toast({ title: t('success'), description: t('bookingDataSeeded') }); // Add to JSON
+      toast({ title: t('success'), description: t('bookingDataSeeded') });
       fetchBookings();
     } catch (error) {
       console.error("Error seeding bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingBookings') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingBookings') });
     } finally {
       setIsSeeding(false);
     }
@@ -114,16 +120,16 @@ export default function AdminBookingsPage() {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, { approvalStatus: newStatus });
-      toast({ title: t('success'), description: t('bookingStatusUpdated') }); // Add to JSON
-      fetchBookings(); // Re-fetch to reflect changes
+      toast({ title: t('success'), description: t('bookingStatusUpdated') });
+      fetchBookings(); 
     } catch (error) {
       console.error("Error updating booking status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
     }
   };
   
   const handleDeleteBooking = async (bookingId: string) => {
-    if (!confirm(t('confirmDeleteBooking'))) return; // Add to JSON
+    if (!confirm(t('confirmDeleteBooking'))) return;
     try {
       await deleteDoc(doc(db, "bookings", bookingId));
       toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
@@ -195,10 +201,10 @@ export default function AdminBookingsPage() {
       {bookings.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noBookingsFoundCta')}</p> {/* Add to JSON: "No bookings found. Would you like to add some initial sample data?" */}
+            <p className="mb-4">{t('noBookingsFoundCta')}</p>
             <Button onClick={handleSeedData} disabled={isSeeding}>
               {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('seedInitialBookings')} {/* Add to JSON */}
+              {t('seedInitialBookings')}
             </Button>
           </CardContent>
         </Card>
@@ -249,10 +255,6 @@ export default function AdminBookingsPage() {
                       <Eye className="h-4 w-4" />
                        <span className="sr-only">{t('viewDetails')}</span>
                     </Button>
-                    {/* <Button variant="ghost" size="icon" title={t('edit')}>
-                      <Edit className="h-4 w-4" />
-                       <span className="sr-only">{t('edit')}</span>
-                    </Button> */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" title={t('moreActions')}>
