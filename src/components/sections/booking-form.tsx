@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -16,11 +17,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+// Removed Checkbox as it's replaced by RadioGroup for services
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useLanguage } from "@/hooks/use-language";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DatePickerWithRange } from '@/components/ui/date-picker-with-range'; // Assuming this exists
+import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
+import type { BookingServiceDetails } from '@/types';
 
 interface BookingFormProps {
   type: 'dormitory' | 'hall';
@@ -30,7 +33,7 @@ interface BookingFormProps {
 
 const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(), // Making optional for now as file handling is complex
+  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(),
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined, {
     message: "Date range is required.",
@@ -47,9 +50,9 @@ const hallBookingSchema = z.object({
   }),
   numberOfAttendees: z.coerce.number().min(1, { message: "At least 1 attendee is required." }),
   services: z.object({
-    lunch: z.boolean().default(false),
-    refreshment: z.boolean().default(false),
-  }).optional(),
+    lunch: z.enum(['none', 'level1', 'level2'], { errorMap: () => ({ message: "Please select a lunch option." }) }).default('none'),
+    refreshment: z.enum(['none', 'level1', 'level2'], { errorMap: () => ({ message: "Please select a refreshment option." }) }).default('none'),
+  }),
   notes: z.string().optional(),
 });
 
@@ -66,15 +69,41 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: isDormitory 
       ? { fullName: "", employer: "", dateRange: undefined } 
-      : { companyName: "", contactPerson: "", email: "", phone: "", dateRange: undefined, numberOfAttendees: 1, services: { lunch: false, refreshment: false}, notes: "" },
+      : { 
+          companyName: "", 
+          contactPerson: "", 
+          email: "", 
+          phone: "", 
+          dateRange: undefined, 
+          numberOfAttendees: 1, 
+          services: { lunch: 'none', refreshment: 'none' }, 
+          notes: "" 
+        },
   });
 
-  function onSubmit(values: DormitoryBookingValues | HallBookingValues) {
-    console.log({ bookingType: type, itemId, itemName, values });
-    // Here you would typically send the data to your backend / Firebase
-    alert(t('bookingSubmittedPlaceholder')); // Add to JSON
-    // Potentially redirect to a confirmation page or payment page
-    // e.g. router.push('/payment/chapa?bookingId=...')
+  function onSubmit(data: DormitoryBookingValues | HallBookingValues) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const submissionData: any = { bookingType: type, itemId, itemName, ...data };
+
+    if (!isDormitory) {
+      const hallValues = data as HallBookingValues;
+      const serviceDetails: BookingServiceDetails = {};
+      
+      if (hallValues.services.lunch && hallValues.services.lunch !== 'none') {
+        serviceDetails.lunch = hallValues.services.lunch;
+      }
+      if (hallValues.services.refreshment && hallValues.services.refreshment !== 'none') {
+        serviceDetails.refreshment = hallValues.services.refreshment;
+      }
+      
+      delete submissionData.services; // Remove the form's internal services structure
+      if (Object.keys(serviceDetails).length > 0) {
+          submissionData.serviceDetails = serviceDetails;
+      }
+    }
+    
+    console.log("Processed submission data:", submissionData);
+    alert(t('bookingSubmittedPlaceholder'));
   }
 
   return (
@@ -95,7 +124,8 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   <FormLabel>{t('selectDates')}</FormLabel>
                   <DatePickerWithRange 
                     date={field.value}
-                    onDateChange={field.onChange}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onDateChange={field.onChange as (date: DateRange | undefined) => void}
                   />
                   <FormMessage />
                 </FormItem>
@@ -111,7 +141,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('fullName')}</FormLabel>
-                      <FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -123,7 +153,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                     <FormItem>
                       <FormLabel>{t('idCardScan')}</FormLabel>
                       <FormControl><Input type="file" onChange={(e) => field.onChange(e.target.files?.[0])} /></FormControl>
-                      <FormDescription>{t('uploadScannedIdDescription')}</FormDescription> {/* Add to JSON */}
+                      <FormDescription>{t('uploadScannedIdDescription')}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -134,7 +164,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('employer')}</FormLabel>
-                      <FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -151,7 +181,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('companyName')}</FormLabel>
-                      <FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -162,7 +192,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('contactPerson')}</FormLabel>
-                      <FormControl><Input placeholder={t('enterContactPerson')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormControl><Input placeholder={t('enterContactPerson')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -173,7 +203,7 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('email')}</FormLabel>
-                      <FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -183,8 +213,8 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('phone')}</FormLabel> {/* Add to JSON */}
-                      <FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormLabel>{t('phone')}</FormLabel>
+                      <FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -200,42 +230,76 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
                     </FormItem>
                   )}
                 />
-                <FormItem>
-                  <FormLabel>{t('additionalServices')}</FormLabel>
-                  <div className="space-y-2">
-                    <FormField
-                      control={form.control}
-                      name="services.lunch"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <FormLabel className="font-normal">{t('lunchService')}</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="services.refreshment"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <FormLabel className="font-normal">{t('refreshmentService')}</FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </FormItem>
+                
+                <FormField
+                  control={form.control}
+                  name="services.lunch"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>{t('lunchLevel')}</FormLabel> {/* Add to JSON: "Lunch Options" */}
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-col space-y-1"
+                        >
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="none" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel> {/* Add to JSON: "None" */}
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="level1" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevel1')} {t('lunch')}</FormLabel> {/* Add to JSON: "1st Level" */}
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="level2" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevel2')} {t('lunch')}</FormLabel> {/* Add to JSON: "2nd Level" */}
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="services.refreshment"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>{t('refreshmentLevel')}</FormLabel> {/* Add to JSON: "Refreshment Options" */}
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-col space-y-1"
+                        >
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="none" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="level1" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevel1')} {t('refreshment')}</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-3 space-y-0">
+                            <FormControl><RadioGroupItem value="level2" /></FormControl>
+                            <FormLabel className="font-normal">{t('serviceLevel2')} {t('refreshment')}</FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
                  <FormField
                   control={form.control}
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('notesOrSpecialRequests')}</FormLabel> {/* Add to JSON */}
-                      <FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl> {/* Add to JSON */}
+                      <FormLabel>{t('notesOrSpecialRequests')}</FormLabel>
+                      <FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -249,4 +313,3 @@ export function BookingForm({ type, itemId, itemName }: BookingFormProps) {
     </Card>
   );
 }
-

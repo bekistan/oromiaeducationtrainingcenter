@@ -22,16 +22,21 @@ export interface Hall { // This type can represent both Halls and Sections
   capacity: number;
   isAvailable: boolean;
   rentalCost: number; // Cost for the hall/section itself
-  lunchServiceCost?: number; // Cost per person for lunch
-  refreshmentServiceCost?: number; // Cost per person for refreshment
+  lunchServiceCost?: number; // Cost per person for lunch (base cost, actual cost might depend on level)
+  refreshmentServiceCost?: number; // Cost per person for refreshment (base cost)
   images?: string[]; // URLs to images
   description?: string;
   dataAiHint?: string; // AI hint for image generation
 }
 
+export interface BookingServiceDetails {
+  lunch?: 'level1' | 'level2';
+  refreshment?: 'level1' | 'level2';
+}
+
 export interface Booking {
   id: string;
-  type: 'dormitory' | 'hall' | 'section'; // Added 'section'
+  type: 'dormitory' | 'hall' | 'section';
   itemId: string; // ID of Dormitory or Hall/Section
   userId?: string; // For registered users (admin/company reps)
   guestName?: string; // For individual dormitory bookings
@@ -41,7 +46,7 @@ export interface Booking {
   startDate: string; // ISO date string
   endDate: string; // ISO date string for dormitory, or single day for hall/section
   numberOfPeople?: number; // For hall/section services
-  services?: ('lunch' | 'refreshment')[];
+  serviceDetails?: BookingServiceDetails; // Updated from 'services'
   totalCost: number;
   paymentStatus: 'pending' | 'paid' | 'failed';
   bookedAt: string; // ISO date string
