@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils } from "lucide-react";
+import { BedDouble, Presentation, Utensils, Globe } from "lucide-react";
 import { PLACEHOLDER_IMAGE_SIZE } from "@/constants";
 
 export default function HomePage() {
