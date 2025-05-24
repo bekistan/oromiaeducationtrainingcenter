@@ -80,20 +80,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               phone: userDataFromDb.phone,
               createdAt: userDataFromDb.createdAt instanceof Timestamp
                 ? userDataFromDb.createdAt.toDate().toISOString()
-                : typeof userDataFromDb.createdAt === 'string'
-                  ? userDataFromDb.createdAt
+                : typeof userDataFromDb.createdAt === 'string' 
+                  ? userDataFromDb.createdAt 
                   : undefined,
             };
             setUser(processedUserData);
           } else {
             console.warn("User document not found in Firestore for UID:", fbUser.uid);
-            // If user exists in Auth but not Firestore, log them out or handle as error
-            await firebaseSignOut(auth);
+            // If user exists in Auth but not Firestore, sign them out to prevent inconsistent state.
+            // This can happen if Firestore document was deleted manually or creation failed.
+            await firebaseSignOut(auth); 
             setUser(null);
           }
         } catch (error) {
           console.error("Error fetching user document from Firestore:", error);
-          await firebaseSignOut(auth);
+          await firebaseSignOut(auth); // Sign out on error to prevent broken state
           setUser(null);
         }
       } else {
@@ -123,28 +124,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           companyName: userDataFromDb.companyName,
           approvalStatus: userDataFromDb.approvalStatus,
           phone: userDataFromDb.phone,
-          createdAt: userDataFromDb.createdAt instanceof Timestamp
-            ? userDataFromDb.createdAt.toDate().toISOString()
-            : typeof userDataFromDb.createdAt === 'string'
-              ? userDataFromDb.createdAt
+          createdAt: userDataFromDb.createdAt instanceof Timestamp 
+            ? userDataFromDb.createdAt.toDate().toISOString() 
+            : typeof userDataFromDb.createdAt === 'string' 
+              ? userDataFromDb.createdAt 
               : undefined,
         };
         setUser(appUserData);
         setLoading(false);
         return appUserData;
       } else {
-        // This case means user authenticated with Firebase Auth, but no corresponding Firestore doc
+        // This case should ideally not happen if registration is correct
+        // but if it does, sign out the user to prevent an inconsistent state.
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth); // Log out the user to prevent inconsistent state
+        await firebaseSignOut(auth);
         setUser(null);
         setLoading(false);
         throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error) {
       console.error("Login error:", error);
-      setUser(null);
+      setUser(null); // Ensure user state is cleared on login failure
       setLoading(false);
-      throw error; // Re-throw to be caught by the caller (e.g., LoginPage)
+      throw error; // Re-throw to be caught by the calling UI
     }
   }, []);
 
@@ -152,13 +154,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     async (companyDetails: CompanyDetails): Promise<AppUser | null> => {
       setLoading(true);
       try {
-        // Check if email already exists in users collection (optional, as Firebase Auth handles this too)
+        // Check if email already exists in users collection (Firestore check)
+        // Firebase Auth createUserWithEmailAndPassword will also check, but this is an early check.
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", companyDetails.email));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-          // Firebase Auth's createUserWithEmailAndPassword will throw 'auth/email-already-in-use'
-          // This is an additional check, but you can rely on Firebase's error too.
           throw { code: 'auth/email-already-in-use', message: 'This email address is already in use by another account.' };
         }
         
@@ -166,20 +167,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const fbUserInstance = userCredential.user;
 
         const newCompanyUserDocData = {
-          id: fbUserInstance.uid, // Storing uid for consistency, though doc ID is already uid
+          // id: fbUserInstance.uid, // Not needed, document ID is fbUserInstance.uid
           email: companyDetails.email,
-          name: companyDetails.name, // Contact person's name
+          name: companyDetails.name, // This is contact person's name
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative' as AppUser['role'],
           approvalStatus: 'pending' as AppUser['approvalStatus'],
           companyId: `comp-${fbUserInstance.uid.substring(0, 10)}`, // Generate a company ID
-          createdAt: serverTimestamp(),
+          createdAt: serverTimestamp(), // Use serverTimestamp for consistent time
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
         
-        // Construct the AppUser object to return (createdAt will be a server timestamp, so we can't immediately convert it)
+        // Construct AppUser for immediate use, createdAt will be resolved later by Firestore
         const appUser: AppUser = {
             id: fbUserInstance.uid,
             email: companyDetails.email,
@@ -189,15 +190,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'company_representative',
             approvalStatus: 'pending',
             companyId: newCompanyUserDocData.companyId,
-            createdAt: new Date().toISOString(), // Approximate, actual value is server-generated
+            createdAt: new Date().toISOString(), // Placeholder, will be updated on next fetch
         };
-        // Don't set user state here, let onAuthStateChanged handle it to ensure consistency
+        // No need to call setUser here as onAuthStateChanged will handle it.
         setLoading(false);
-        return appUser; // Or just void if caller doesn't need immediate user object
+        return appUser; // Return the newly created user data
       } catch (error) {
         console.error("Company signup error:", error);
         setLoading(false);
-        throw error; // Re-throw to be caught by the caller
+        throw error;
       }
     },
     []
@@ -206,6 +207,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signupAdmin = useCallback(
     async (adminDetails: AdminDetails): Promise<AppUser | null> => {
       setLoading(true);
+      // This should ideally be an admin-only action,
+      // enforced by security rules or a backend check.
+      // For now, assuming this check is done before calling signupAdmin.
       try {
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", adminDetails.email));
@@ -218,7 +222,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const fbUserInstance = userCredential.user;
 
         const newAdminUserDocData = {
-          id: fbUserInstance.uid,
+          // id: fbUserInstance.uid,
           email: adminDetails.email,
           name: adminDetails.name,
           role: 'admin' as AppUser['role'],
@@ -231,8 +235,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             email: adminDetails.email,
             name: adminDetails.name,
             role: 'admin',
-            createdAt: new Date().toISOString(), // Approximate
+            createdAt: new Date().toISOString(), // Placeholder
         };
+        // onAuthStateChanged will update the user state
         setLoading(false);
         return appUser;
       } catch (error) {
@@ -249,10 +254,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-      setUser(null); // Clear local user state immediately
+      setUser(null);
+      setFirebaseUser(null);
     } catch (error) {
       console.error("Logout error:", error);
-      // Optionally handle logout errors, though they are rare
+      // Potentially show a toast to the user
     } finally {
       setLoading(false);
     }
@@ -262,9 +268,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
-        // If the updated user is the currently logged-in user, refresh local state
+        // If updating the currently logged-in user, refresh their local state
         if (user && user.id === userId) {
-          // Re-fetch or merge data to update local user state
           const updatedUserDocSnap = await getDoc(userDocRef);
           if (updatedUserDocSnap.exists()) {
             const updatedDataFromDb = updatedUserDocSnap.data();
@@ -277,8 +282,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               companyName: updatedDataFromDb.companyName,
               approvalStatus: updatedDataFromDb.approvalStatus,
               phone: updatedDataFromDb.phone,
-              createdAt: updatedDataFromDb.createdAt instanceof Timestamp
-                ? updatedDataFromDb.createdAt.toDate().toISOString()
+              createdAt: updatedDataFromDb.createdAt instanceof Timestamp 
+                ? updatedDataFromDb.createdAt.toDate().toISOString() 
                 : typeof updatedDataFromDb.createdAt === 'string'
                   ? updatedDataFromDb.createdAt
                   : undefined,
@@ -288,11 +293,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
     } catch (error) {
         console.error("Error updating user document:", error);
-        throw error; // Re-throw to be caught by the caller
+        throw error; // Re-throw for calling UI to handle
     }
-  }, [user]); // Dependency on user to allow refreshing current user's state
+  }, [user]); // Dependency on user to ensure it's the latest for comparison
 
-  const contextValue: AuthState = useMemo(() => ({
+  // Memoize the context value to prevent unnecessary re-renders of consumers
+  // if the AuthProvider re-renders but these specific values haven't changed.
+  const contextValue = useMemo(() => ({
     user,
     firebaseUser,
     loading,
