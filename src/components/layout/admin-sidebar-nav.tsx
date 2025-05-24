@@ -1,13 +1,14 @@
+
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth"; // Import useAuth
 import { ADMIN_NAVS } from "@/constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  Sidebar, 
   SidebarMenu, 
   SidebarMenuItem, 
   SidebarMenuButton,
@@ -20,7 +21,9 @@ import {
   Building, 
   ListChecks, 
   FileText, 
-  UserCircle 
+  UserCircle,
+  UserPlus, // For Register Admin
+  Users // For Manage Companies
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,18 +34,29 @@ const ICONS: Record<string, LucideIcon> = {
   manageBookings: ListChecks,
   reports: FileText,
   userProfile: UserCircle,
+  registerAdmin: UserPlus,
+  manageCompanies: Users,
 };
 
 export function AdminSidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
+  const { user, loading } = useAuth(); // Get user and loading state
+
+  if (loading) {
+    // Optionally return a loading state for the sidebar
+    return <ScrollArea className="h-full py-4"><p className="p-4 text-muted-foreground">{t('loading')}...</p></ScrollArea>;
+  }
 
   return (
     <ScrollArea className="h-full py-4">
       <SidebarMenu>
         <SidebarGroup>
-          <SidebarGroupLabel className="sr-only">{t('adminNavigation')}</SidebarGroupLabel> {/* Add to JSON */}
-            {ADMIN_NAVS.map((item) => {
+          <SidebarGroupLabel className="sr-only">{t('adminNavigation')}</SidebarGroupLabel>
+            {ADMIN_NAVS.filter(item => {
+              if (!item.roles || item.roles.length === 0) return true; // No specific roles required
+              return item.roles.includes(user?.role as never); // Check if user's role is in the allowed roles
+            }).map((item) => {
               const Icon = ICONS[item.labelKey] || LayoutDashboard;
               return (
                 <SidebarMenuItem key={item.href}>

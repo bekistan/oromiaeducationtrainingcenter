@@ -2,18 +2,29 @@
 "use client";
 
 import type { User } from '@/types';
-import { useState, useEffect, useCallback }
-from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-// Mock user data - in a real app, this would come from your auth provider
-const MOCK_COMPANY_USER: User = {
+// Mock user data
+const MOCK_COMPANY_USER_APPROVED: User = {
   id: 'compUser123',
   email: 'company@example.com',
   role: 'company_representative',
-  name: 'Test Company Rep',
+  name: 'Approved Company Rep',
   companyId: 'comp001',
   companyName: 'Tech Solutions Inc.',
+  approvalStatus: 'approved',
 };
+
+const MOCK_COMPANY_USER_PENDING: User = {
+  id: 'compUser789',
+  email: 'pending.company@example.com',
+  role: 'company_representative',
+  name: 'Pending Company Rep',
+  companyId: 'comp002',
+  companyName: 'New Ventures LLC',
+  approvalStatus: 'pending',
+};
+
 
 const MOCK_INDIVIDUAL_USER: User = {
   id: 'indUser456',
@@ -29,18 +40,29 @@ const MOCK_ADMIN_USER: User = {
     name: 'Admin User',
 };
 
+const MOCK_SUPER_ADMIN_USER: User = {
+    id: 'superAdminUser001',
+    email: 'superadmin@example.com',
+    role: 'superadmin',
+    name: 'Super Admin User',
+};
+
 
 interface AuthState {
   user: User | null;
   loading: boolean;
-  loginAsCompany: () => void;
+  loginAsCompany: (status?: 'approved' | 'pending') => void;
   loginAsIndividual: () => void;
   loginAsAdmin: () => void;
+  loginAsSuperAdmin: () => void;
   logout: () => void;
+  registerCompany: (companyDetails: Omit<User, 'id' | 'role' | 'approvalStatus'>) => User; // Mock registration
 }
 
-// For simplicity, we'll use localStorage to persist mock login state
 const AUTH_STORAGE_KEY = 'mockAuthUser';
+
+// Mock database for registered companies
+let mockRegisteredCompanies: User[] = [MOCK_COMPANY_USER_APPROVED, MOCK_COMPANY_USER_PENDING];
 
 export const useAuth = (): AuthState => {
   const [user, setUser] = useState<User | null>(null);
@@ -68,8 +90,12 @@ export const useAuth = (): AuthState => {
     }
   };
 
-  const loginAsCompany = useCallback(() => {
-    updateUserState(MOCK_COMPANY_USER);
+  const loginAsCompany = useCallback((status: 'approved' | 'pending' = 'approved') => {
+    if (status === 'pending') {
+        updateUserState(MOCK_COMPANY_USER_PENDING);
+    } else {
+        updateUserState(MOCK_COMPANY_USER_APPROVED);
+    }
   }, []);
 
   const loginAsIndividual = useCallback(() => {
@@ -80,9 +106,52 @@ export const useAuth = (): AuthState => {
     updateUserState(MOCK_ADMIN_USER);
   }, []);
 
+  const loginAsSuperAdmin = useCallback(() => {
+    updateUserState(MOCK_SUPER_ADMIN_USER);
+  }, []);
+  
+  const registerCompany = useCallback((companyDetails: Omit<User, 'id' | 'role' | 'approvalStatus'>): User => {
+    const newCompany: User = {
+        ...companyDetails,
+        id: `comp-${Date.now()}`,
+        role: 'company_representative',
+        approvalStatus: 'pending',
+    };
+    // In a real app, this would be an API call. Here, we just add to a mock list.
+    // Note: This mockRegisteredCompanies list isn't directly used by useAuth for login,
+    // but would be for an admin panel to list companies.
+    mockRegisteredCompanies.push(newCompany);
+    console.log("Mock registered companies:", mockRegisteredCompanies);
+    return newCompany;
+  }, []);
+
+
   const logout = useCallback(() => {
     updateUserState(null);
   }, []);
 
-  return { user, loading, loginAsCompany, loginAsIndividual, loginAsAdmin, logout };
+  return { user, loading, loginAsCompany, loginAsIndividual, loginAsAdmin, loginAsSuperAdmin, logout, registerCompany };
+};
+
+// Function to get mock companies for admin panel (not part of the hook itself but uses its data)
+export const getMockRegisteredCompanies = () => [...mockRegisteredCompanies];
+export const updateMockCompanyStatus = (companyId: string, newStatus: 'approved' | 'rejected'): boolean => {
+    const companyIndex = mockRegisteredCompanies.findIndex(c => c.id === companyId);
+    if (companyIndex > -1) {
+        mockRegisteredCompanies[companyIndex].approvalStatus = newStatus;
+        // If the currently logged-in user is this company, update their session too
+        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
+        if (storedUser) {
+            const currentUser: User = JSON.parse(storedUser);
+            if (currentUser.id === companyId) {
+                currentUser.approvalStatus = newStatus;
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
+                // Note: This won't auto-refresh the useAuth hook's user state immediately
+                // without a page reload or explicit state update within the hook.
+                // For a real app, auth state would sync with backend/tokens.
+            }
+        }
+        return true;
+    }
+    return false;
 };

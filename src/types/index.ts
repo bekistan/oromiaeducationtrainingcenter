@@ -1,5 +1,4 @@
 
-
 export type Locale = 'en' | 'om' | 'am';
 
 export type Translations = {
@@ -12,23 +11,23 @@ export interface Dormitory {
   roomNumber: string;
   capacity: number;
   isAvailable: boolean;
-  pricePerDay: number; // Ensured this is present
-  images?: string[]; // URLs to images
-  dataAiHint?: string; // AI hint for image generation
+  pricePerDay: number;
+  images?: string[];
+  dataAiHint?: string;
 }
 
-export interface Hall { // This type can represent both Halls and Sections
+export interface Hall {
   id:string;
   name: string;
   capacity: number;
   isAvailable: boolean;
-  rentalCost: number; // Cost for the hall/section itself
-  lunchServiceCost?: number; // Cost per person for lunch (base cost, actual cost might depend on level)
-  refreshmentServiceCost?: number; // Cost per person for refreshment (base cost)
-  images?: string[]; // URLs to images
+  rentalCost: number;
+  lunchServiceCost?: number;
+  refreshmentServiceCost?: number;
+  images?: string[];
   description?: string;
-  dataAiHint?: string; // AI hint for image generation
-  itemType: 'hall' | 'section'; // To distinguish between hall and section
+  dataAiHint?: string;
+  itemType: 'hall' | 'section';
 }
 
 export interface BookingServiceDetails {
@@ -40,54 +39,56 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number; // Added for dormitories
-  rentalCost?: number; // Added for facilities
+  pricePerDay?: number;
+  rentalCost?: number;
 };
 
 export interface Booking {
   id: string;
-  bookingCategory: 'dormitory' | 'facility'; // 'facility' for halls/sections
-  items: BookingItem[]; // List of items being booked
-  userId?: string; // For registered users (admin/company reps)
-  companyId?: string; // For company bookings
-  guestName?: string; // For individual dormitory bookings
-  guestIdScanUrl?: string; // URL to scanned ID
-  guestEmployer?: string; // Employer for individual
-  companyName?: string; // For facility bookings by a company (could be derived from User)
-  contactPerson?: string; // For facility bookings
-  email?: string; // For facility bookings
-  phone?: string; // For facility bookings
-  startDate: string; // ISO date string
-  endDate: string; // ISO date string
-  numberOfAttendees?: number; // For hall/section services
+  bookingCategory: 'dormitory' | 'facility';
+  items: BookingItem[];
+  userId?: string;
+  companyId?: string;
+  guestName?: string;
+  guestIdScanUrl?: string;
+  guestEmployer?: string;
+  companyName?: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  startDate: string;
+  endDate: string;
+  numberOfAttendees?: number;
   serviceDetails?: BookingServiceDetails;
-  totalCost: number; // Ensured this is present
-  paymentStatus: 'pending' | 'paid' | 'failed'; // Ensured this is present
-  approvalStatus: 'pending' | 'approved' | 'rejected'; // New status for admin approval
-  bookedAt: string; // ISO date string
+  totalCost: number;
+  paymentStatus: 'pending' | 'paid' | 'failed';
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  bookedAt: string;
 }
 
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'superadmin' | 'company_representative' | 'individual'; // Added 'individual'
+  role: 'admin' | 'superadmin' | 'company_representative' | 'individual';
   name?: string;
   companyId?: string;
   companyName?: string;
+  approvalStatus?: 'pending' | 'approved' | 'rejected'; // For company users
 }
 
-export interface CompanyProfile {
+export interface CompanyProfile { // This might be merged or related to User type for companies
   id: string;
   name: string;
   contactPerson: string;
   email: string;
   phone: string;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
 }
 
 export interface NavItem {
-  labelKey: string; // Key for translation
+  labelKey: string;
   href: string;
   adminOnly?: boolean;
   authRequired?: boolean;
+  roles?: User['role'][]; // Specify which roles can see this nav item
 }
-

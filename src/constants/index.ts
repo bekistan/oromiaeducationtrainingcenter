@@ -1,4 +1,5 @@
-import type { NavItem } from '@/types';
+
+import type { NavItem, User } from '@/types'; // Added User import
 
 export const SITE_NAME = "OromiaEduRent";
 export const SITE_DESCRIPTION = "Oromia Education Research and Training Center Rental Services";
@@ -18,12 +19,14 @@ export const PUBLIC_NAVS: NavItem[] = [
 ];
 
 export const ADMIN_NAVS: NavItem[] = [
-  { labelKey: 'dashboard', href: '/admin/dashboard', adminOnly: true, authRequired: true },
-  { labelKey: 'manageDormitories', href: '/admin/dormitories', adminOnly: true, authRequired: true },
-  { labelKey: 'manageHalls', href: '/admin/halls', adminOnly: true, authRequired: true },
-  { labelKey: 'manageBookings', href: '/admin/bookings', adminOnly: true, authRequired: true },
-  { labelKey: 'reports', href: '/admin/reports', adminOnly: true, authRequired: true },
-  { labelKey: 'userProfile', href: '/admin/profile', adminOnly: true, authRequired: true },
+  { labelKey: 'dashboard', href: '/admin/dashboard', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageBookings', href: '/admin/bookings', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'] }, // New
+  { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] }, // New, superadmin only
+  { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
 export const FOOTER_LINKS = [
