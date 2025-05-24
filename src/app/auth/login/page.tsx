@@ -50,9 +50,11 @@ export default function LoginPage() {
         </Link>
         <p className="text-muted-foreground">
           {t('needAccount')}{" "}
-          <Button variant="link" className="text-primary p-0 h-auto" asChild>
-            <Link href="/contact-support">{t('contactSupport')}</Link> {/* Add to JSON and create page */}
-          </Button>
+          <Link href="/contact-support" passHref legacyBehavior>
+            <Button variant="link" className="text-primary p-0 h-auto" asChild>
+              <a>{t('contactSupport')}</a>
+            </Button>
+          </Link>
         </p>
       </CardFooter>
     </Card>
