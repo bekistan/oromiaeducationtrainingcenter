@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Edit, Trash2, Filter, MoreHorizontal } from "lucide-react";
+import { Eye, Edit, Trash2, Filter, MoreHorizontal, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -18,28 +18,27 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore'; // Added Timestamp for bookedAt
+import { useToast } from '@/hooks/use-toast';
 
-
-// Placeholder data
-const sampleBookings: Booking[] = [
+// Placeholder data for seeding
+const sampleBookingsForSeed: Omit<Booking, 'id' | 'bookedAt'>[] = [
   { 
-    id: "b001", 
     bookingCategory: "dormitory", 
-    items: [{ id: "d001", name: "Room 101A", itemType: "dormitory" }], 
-    guestName: "John Doe", 
+    items: [{ id: "d001_seeded", name: "Room 101A (Seeded)", itemType: "dormitory" }], 
+    guestName: "John Doe (Seeded)", 
     startDate: "2024-08-01", 
     endDate: "2024-08-05", 
     totalCost: 2000, 
     paymentStatus: "paid", 
     approvalStatus: "approved", 
-    bookedAt: "2024-07-15T10:00:00Z",
-    userId: "indUser456" 
+    userId: "indUser456_seeded" 
   },
   { 
-    id: "b002", 
     bookingCategory: "facility", 
-    items: [{ id: "h001", name: "Grand Meeting Hall A", itemType: "hall" }], 
-    companyName: "Tech Solutions Inc.", 
+    items: [{ id: "h001_seeded", name: "Grand Meeting Hall A (Seeded)", itemType: "hall" }], 
+    companyName: "Tech Solutions Inc. (Seeded)", 
     contactPerson: "Jane Smith (Rep)",
     email: "jane@techsolutions.com",
     phone: "555-0101",
@@ -48,65 +47,91 @@ const sampleBookings: Booking[] = [
     totalCost: 5000, 
     paymentStatus: "pending", 
     approvalStatus: "pending", 
-    bookedAt: "2024-07-20T14:30:00Z",
-    userId: "compUser123",
-    companyId: "comp001",
+    userId: "compUser123_seeded",
+    companyId: "comp001_seeded",
     numberOfAttendees: 50,
     serviceDetails: { lunch: 'level1' }
   },
-  { 
-    id: "b003", 
-    bookingCategory: "facility", 
-    items: [
-        { id: "s001", name: "Training Section Alpha", itemType: "section" },
-        { id: "s002", name: "Workshop Area Beta", itemType: "section" }
-    ], 
-    companyName: "Innovate LLC", 
-    contactPerson: "Mike Lee (Rep)",
-    email: "mike@innovate.com",
-    phone: "555-0202",
-    startDate: "2024-08-15", 
-    endDate: "2024-08-16", 
-    totalCost: 3750, 
-    paymentStatus: "paid", 
-    approvalStatus: "approved", 
-    bookedAt: "2024-07-22T09:15:00Z",
-    userId: "compUser789",
-    companyId: "comp002",
-    numberOfAttendees: 25,
-    serviceDetails: { refreshment: 'level2' }
-  },
-    { 
-    id: "b004", 
-    bookingCategory: "facility", 
-    items: [{ id: "s003", name: "Seminar Room Gamma", itemType: "section" }], 
-    companyName: "Education First",
-    contactPerson: "Sarah Connor (Rep)",
-    email: "sarah@educationfirst.com",
-    phone: "555-0303",
-    startDate: "2024-09-01", 
-    endDate: "2024-09-01", 
-    totalCost: 2800, 
-    paymentStatus: "failed", 
-    approvalStatus: "rejected", 
-    bookedAt: "2024-08-05T11:00:00Z",
-    userId: "compUserABC",
-    companyId: "comp003",
-    numberOfAttendees: 40,
-  },
 ];
+
 
 export default function AdminBookingsPage() {
   const { t } = useLanguage();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [bookings, setBookings] = useState<Booking[]>(sampleBookings);
+  const { toast } = useToast();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSeeding, setIsSeeding] = useState(false);
 
-  const handleApprovalChange = (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
-    setBookings(currentBookings => 
-      currentBookings.map(b => b.id === bookingId ? { ...b, approvalStatus: newStatus } : b)
-    );
-    // TODO: API call to update status
-    console.log(`Booking ${bookingId} approval status changed to ${newStatus}`);
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const querySnapshot = await getDocs(collection(db, "bookings"));
+      const bookingsData = querySnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return { 
+          id: docSnap.id, 
+          ...data,
+          // Ensure bookedAt is a string if it's a Firestore Timestamp
+          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
+          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+        } as Booking;
+      });
+      setBookings(bookingsData);
+    } catch (error) {
+      console.error("Error fetching bookings: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') }); // Add to JSON
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t, toast]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    try {
+      const batch = writeBatch(db);
+      sampleBookingsForSeed.forEach(booking => {
+        const docRef = doc(collection(db, "bookings"));
+        // Convert string dates to Timestamps for Firestore if necessary, or store as strings
+        batch.set(docRef, { ...booking, bookedAt: Timestamp.now() });
+      });
+      await batch.commit();
+      toast({ title: t('success'), description: t('bookingDataSeeded') }); // Add to JSON
+      fetchBookings();
+    } catch (error) {
+      console.error("Error seeding bookings: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingBookings') }); // Add to JSON
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, { approvalStatus: newStatus });
+      toast({ title: t('success'), description: t('bookingStatusUpdated') }); // Add to JSON
+      fetchBookings(); // Re-fetch to reflect changes
+    } catch (error) {
+      console.error("Error updating booking status: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') }); // Add to JSON
+    }
+  };
+  
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (!confirm(t('confirmDeleteBooking'))) return; // Add to JSON
+    try {
+      await deleteDoc(doc(db, "bookings", bookingId));
+      toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
+      fetchBookings();
+    } catch (error) {
+      console.error("Error deleting booking: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorDeletingBooking') });
+    }
   };
 
 
@@ -126,16 +151,19 @@ export default function AdminBookingsPage() {
   const getApprovalStatusBadge = (status: Booking['approvalStatus']) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200">{t(status)}</Badge>; // Add 'approved' to JSON
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200">{t(status)}</Badge>;
       case 'pending':
-        return <Badge className="bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200">{t(status)}</Badge>; // Add 'pendingApproval' to JSON
+        return <Badge className="bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200">{t(status)}</Badge>;
       case 'rejected':
-        return <Badge className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200">{t(status)}</Badge>; // Add 'rejected' to JSON
+        return <Badge className="bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200">{t(status)}</Badge>;
       default:
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
 
+  if (isLoading) {
+    return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -156,13 +184,25 @@ export default function AdminBookingsPage() {
             <DropdownMenuCheckboxItem>{t('pending')}</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem>{t('failed')}</DropdownMenuCheckboxItem>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>{t('approvalStatus')}</DropdownMenuLabel> {/* Add to JSON */}
+            <DropdownMenuLabel>{t('approvalStatus')}</DropdownMenuLabel>
             <DropdownMenuCheckboxItem>{t('approved')}</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem>{t('pending')}</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem>{t('rejected')}</DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {bookings.length === 0 && !isLoading && (
+        <Card>
+          <CardContent className="pt-6 text-center">
+            <p className="mb-4">{t('noBookingsFoundCta')}</p> {/* Add to JSON: "No bookings found. Would you like to add some initial sample data?" */}
+            <Button onClick={handleSeedData} disabled={isSeeding}>
+              {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('seedInitialBookings')} {/* Add to JSON */}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -174,29 +214,29 @@ export default function AdminBookingsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('bookingId')}</TableHead>
-                <TableHead>{t('category')}</TableHead> {/* Add to JSON */}
-                <TableHead>{t('itemsBooked')}</TableHead> {/* Add to JSON */}
+                <TableHead>{t('category')}</TableHead>
+                <TableHead>{t('itemsBooked')}</TableHead>
                 <TableHead>{t('customer')}</TableHead>
                 <TableHead>{t('dates')}</TableHead>
                 <TableHead>{t('totalCost')}</TableHead>
                 <TableHead>{t('paymentStatus')}</TableHead>
-                <TableHead>{t('approvalStatus')}</TableHead> {/* Add to JSON */}
+                <TableHead>{t('approvalStatus')}</TableHead>
                 <TableHead className="text-right">{t('actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bookings.map((booking) => (
                 <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{booking.id}</TableCell>
+                  <TableCell className="font-medium">{booking.id.substring(0,8)}...</TableCell>
                   <TableCell className="capitalize">{t(booking.bookingCategory)}</TableCell>
                   <TableCell>
                     {booking.items.map(item => item.name).join(', ')} ({booking.items.length})
                   </TableCell>
                   <TableCell>
                     {booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}
-                    {booking.userId && <span className="text-xs text-muted-foreground block"> (User ID: {booking.userId})</span>}
+                    {booking.userId && <span className="text-xs text-muted-foreground block"> (User ID: {booking.userId.substring(0,6)}...)</span>}
                   </TableCell>
-                  <TableCell>{booking.startDate} - {booking.endDate}</TableCell>
+                  <TableCell>{new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}</TableCell>
                   <TableCell>{booking.totalCost} ETB</TableCell>
                   <TableCell>
                     {getPaymentStatusBadge(booking.paymentStatus)}
@@ -209,31 +249,31 @@ export default function AdminBookingsPage() {
                       <Eye className="h-4 w-4" />
                        <span className="sr-only">{t('viewDetails')}</span>
                     </Button>
-                    <Button variant="ghost" size="icon" title={t('edit')}>
+                    {/* <Button variant="ghost" size="icon" title={t('edit')}>
                       <Edit className="h-4 w-4" />
                        <span className="sr-only">{t('edit')}</span>
-                    </Button>
+                    </Button> */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" title={t('moreActions')}>
                                 <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">{t('moreActions')}</span> {/* Add to JSON */}
+                                <span className="sr-only">{t('moreActions')}</span>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel> {/* Add to JSON */}
+                            <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
-                                {t('approveBooking')} {/* Add to JSON */}
+                                {t('approveBooking')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                {t('setAsPending')} {/* Add to JSON */}
+                                {t('setAsPending')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                {t('rejectBooking')} {/* Add to JSON */}
+                                {t('rejectBooking')}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                            <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => handleDeleteBooking(booking.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
                             </DropdownMenuItem>
                         </DropdownMenuContent>

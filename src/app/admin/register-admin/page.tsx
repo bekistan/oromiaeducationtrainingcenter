@@ -10,10 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth"; // Still needed for role check
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, ShieldAlert } from "lucide-react";
+import { UserPlus, ShieldAlert, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+// Firebase auth for creating user credentials would go here in a real app
+// import { createUserWithEmailAndPassword } from "firebase/auth";
+// import { auth } from '@/lib/firebase';
 
 const adminRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
@@ -25,9 +30,10 @@ type AdminRegistrationValues = z.infer<typeof adminRegistrationSchema>;
 
 export default function RegisterAdminPage() {
   const { t } = useLanguage();
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth(); // useAuth for checking if current user is superadmin
   const { toast } = useToast();
   const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<AdminRegistrationValues>({
     resolver: zodResolver(adminRegistrationSchema),
@@ -38,31 +44,57 @@ export default function RegisterAdminPage() {
     },
   });
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-screen"><p>{t('loading')}...</p></div>;
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
   if (user?.role !== 'superadmin') {
-    // Redirect or show an access denied message
-    // router.push('/admin/dashboard'); // Or a dedicated access denied page
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-4">
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
-        <p className="text-muted-foreground">{t('superAdminOnlyPage')}</p> {/* Add 'superAdminOnlyPage' to JSON */}
-        <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button> {/* Add 'backToDashboard' to JSON */}
+        <p className="text-muted-foreground">{t('superAdminOnlyPage')}</p>
+        <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
       </div>
     );
   }
 
-  function onSubmit(data: AdminRegistrationValues) {
-    // In a real app, this would make an API call to register an admin.
-    console.log("Admin registration data (mock):", data);
-    toast({
-      title: t('adminRegisteredTitle'), // Add to JSON e.g., "Admin Registered"
-      description: t('adminRegisteredMessage', { email: data.email }), // Add to JSON e.g., "Admin user {email} has been registered successfully (mock)."
-    });
-    form.reset();
+  async function onSubmit(data: AdminRegistrationValues) {
+    setIsSubmitting(true);
+    try {
+      // In a real app, first create the user with Firebase Auth:
+      // const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // const firebaseUser = userCredential.user;
+
+      // Then, save admin details to Firestore 'users' collection
+      const adminData = {
+        name: data.name,
+        email: data.email,
+        role: 'admin',
+        // userId: firebaseUser.uid, // Link to Firebase Auth user
+      };
+
+      await addDoc(collection(db, "users"), adminData);
+
+      toast({
+        title: t('adminRegisteredTitle'),
+        description: t('adminRegisteredMessage', { email: data.email }),
+      });
+      form.reset();
+    } catch (error: any) {
+      console.error("Admin registration failed:", error);
+      let errorMessage = t('unknownError');
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = t('emailAlreadyInUseError');
+      }
+      toast({
+        variant: "destructive",
+        title: t('registrationFailedTitle'),
+        description: errorMessage,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -72,47 +104,18 @@ export default function RegisterAdminPage() {
           <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
             <UserPlus className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t('registerAdminTitle')}</CardTitle> {/* Add to JSON e.g., "Register New Admin" */}
-          <CardDescription>{t('registerAdminDescription')}</CardDescription> {/* Add to JSON e.g., "Fill in the details to create a new admin account." */}
+          <CardTitle className="text-2xl">{t('registerAdminTitle')}</CardTitle>
+          <CardDescription>{t('registerAdminDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('fullName')}</FormLabel>
-                    <FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('email')}</FormLabel>
-                    <FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('password')}</FormLabel>
-                    <FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full">
-                {t('registerAdminButton')} {/* Add to JSON e.g., "Register Admin" */}
+              <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('registerAdminButton')}
               </Button>
             </form>
           </Form>

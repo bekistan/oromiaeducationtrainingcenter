@@ -10,18 +10,23 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth";
+// Removed useAuth import as we are directly interacting with Firebase
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Building } from "lucide-react";
-import AuthLayout from '../layout'; // Using the auth layout
+import { Building, Loader2 } from "lucide-react";
+import AuthLayout from '../layout';
+import { db } from '@/lib/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+// Firebase auth for creating user credentials would go here in a real app
+// import { createUserWithEmailAndPassword } from "firebase/auth";
+// import { auth } from '@/lib/firebase'; // Assuming auth is exported from firebase.ts
 
 const companyRegistrationSchema = z.object({
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
   contactPerson: z.string().min(2, { message: "Contact person name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().min(7, { message: "Phone number seems too short." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }), // Password for Firebase Auth
 });
 
 type CompanyRegistrationValues = z.infer<typeof companyRegistrationSchema>;
@@ -29,7 +34,7 @@ type CompanyRegistrationValues = z.infer<typeof companyRegistrationSchema>;
 export default function RegisterCompanyPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const { registerCompany } = useAuth(); // Using mock registration
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<CompanyRegistrationValues>({
     resolver: zodResolver(companyRegistrationSchema),
@@ -42,31 +47,46 @@ export default function RegisterCompanyPage() {
     },
   });
 
-  function onSubmit(data: CompanyRegistrationValues) {
-    // In a real app, this would make an API call.
-    // For mock, we use the registerCompany function from useAuth.
+  async function onSubmit(data: CompanyRegistrationValues) {
+    setIsSubmitting(true);
     try {
-      const newCompany = registerCompany({
+      // In a real app, first create the user with Firebase Auth:
+      // const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // const firebaseUser = userCredential.user;
+
+      // Then, save company details to Firestore 'users' collection (or a dedicated 'companies' collection)
+      // For now, we'll mock the user creation and just save to Firestore.
+      const companyData = {
         companyName: data.companyName,
-        name: data.contactPerson, // Assuming contactPerson is the user's name for the company_representative
+        name: data.contactPerson, // User's name
         email: data.email,
-        // Phone is not directly on User type, but could be stored elsewhere or on company profile.
-        // Password would be handled by auth provider.
-      });
-      console.log("Mock company registered:", newCompany);
+        phone: data.phone, // You might store this separately or as part of company profile
+        role: 'company_representative',
+        approvalStatus: 'pending',
+        // userId: firebaseUser.uid, // Link to Firebase Auth user
+        companyId: `comp-${Date.now()}`, // Mock company ID, generate properly in backend
+      };
+
+      await addDoc(collection(db, "users"), companyData); // Or use 'companies' collection
 
       toast({
-        title: t('registrationSubmittedTitle'), // Add to JSON e.g., "Registration Submitted"
-        description: t('registrationSubmittedMessage'), // Add to JSON e.g., "Your company registration has been submitted and is pending approval."
+        title: t('registrationSubmittedTitle'),
+        description: t('registrationSubmittedMessage'),
       });
       form.reset();
-      // Optionally redirect or clear form
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Registration failed:", error);
+      let errorMessage = t('unknownError');
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = t('emailAlreadyInUseError'); // Add to JSON
+      }
       toast({
         variant: "destructive",
-        title: t('registrationFailedTitle'), // Add to JSON e.g., "Registration Failed"
-        description: (error instanceof Error) ? error.message : t('unknownError'), // Add 'unknownError' to JSON
+        title: t('registrationFailedTitle'),
+        description: errorMessage,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -77,78 +97,29 @@ export default function RegisterCompanyPage() {
            <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
             <Building className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t('companyRegistrationTitle')}</CardTitle> {/* Add to JSON e.g., "Company Registration" */}
-          <CardDescription>{t('companyRegistrationDescription')}</CardDescription> {/* Add to JSON e.g., "Fill in the details to register your company." */}
+          <CardTitle className="text-2xl">{t('companyRegistrationTitle')}</CardTitle>
+          <CardDescription>{t('companyRegistrationDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="companyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('companyName')}</FormLabel>
-                    <FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="contactPerson"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('contactPersonName')}</FormLabel> {/* Add 'contactPersonName' to JSON */}
-                    <FormControl><Input placeholder={t('enterContactPersonName')} {...field} /></FormControl> {/* Add 'enterContactPersonName' to JSON */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('email')}</FormLabel>
-                    <FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('phone')}</FormLabel>
-                    <FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('password')}</FormLabel>
-                    <FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl> {/* Add 'enterPassword' to JSON */}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full">
-                {t('registerButton')} {/* Add 'registerButton' to JSON e.g., "Register" */}
+              <FormField control={form.control} name="companyName" render={({ field }) => ( <FormItem><FormLabel>{t('companyName')}</FormLabel><FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="contactPerson" render={({ field }) => ( <FormItem><FormLabel>{t('contactPersonName')}</FormLabel><FormControl><Input placeholder={t('enterContactPersonName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('registerButton')}
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="text-center text-sm">
           <p className="text-muted-foreground">
-            {t('alreadyHaveAccount')}{" "} {/* Add 'alreadyHaveAccount' to JSON */}
+            {t('alreadyHaveAccount')}{" "}
             <Link href="/auth/login" className="text-primary hover:underline">
-              {t('loginHere')} {/* Add 'loginHere' to JSON */}
+              {t('loginHere')}
             </Link>
           </p>
         </CardFooter>
