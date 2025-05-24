@@ -52,11 +52,9 @@ export default function LoginPage() {
         </Link>
         <p className="text-muted-foreground">
           {t('needAccount')}{" "}
-          <Link href="/auth/register-company" passHref legacyBehavior>
-             <Button variant="link" className="text-primary p-0 h-auto" asChild>
-              <a>{t('registerCompanyLink')}</a> {/* Add 'registerCompanyLink' to JSON e.g., "Register as a Company" */}
-            </Button>
-          </Link>
+          <Button variant="link" className="text-primary p-0 h-auto" asChild>
+            <Link href="/auth/register-company">{t('registerCompanyLink')}</Link>
+          </Button>
         </p>
          <p className="text-xs text-muted-foreground mt-2">
           {t('individualUserNote')}{" "} {/* Add 'individualUserNote' to JSON e.g., "Individual users for dormitory bookings do not need to register here." */}
