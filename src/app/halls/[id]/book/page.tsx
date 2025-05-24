@@ -9,6 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Presentation, AlertCircle } from "lucide-react";
 import type { BookingItem } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Added import
 
 const getHallOrSectionDetails = (id: string): BookingItem | null => {
   // Placeholder: combine sample halls and sections for lookup
