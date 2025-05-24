@@ -76,6 +76,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             } else if (typeof userDataFromDb.createdAt === 'string') {
               createdAtString = userDataFromDb.createdAt;
             } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number') {
+              // Handle cases where Timestamp might be a plain object (e.g., from server-side rendering or cache)
               createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
             }
 
@@ -92,13 +93,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             };
             setUser(processedUserData);
           } else {
-            console.warn("User document not found in Firestore for UID:", fbUser.uid, "- Signing out.");
-            await firebaseSignOut(auth); 
-            setUser(null);
-            setFirebaseUser(null);
+            // User exists in Firebase Auth but not in Firestore users collection.
+            // This could be an inconsistent state. Sign them out.
+            console.warn("User document not found in Firestore for UID:", fbUser.uid, "- Signing out to prevent inconsistent state.");
+            await firebaseSignOut(auth); // This will trigger onAuthStateChanged again with fbUser = null
+            setUser(null); // Explicitly clear local user state
+            setFirebaseUser(null); // Explicitly clear local firebase user state
           }
         } catch (error) {
           console.error("Error fetching user document from Firestore:", error);
+           // Potentially sign out user if Firestore read fails critically
            await firebaseSignOut(auth); 
            setUser(null);
            setFirebaseUser(null);
@@ -116,6 +120,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const fbUserInstance = userCredential.user;
+      // At this point, onAuthStateChanged will handle fetching the user document and setting the user state.
+      // We can return the AppUser if we refetch it here, or rely on onAuthStateChanged.
+      // For simplicity and to avoid race conditions, often it's better to let onAuthStateChanged be the source of truth.
+      // However, for immediate feedback, we can fetch and return here.
       const userDocRef = doc(db, "users", fbUserInstance.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -142,17 +150,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAt: createdAtString,
         };
         setLoading(false);
-        return appUserData; // setUser will be handled by onAuthStateChanged
+        // setUser(appUserData); // onAuthStateChanged also does this, this might be redundant or cause a quick double set.
+        return appUserData;
       } else {
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth); 
+        await firebaseSignOut(auth); // Sign out if Firestore data is missing
         setLoading(false);
         throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error) {
       console.error("Login error:", error);
       setLoading(false);
-      throw error; 
+      throw error; // Re-throw the error so UI can handle it
     }
   }, []);
 
@@ -160,33 +169,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     async (companyDetails: CompanyDetails): Promise<AppUser | null> => {
       setLoading(true);
       try {
+        // Check if email already exists in users collection (Firestore check, Auth also checks but this is more specific to roles)
         const usersRef = collection(db, "users");
         const q = query(usersRef, where("email", "==", companyDetails.email));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
+          // Firebase Auth createUserWithEmailAndPassword will also throw 'auth/email-already-in-use'
+          // but this custom check can be more specific if needed, or preempt the Auth call.
           throw { code: 'auth/email-already-in-use', message: 'This email address is already in use by another account.' };
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
         const fbUserInstance = userCredential.user;
         
-        const companyId = `comp-${fbUserInstance.uid.substring(0, 10)}`;
+        // Create a more unique companyId, e.g., based on user UID
+        const companyId = `comp-${fbUserInstance.uid.substring(0, 10)}`; // Example company ID
 
         const newCompanyUserDocData = {
           email: companyDetails.email,
-          name: companyDetails.name, 
+          name: companyDetails.name, // This is contact person's name
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative' as AppUser['role'],
           approvalStatus: 'pending' as AppUser['approvalStatus'],
           companyId: companyId,
-          createdAt: serverTimestamp(), 
+          createdAt: serverTimestamp(), // Use serverTimestamp for consistent time
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
         
         setLoading(false);
-        return {
+        // onAuthStateChanged will pick up the new user and Firestore doc
+        return { // Return the newly created user profile structure
             id: fbUserInstance.uid,
             email: companyDetails.email,
             name: companyDetails.name,
@@ -195,11 +209,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'company_representative',
             approvalStatus: 'pending',
             companyId: companyId,
+            // createdAt will be a server timestamp, so not immediately available as string here
         };
       } catch (error) {
         console.error("Company signup error:", error);
         setLoading(false);
-        throw error; 
+        throw error; // Re-throw for UI handling
       }
     },
     []
@@ -227,7 +242,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
         setLoading(false);
-        return {
+        return { // Return the newly created admin profile structure
             id: fbUserInstance.uid,
             email: adminDetails.email,
             name: adminDetails.name,
@@ -246,8 +261,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-      setUser(null); 
-      setFirebaseUser(null); 
+      setUser(null); // Ensure local state is cleared
+      setFirebaseUser(null); // Ensure local firebase user state is cleared
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -259,6 +274,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
+        // If the updated user is the currently logged-in user, refresh their local state
         if (user && user.id === userId) {
           const updatedUserDocSnap = await getDoc(userDocRef);
           if (updatedUserDocSnap.exists()) {
@@ -289,8 +305,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error("Error updating user document:", error);
         throw error;
     }
-  }, [user]);
+  }, [user]); // Depend on `user` to correctly refresh if it's the current user
 
+  // Memoize the context value to prevent unnecessary re-renders of consumers
+  // This object identity will only change if one of its dependencies changes.
   const contextValue: AuthState = useMemo(() => ({
     user,
     firebaseUser,
@@ -316,5 +334,3 @@ export const useAuth = (): AuthState => {
   }
   return context;
 };
-
-    
