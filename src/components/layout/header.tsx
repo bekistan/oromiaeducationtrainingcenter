@@ -48,7 +48,7 @@ export function Header() {
           {!loading && !user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">{t('testLogin')}</Button> {/* Add 'testLogin' to JSON */}
+                <Button variant="outline" size="sm"><span>{t('testLogin')}</span></Button> {/* Add 'testLogin' to JSON */}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{t('loginAs')}</DropdownMenuLabel> {/* Add 'loginAs' to JSON */}
@@ -85,9 +85,9 @@ export function Header() {
               <Link href="/auth/login" passHref>
                 <Button variant="outline" size="sm">{t('login')}</Button>
               </Link>
-              <Link href="/auth/register-company" passHref>
-                <Button size="sm" className="hidden sm:inline-flex">{t('registerCompanyButton')}</Button> {/* Add 'registerCompanyButton', e.g. "Company Signup" */}
-              </Link>
+              <Button asChild size="sm" className="hidden sm:inline-flex">
+                 <Link href="/auth/register-company">{t('registerCompanyButton')}</Link> 
+              </Button>
             </>
           )}
 
