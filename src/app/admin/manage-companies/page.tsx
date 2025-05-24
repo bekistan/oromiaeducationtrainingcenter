@@ -7,52 +7,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth"; // Use new auth
 import type { User } from "@/types";
 import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
-
-// Placeholder data for seeding (from useAuth previously)
-const MOCK_COMPANY_USER_APPROVED_SEED: Omit<User, 'id' | 'role'> = {
-  email: 'company@example.com',
-  name: 'Approved Company Rep (Seeded)',
-  companyId: 'comp001_seeded',
-  companyName: 'Tech Solutions Inc. (Seeded)',
-  approvalStatus: 'approved',
-};
-
-const MOCK_COMPANY_USER_PENDING_SEED: Omit<User, 'id' | 'role'> = {
-  email: 'pending.company@example.com',
-  name: 'Pending Company Rep (Seeded)',
-  companyId: 'comp002_seeded',
-  companyName: 'New Ventures LLC (Seeded)',
-  approvalStatus: 'pending',
-};
+import { collection, getDocs, query, where } from 'firebase/firestore'; // Removed writeBatch, doc, updateDoc for now, will use hook's update
 
 export default function ManageCompaniesPage() {
   const { t } = useLanguage();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUserDocument } = useAuth(); // Use new auth and updateUserDocument
   const router = useRouter();
   const { toast } = useToast();
   const [companies, setCompanies] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
+  // Removed isSeeding and handleSeedData as companies are now created via real registration
 
   const fetchCompanies = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Fetch users with role 'company_representative' OR directly from a 'companies' collection if you structure it that way.
-      // For now, assuming companies are users with a specific role and approvalStatus.
       const q = query(collection(db, "users"), where("role", "==", "company_representative"));
       const querySnapshot = await getDocs(q);
       const companiesData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
       setCompanies(companiesData);
     } catch (error) {
       console.error("Error fetching companies: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingCompanies') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingCompanies') });
     } finally {
       setIsLoading(false);
     }
@@ -62,42 +43,18 @@ export default function ManageCompaniesPage() {
     if (!authLoading && (user?.role === 'admin' || user?.role === 'superadmin')) {
       fetchCompanies();
     } else if (!authLoading) {
-      setIsLoading(false); // Not an admin, so stop loading
+      setIsLoading(false); 
     }
   }, [authLoading, user, fetchCompanies]);
 
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const batch = writeBatch(db);
-      const companiesToSeed = [MOCK_COMPANY_USER_APPROVED_SEED, MOCK_COMPANY_USER_PENDING_SEED];
-      
-      companiesToSeed.forEach(companyData => {
-        const userRef = doc(collection(db, "users"));
-        batch.set(userRef, { ...companyData, role: 'company_representative' });
-      });
-      
-      await batch.commit();
-      toast({ title: t('success'), description: t('companyDataSeeded') }); // Add to JSON
-      fetchCompanies();
-    } catch (error) {
-      console.error("Error seeding companies: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingCompanies') }); // Add to JSON
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
-
   const handleApproval = async (companyId: string, newStatus: 'approved' | 'rejected') => {
     try {
-      const companyRef = doc(db, "users", companyId); // Assuming companies are in 'users' collection
-      await updateDoc(companyRef, { approvalStatus: newStatus });
+      await updateUserDocument(companyId, { approvalStatus: newStatus });
       toast({
         title: t('statusUpdated'),
         description: t('companyStatusUpdated', { companyId: companyId.substring(0,6)+"...", status: t(newStatus) }),
       });
-      fetchCompanies(); // Refresh list
+      fetchCompanies(); 
     } catch (error) {
       console.error("Error updating company status: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('failedToUpdateStatus') });
@@ -139,11 +96,7 @@ export default function ManageCompaniesPage() {
       {companies.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noCompaniesFoundAdminCta')}</p> {/* Add to JSON: "No companies found. Would you like to add some initial sample company data?" */}
-            <Button onClick={handleSeedData} disabled={isSeeding}>
-              {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('seedInitialCompanies')} {/* Add to JSON */}
-            </Button>
+            <p>{t('noCompaniesFoundAdmin')}</p> {/* Add to JSON: "No companies have registered yet." */}
           </CardContent>
         </Card>
       )}

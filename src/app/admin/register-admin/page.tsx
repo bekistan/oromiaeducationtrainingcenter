@@ -10,15 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth"; // Still needed for role check
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { UserPlus, ShieldAlert, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-// Firebase auth for creating user credentials would go here in a real app
-// import { createUserWithEmailAndPassword } from "firebase/auth";
-// import { auth } from '@/lib/firebase';
 
 const adminRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
@@ -30,7 +25,7 @@ type AdminRegistrationValues = z.infer<typeof adminRegistrationSchema>;
 
 export default function RegisterAdminPage() {
   const { t } = useLanguage();
-  const { user, loading: authLoading } = useAuth(); // useAuth for checking if current user is superadmin
+  const { user, loading: authLoading, signupAdmin } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -62,19 +57,11 @@ export default function RegisterAdminPage() {
   async function onSubmit(data: AdminRegistrationValues) {
     setIsSubmitting(true);
     try {
-      // In a real app, first create the user with Firebase Auth:
-      // const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      // const firebaseUser = userCredential.user;
-
-      // Then, save admin details to Firestore 'users' collection
-      const adminData = {
+      await signupAdmin({
         name: data.name,
         email: data.email,
-        role: 'admin',
-        // userId: firebaseUser.uid, // Link to Firebase Auth user
-      };
-
-      await addDoc(collection(db, "users"), adminData);
+        password: data.password,
+      });
 
       toast({
         title: t('adminRegisteredTitle'),
@@ -86,6 +73,8 @@ export default function RegisterAdminPage() {
       let errorMessage = t('unknownError');
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = t('emailAlreadyInUseError');
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = t('weakPasswordError');
       }
       toast({
         variant: "destructive",

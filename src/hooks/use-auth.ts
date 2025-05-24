@@ -1,162 +1,215 @@
 
 "use client";
 
-import type { User } from '@/types';
-import { useState, useEffect, useCallback } from 'react';
-
-// Mock user data
-const MOCK_COMPANY_USER_APPROVED: User = {
-  id: 'compUser123',
-  email: 'company@example.com',
-  role: 'company_representative',
-  name: 'Approved Company Rep',
-  companyId: 'comp001',
-  companyName: 'Tech Solutions Inc.',
-  approvalStatus: 'approved',
-};
-
-const MOCK_COMPANY_USER_PENDING: User = {
-  id: 'compUser789',
-  email: 'pending.company@example.com',
-  role: 'company_representative',
-  name: 'Pending Company Rep',
-  companyId: 'comp002',
-  companyName: 'New Ventures LLC',
-  approvalStatus: 'pending',
-};
-
-const MOCK_COMPANY_USER_REJECTED: User = {
-  id: 'compUserRejected',
-  email: 'rejected.company@example.com',
-  role: 'company_representative',
-  name: 'Rejected Company Rep',
-  companyId: 'comp003_rejected',
-  companyName: 'Old Business Ltd.',
-  approvalStatus: 'rejected',
-};
-
-
-const MOCK_INDIVIDUAL_USER: User = {
-  id: 'indUser456',
-  email: 'individual@example.com',
-  role: 'individual',
-  name: 'John Doe',
-};
-
-const MOCK_ADMIN_USER: User = {
-    id: 'adminUser789',
-    email: 'admin@example.com',
-    role: 'admin',
-    name: 'Admin User',
-};
-
-const MOCK_SUPER_ADMIN_USER: User = {
-    id: 'superAdminUser001',
-    email: 'superadmin@example.com',
-    role: 'superadmin',
-    name: 'Super Admin User',
-};
-
+import type { User as AppUser } from '@/types';
+import React, { useState, useEffect, useCallback, useContext, createContext, ReactNode } from 'react';
+import { auth, db } from '@/lib/firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  type User as FirebaseUser,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 interface AuthState {
-  user: User | null;
+  user: AppUser | null;
+  firebaseUser: FirebaseUser | null;
   loading: boolean;
-  loginAsCompany: (status?: 'approved' | 'pending' | 'rejected') => void;
-  loginAsIndividual: () => void;
-  loginAsAdmin: () => void;
-  loginAsSuperAdmin: () => void;
-  logout: () => void;
-  registerCompany: (companyDetails: Omit<User, 'id' | 'role' | 'approvalStatus'>) => User; // Mock registration
+  login: (email: string, pass: string) => Promise<AppUser | null>;
+  signupCompany: (
+    companyDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId'> & { password?: string }
+  ) => Promise<AppUser | null>;
+  signupAdmin: (
+    adminDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId' | 'companyName'> & { password?: string }
+  ) => Promise<AppUser | null>;
+  logout: () => Promise<void>;
+  updateUserDocument: (userId: string, data: Partial<AppUser>) => Promise<void>;
 }
 
-const AUTH_STORAGE_KEY = 'mockAuthUser';
+const AuthContext = createContext<AuthState | undefined>(undefined);
 
-// Mock database for registered companies
-let mockRegisteredCompanies: User[] = [MOCK_COMPANY_USER_APPROVED, MOCK_COMPANY_USER_PENDING, MOCK_COMPANY_USER_REJECTED];
-
-export const useAuth = (): AuthState => {
-  const [user, setUser] = useState<User | null>(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      if (fbUser) {
+        const userDocRef = doc(db, "users", fbUser.uid);
+        try {
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            setUser({ id: fbUser.uid, ...userDocSnap.data() } as AppUser);
+          } else {
+            console.warn("User document not found in Firestore for UID:", fbUser.uid);
+            setUser(null);
+          }
+        } catch (error) {
+            console.error("Error fetching user document from Firestore:", error);
+            setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const login = useCallback(async (email: string, pass: string): Promise<AppUser | null> => {
+    setLoading(true);
     try {
-      const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      const fbUser = userCredential.user;
+      const userDocRef = doc(db, "users", fbUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const appUserData = { id: fbUser.uid, ...userDocSnap.data() } as AppUser;
+        setUser(appUserData);
+        setFirebaseUser(fbUser);
+        setLoading(false);
+        return appUserData;
+      } else {
+        console.error("Firestore document not found for logged in user:", fbUser.uid);
+        await firebaseSignOut(auth);
+        setUser(null);
+        setFirebaseUser(null);
+        setLoading(false);
+        throw new Error("User data not found in database.");
       }
     } catch (error) {
-      console.error("Failed to parse stored user:", error);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-    setLoading(false);
-  }, []);
-
-  const updateUserState = (newUser: User | null) => {
-    setUser(newUser);
-    if (newUser) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    }
-  };
-
-  const loginAsCompany = useCallback((status: 'approved' | 'pending' | 'rejected' = 'approved') => {
-    if (status === 'pending') {
-        updateUserState(MOCK_COMPANY_USER_PENDING);
-    } else if (status === 'rejected') {
-        updateUserState(MOCK_COMPANY_USER_REJECTED);
-    } else {
-        updateUserState(MOCK_COMPANY_USER_APPROVED);
+      console.error("Login error:", error);
+      setUser(null);
+      setFirebaseUser(null);
+      setLoading(false);
+      throw error;
     }
   }, []);
 
-  const loginAsIndividual = useCallback(() => {
-    updateUserState(MOCK_INDIVIDUAL_USER);
+  const signupCompany = useCallback(
+    async (
+      companyDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId'> & { password?: string }
+    ): Promise<AppUser | null> => {
+      if (!companyDetails.email || !companyDetails.password) {
+        throw new Error("Email and password are required for signup.");
+      }
+      setLoading(true);
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("email", "==", companyDetails.email));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            throw { code: 'auth/email-already-in-use', message: 'This email address is already in use by another account (Firestore check).' };
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
+        const fbUser = userCredential.user;
+
+        const newCompanyUser: AppUser = {
+          id: fbUser.uid,
+          email: companyDetails.email,
+          name: companyDetails.name, 
+          companyName: companyDetails.companyName,
+          phone: companyDetails.phone,
+          role: 'company_representative',
+          approvalStatus: 'pending',
+          companyId: `comp-${fbUser.uid.substring(0, 10)}`,
+        };
+
+        await setDoc(doc(db, "users", fbUser.uid), newCompanyUser);
+        setLoading(false);
+        return newCompanyUser;
+      } catch (error) {
+        console.error("Company signup error:", error);
+        setLoading(false);
+        throw error;
+      }
+    },
+    []
+  );
+
+  const signupAdmin = useCallback(
+    async (
+      adminDetails: Omit<AppUser, 'id' | 'role' | 'approvalStatus' | 'companyId' | 'companyName'> & { password?: string }
+    ): Promise<AppUser | null> => {
+      if (!adminDetails.email || !adminDetails.password) {
+        throw new Error("Email and password are required for admin signup.");
+      }
+      setLoading(true);
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
+        const fbUser = userCredential.user;
+
+        const newAdminUser: AppUser = {
+          id: fbUser.uid,
+          email: adminDetails.email,
+          name: adminDetails.name,
+          role: 'admin',
+        };
+
+        await setDoc(doc(db, "users", fbUser.uid), newAdminUser);
+        setLoading(false);
+        return newAdminUser;
+      } catch (error) {
+        console.error("Admin signup error:", error);
+        setLoading(false);
+        throw error;
+      }
+    },
+    []
+  );
+
+  const logout = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    try {
+      await firebaseSignOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const loginAsAdmin = useCallback(() => {
-    updateUserState(MOCK_ADMIN_USER);
-  }, []);
+  const updateUserDocument = useCallback(async (userId: string, data: Partial<AppUser>): Promise<void> => {
+    const userDocRef = doc(db, "users", userId);
+    await updateDoc(userDocRef, data);
+    if (user && user.id === userId) {
+      const updatedUserDocSnap = await getDoc(userDocRef);
+      if (updatedUserDocSnap.exists()) {
+        setUser({ id: userId, ...updatedUserDocSnap.data() } as AppUser);
+      }
+    }
+  }, [user]);
 
-  const loginAsSuperAdmin = useCallback(() => {
-    updateUserState(MOCK_SUPER_ADMIN_USER);
-  }, []);
-  
-  const registerCompany = useCallback((companyDetails: Omit<User, 'id' | 'role' | 'approvalStatus'>): User => {
-    const newCompany: User = {
-        ...companyDetails,
-        id: `comp-${Date.now()}`,
-        role: 'company_representative',
-        approvalStatus: 'pending',
-    };
-    mockRegisteredCompanies.push(newCompany);
-    console.log("Mock registered companies:", mockRegisteredCompanies);
-    return newCompany;
-  }, []);
-
-
-  const logout = useCallback(() => {
-    updateUserState(null);
-  }, []);
-
-  return { user, loading, loginAsCompany, loginAsIndividual, loginAsAdmin, loginAsSuperAdmin, logout, registerCompany };
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        firebaseUser,
+        loading,
+        login,
+        signupCompany,
+        signupAdmin,
+        logout,
+        updateUserDocument,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-// Function to get mock companies for admin panel (not part of the hook itself but uses its data)
-export const getMockRegisteredCompanies = () => [...mockRegisteredCompanies];
-export const updateMockCompanyStatus = (companyId: string, newStatus: 'approved' | 'rejected'): boolean => {
-    const companyIndex = mockRegisteredCompanies.findIndex(c => c.id === companyId);
-    if (companyIndex > -1) {
-        mockRegisteredCompanies[companyIndex].approvalStatus = newStatus;
-        const storedUser = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (storedUser) {
-            const currentUser: User = JSON.parse(storedUser);
-            if (currentUser.id === companyId) {
-                currentUser.approvalStatus = newStatus;
-                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-            }
-        }
-        return true;
-    }
-    return false;
+export const useAuth = (): AuthState => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

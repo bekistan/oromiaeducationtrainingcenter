@@ -10,69 +10,69 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { LockKeyhole, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { t } = useLanguage();
-  const { loginAsIndividual, loginAsCompany, loginAsAdmin, loginAsSuperAdmin } = useAuth();
+  const { login, user } = useAuth(); // Use real login
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [emailInput, setEmailInput] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    const normalizedEmail = emailInput.trim().toLowerCase();
-
-    let loggedIn = false;
-    let redirectPath = '/'; // Default redirect
-
-    // Ensure you are using one of these exact emails. Password is ignored for this mock login.
-    // Approved Company: company@example.com
-    // Pending Company:  pending.company@example.com
-    // Rejected Company: rejected.company@example.com
-    // Individual User:  individual@example.com
-    // Admin User:       admin@example.com
-    // Super Admin User: superadmin@example.com
-
-    if (normalizedEmail === 'individual@example.com') {
-      loginAsIndividual();
-      loggedIn = true;
-      redirectPath = '/';
-    } else if (normalizedEmail === 'company@example.com') {
-      loginAsCompany('approved');
-      loggedIn = true;
-      redirectPath = '/company/dashboard';
-    } else if (normalizedEmail === 'pending.company@example.com') {
-      loginAsCompany('pending');
-      loggedIn = true;
-      redirectPath = '/company/dashboard';
-    } else if (normalizedEmail === 'rejected.company@example.com') {
-      loginAsCompany('rejected');
-      loggedIn = true;
-      redirectPath = '/company/dashboard';
-    } else if (normalizedEmail === 'admin@example.com') {
-      loginAsAdmin();
-      loggedIn = true;
-      redirectPath = '/admin/dashboard';
-    } else if (normalizedEmail === 'superadmin@example.com') {
-      loginAsSuperAdmin();
-      loggedIn = true;
-      redirectPath = '/admin/dashboard';
-    }
-
-    if (loggedIn) {
+    try {
+      const loggedInUser = await login(email, password);
       toast({ title: t('loginSuccessful'), description: t('welcomeBack') });
-      router.push(redirectPath);
-    } else {
-      toast({ variant: "destructive", title: t('loginFailed'), description: t('invalidCredentials') });
+      
+      const redirectParam = searchParams.get('redirect');
+
+      if (loggedInUser) {
+        if (redirectParam) {
+          router.push(redirectParam);
+        } else if (loggedInUser.role === 'admin' || loggedInUser.role === 'superadmin') {
+          router.push('/admin/dashboard');
+        } else if (loggedInUser.role === 'company_representative') {
+          router.push('/company/dashboard');
+        } else {
+          router.push('/'); // Default redirect for individual users or other roles
+        }
+      } else {
+         // login function now throws error, so this case might not be reached directly
+         toast({ variant: "destructive", title: t('loginFailed'), description: t('invalidCredentials') });
+      }
+
+    } catch (error: any) {
+      let errorMessage = t('invalidCredentials'); // Default error
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = t('invalidCredentials');
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = t('invalidEmailFormat'); // Add to JSON
+      }
+      // console.error("Firebase login error:", error.code, error.message);
+      toast({ variant: "destructive", title: t('loginFailed'), description: errorMessage });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
+  
+  // Redirect if user is already logged in
+  React.useEffect(() => {
+    if (user) {
+        const redirectParam = searchParams.get('redirect');
+        if (redirectParam) router.push(redirectParam);
+        // else if (user.role === 'admin' || user.role === 'superadmin') router.push('/admin/dashboard');
+        // else if (user.role === 'company_representative') router.push('/company/dashboard');
+        else router.push('/'); // Default to home if already logged in and no specific redirect
+    }
+  }, [user, router, searchParams]);
+
 
   return (
     <Card className="w-full max-w-md shadow-2xl">
@@ -92,8 +92,8 @@ export default function LoginPage() {
               type="email"
               placeholder="user@example.com"
               required
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="space-y-2">
@@ -102,7 +102,7 @@ export default function LoginPage() {
               id="password"
               type="password"
               required
-              placeholder="Password (ignored for mock)"
+              placeholder={t('enterPassword')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -114,9 +114,9 @@ export default function LoginPage() {
         </form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2 text-sm">
-        <Link href="/auth/forgot-password" legacyBehavior passHref>
+        {/* <Link href="/auth/forgot-password" legacyBehavior passHref>
           <a className="text-muted-foreground hover:text-primary hover:underline">{t('forgotPassword')}</a>
-        </Link>
+        </Link> */}
         <p className="text-muted-foreground">
           {t('needAccount')}{" "}
           <Button variant="link" className="text-primary p-0 h-auto" asChild>
