@@ -9,10 +9,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQg",
   authDomain: "oroedu-4a86c.firebaseapp.com",
   projectId: "oroedu-4a86c",
-  storageBucket: "oroedu-4a86c.firebasestorage.app", // Reverted to user-provided value
+  storageBucket: "oroedu-4a86c.firebasestorage.app", // Using your provided value
   messagingSenderId: "337131238082",
   appId: "1:337131238082:web:fc94369715fbdfff96015b",
-  measurementId: "G-B31H6HWF15"
+  measurementId: "G-B31H6HWF15" // measurementId is optional for Auth but included if provided
 };
 
 let app;
