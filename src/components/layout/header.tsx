@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, UserCog, LayoutDashboard, Loader2 } from "lucide-react"; // Added Loader2
+import { Menu, LogOutIcon, UserCog, LayoutDashboard, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Header() {
@@ -37,7 +37,7 @@ export function Header() {
            {isCompanyRep && user.approvalStatus === 'approved' && (
             <Link
               href="/company/dashboard"
-              className="transition-colors hover:text-foreground/80 text-foreground font-medium"
+              className="transition-colors hover:text-foreground/80 text-primary font-semibold"
             >
               <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('dashboard')}
             </Link>
@@ -45,7 +45,7 @@ export function Header() {
           {isAdminOrSuper && (
              <Link
               href="/admin/dashboard"
-              className="transition-colors hover:text-foreground/80 text-foreground font-medium"
+              className="transition-colors hover:text-foreground/80 text-primary font-semibold"
             >
                <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('adminDashboard')}
             </Link>
@@ -97,10 +97,10 @@ export function Header() {
                   </Link>
                 ))}
                 {isCompanyRep && user?.approvalStatus === 'approved' && (
-                  <Link href="/company/dashboard" className="transition-colors hover:text-foreground/80 text-foreground text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}</Link>
+                  <Link href="/company/dashboard" className="transition-colors hover:text-foreground/80 text-primary font-semibold text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}</Link>
                 )}
                 {isAdminOrSuper && (
-                  <Link href="/admin/dashboard" className="transition-colors hover:text-foreground/80 text-foreground text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('adminDashboard')}</Link>
+                  <Link href="/admin/dashboard" className="transition-colors hover:text-foreground/80 text-primary font-semibold text-lg"><LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('adminDashboard')}</Link>
                 )}
                 {!user && !loading && (
                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
@@ -115,3 +115,5 @@ export function Header() {
     </header>
   );
 }
+
+    
