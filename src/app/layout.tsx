@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${GeistSans.variable}`}> {/* Removed GeistMono from className */}
+    <html lang="en" className={GeistSans.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <AuthProvider> {/* Wrap with AuthProvider */}
           <LanguageProvider>
