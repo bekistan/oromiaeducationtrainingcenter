@@ -9,12 +9,12 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, UserCog, LayoutDashboard } from "lucide-react";
+import { Menu, LogOutIcon, UserCog, LayoutDashboard, Loader2 } from "lucide-react"; // Added Loader2
 import { cn } from "@/lib/utils";
 
 export function Header() {
   const { t } = useLanguage();
-  const { user, logout, loading } = useAuth(); // Removed mock login functions
+  const { user, logout, loading } = useAuth(); 
 
   const isCompanyRep = user?.role === 'company_representative';
   const isAdminOrSuper = user?.role === 'admin' || user?.role === 'superadmin';
@@ -54,8 +54,6 @@ export function Header() {
 
         <div className="flex items-center space-x-2">
           <LanguageSwitcher />
-          
-          {/* Removed Test Login DropdownMenu */}
           
           {loading ? (
              <Button variant="ghost" size="sm" disabled>
@@ -109,7 +107,6 @@ export function Header() {
                       {t('registerCompanyButton')}
                     </Link>
                 )}
-                {/* Removed mobile test login options */}
               </nav>
             </SheetContent>
           </Sheet>
