@@ -17,6 +17,11 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
+  collection, // Added
+  query,       // Added
+  where,       // Added
+  getDocs,     // Added
+  limit        // Added
 } from 'firebase/firestore';
 import type { User as AppUserType } from '@/types'; // App's User type
 
@@ -43,6 +48,7 @@ interface AuthState {
   login: (email: string, pass: string) => Promise<AppUserType | null>;
   signupCompany: (companyDetails: CompanyDetails) => Promise<AppUserType | null>;
   signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
+  createInitialSuperAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>; // New
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -73,17 +79,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             if (userDataFromDb.createdAt instanceof Timestamp) {
               createdAtString = userDataFromDb.createdAt.toDate().toISOString();
             } else if (typeof userDataFromDb.createdAt === 'string') {
-              // If it's already a string (e.g., from a previous incorrect save or mock)
               createdAtString = userDataFromDb.createdAt; 
             } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number' && typeof userDataFromDb.createdAt.nanoseconds === 'number') {
-              // Handle object representation of Timestamp if directly from Firestore REST API or similar
               createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
             }
 
             const processedUserData: AppUserType = {
               id: fbUser.uid,
               email: userDataFromDb.email || '',
-              role: userDataFromDb.role || 'individual', // Default role
+              role: userDataFromDb.role || 'individual',
               name: userDataFromDb.name,
               companyId: userDataFromDb.companyId,
               companyName: userDataFromDb.companyName,
@@ -94,14 +98,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             setUser(processedUserData);
           } else {
             console.warn("User document not found in Firestore for UID:", fbUser.uid, "- Signing out to prevent inconsistent state.");
-            // If user exists in Firebase Auth but not in Firestore, something is wrong. Sign them out.
             await firebaseSignOut(auth); 
             setUser(null); 
             setFirebaseUser(null);
           }
         } catch (error) {
           console.error("Error fetching user document from Firestore:", error);
-           // Sign out on error to prevent inconsistent states
            await firebaseSignOut(auth);
            setUser(null);
            setFirebaseUser(null);
@@ -120,8 +122,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, pass);
       const fbUserInstance = userCredential.user;
-      // onAuthStateChanged will handle setting the user state from Firestore
-      // We just need to ensure login was successful and return the user data if needed immediately
       const userDocRef = doc(db, "users", fbUserInstance.uid);
       const userDocSnap = await getDoc(userDocRef);
 
@@ -147,20 +147,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           phone: userDataFromDb.phone,
           createdAt: createdAtString,
         };
-        // setUser(appUserData); // No need to set user here, onAuthStateChanged does it
         setLoading(false);
         return appUserData;
       } else {
-        // This case should ideally not happen if registration creates the Firestore doc
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth); // Sign out to prevent inconsistent state
+        await firebaseSignOut(auth);
         setLoading(false);
         throw new Error("User data not found in database. Please contact support.");
       }
     } catch (error) {
       console.error("Login error:", error);
       setLoading(false);
-      throw error; // Re-throw for the login page to handle
+      throw error;
     }
   }, []);
 
@@ -170,24 +168,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
         const fbUserInstance = userCredential.user;
-        
-        // Create a unique company ID, e.g., using part of UID and timestamp
         const companyId = `comp_${fbUserInstance.uid.substring(0, 10)}_${Date.now().toString(36)}`;
 
         const newCompanyUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: companyDetails.email,
-          name: companyDetails.name, // Contact person's name
+          name: companyDetails.name,
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative' as const,
-          approvalStatus: 'pending' as const, // Companies start as pending
-          companyId: companyId, // Link user to their company
-          createdAt: serverTimestamp(), // Use Firestore server timestamp
+          approvalStatus: 'pending' as const,
+          companyId: companyId,
+          createdAt: serverTimestamp(),
         };
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
         
-        // Construct the AppUserType for immediate return (createdAt will be null/undefined until fetched)
         const registeredUser: AppUserType = {
             id: fbUserInstance.uid,
             email: companyDetails.email,
@@ -197,15 +192,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'company_representative',
             approvalStatus: 'pending',
             companyId: companyId,
-            createdAt: new Date().toISOString(), // Placeholder, will be updated on next fetch
+            createdAt: new Date().toISOString(), 
         };
-        // setUser(registeredUser); // onAuthStateChanged will handle this
         setLoading(false);
         return registeredUser;
       } catch (error) {
         console.error("Company signup error:", error);
         setLoading(false);
-        throw error; // Re-throw for the registration page to handle
+        throw error;
       }
     },
     []
@@ -213,23 +207,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signupAdmin = useCallback(
     async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
-      // This check should ideally be done with more robust server-side validation
-      // or by protecting the route/function that calls this.
       if (user?.role !== 'superadmin') {
         console.error("Unauthorized attempt to sign up admin.");
+        setLoading(false);
         throw new Error("Only superadmins can register new admins.");
       }
       setLoading(true);
       try {
-        // Note: This creates the user in Firebase Auth. You might want to use Firebase Admin SDK for this
-        // if you are calling this from a secure backend environment, to avoid client-side admin creation.
         const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
         const fbUserInstance = userCredential.user;
 
         const newAdminUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: adminDetails.email,
           name: adminDetails.name,
-          role: 'admin' as const, // New users registered here are admins
+          role: 'admin' as const,
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
@@ -239,43 +230,82 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             email: adminDetails.email,
             name: adminDetails.name,
             role: 'admin',
-            createdAt: new Date().toISOString(), // Placeholder
+            createdAt: new Date().toISOString(), 
         };
-        // setUser(registeredAdmin); // onAuthStateChanged will handle this
         setLoading(false);
         return registeredAdmin;
       } catch (error) {
         console.error("Admin signup error:", error);
         setLoading(false);
-        throw error; // Re-throw for the registration page to handle
+        throw error;
       }
     },
-    [user?.role] // Re-run if current user's role changes (e.g., promoting someone)
+    [user?.role] 
   );
+
+  const createInitialSuperAdmin = useCallback(
+    async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
+      setLoading(true);
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("role", "==", "superadmin"), limit(1));
+        const existingSuperAdminSnapshot = await getDocs(q);
+
+        if (!existingSuperAdminSnapshot.empty) {
+          setLoading(false);
+          throw new Error("A Super Admin account already exists. Cannot create another one.");
+        }
+
+        const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
+        const fbUserInstance = userCredential.user;
+
+        const newSuperAdminUserDocData: Omit<AppUserType, 'id' |'createdAt'> & { createdAt: any } = {
+          email: adminDetails.email,
+          name: adminDetails.name,
+          role: 'superadmin' as const,
+          createdAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, "users", fbUserInstance.uid), newSuperAdminUserDocData);
+        
+        const registeredSuperAdmin: AppUserType = {
+            id: fbUserInstance.uid,
+            email: adminDetails.email,
+            name: adminDetails.name,
+            role: 'superadmin',
+            createdAt: new Date().toISOString(),
+        };
+        // The onAuthStateChanged listener will pick up the new user and set the state.
+        // No explicit login call needed here as createUserWithEmailAndPassword signs the user in.
+        setLoading(false);
+        return registeredSuperAdmin;
+      } catch (error) {
+        console.error("Initial Super Admin creation error:", error);
+        setLoading(false);
+        throw error;
+      }
+    },
+    []
+  );
+
 
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will set user and firebaseUser to null
+      setUser(null); 
+      setFirebaseUser(null);
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Ensure states are cleared even if onAuthStateChanged takes time or fails
-      setUser(null); 
-      setFirebaseUser(null);
       setLoading(false);
     }
   }, []);
 
-  // Function to update a user's document in Firestore (e.g., for admin to approve company)
   const updateUserDocument = useCallback(async (userId: string, data: Partial<AppUserType>): Promise<void> => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
-        // If updating the currently logged-in user, refresh their local state
         if (user && user.id === userId) { 
-          // Fetch the updated document to refresh local state
           const updatedUserSnapshot = await getDoc(userDocRef);
           if (updatedUserSnapshot.exists()) {
             const updatedDataFromDb = updatedUserSnapshot.data();
@@ -305,10 +335,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         console.error("Error updating user document:", error);
         throw error;
     }
-  }, [user]); // `user` dependency to refresh current user if their own doc is updated.
+  }, [user]);
 
-  // Memoize the context value to prevent unnecessary re-renders of consumers
-  // if the AuthProvider's props don't change identity (which they don't here)
   const contextValue = useMemo<AuthState>(() => ({
     user,
     firebaseUser,
@@ -316,9 +344,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     signupCompany,
     signupAdmin,
+    createInitialSuperAdmin, // Added
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, createInitialSuperAdmin, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>
@@ -327,7 +356,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   );
 };
 
-// Custom hook to use the auth context
 export const useAuth = (): AuthState => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -335,6 +363,3 @@ export const useAuth = (): AuthState => {
   }
   return context;
 };
-
-    
-    
