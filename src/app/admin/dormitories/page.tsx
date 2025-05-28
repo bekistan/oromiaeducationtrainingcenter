@@ -5,28 +5,20 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox"; // For isAvailable
 import { useLanguage } from "@/hooks/use-language";
 import type { Dormitory } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, Info } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-
-// Placeholder data for seeding
-const sampleDormitoriesForSeed: Omit<Dormitory, 'id'>[] = [
-  { floor: 1, roomNumber: "101A", capacity: 2, isAvailable: true, pricePerDay: 500, images: ["https://placehold.co/300x200.png"], dataAiHint: "dormitory room" },
-  { floor: 1, roomNumber: "102B", capacity: 4, isAvailable: false, pricePerDay: 700, images: ["https://placehold.co/300x200.png"], dataAiHint: "dormitory room" },
-  { floor: 2, roomNumber: "201A", capacity: 2, isAvailable: true, pricePerDay: 550, images: ["https://placehold.co/300x200.png"], dataAiHint: "dormitory room" },
-];
 
 const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
@@ -44,7 +36,6 @@ export default function AdminDormitoriesPage() {
   const { toast } = useToast();
   const [dormitories, setDormitories] = useState<Dormitory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentDormitory, setCurrentDormitory] = useState<Dormitory | null>(null);
@@ -70,11 +61,11 @@ export default function AdminDormitoriesPage() {
     setIsLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, "dormitories"));
-      const dormsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dormitory));
+      const dormsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
       setDormitories(dormsData);
     } catch (error) {
       console.error("Error fetching dormitories: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
     } finally {
       setIsLoading(false);
     }
@@ -84,37 +75,18 @@ export default function AdminDormitoriesPage() {
     fetchDormitories();
   }, [fetchDormitories]);
 
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const batch = writeBatch(db);
-      sampleDormitoriesForSeed.forEach(dorm => {
-        const docRef = doc(collection(db, "dormitories"));
-        batch.set(docRef, dorm);
-      });
-      await batch.commit();
-      toast({ title: t('success'), description: t('dormitoryDataSeeded') }); // Add to JSON
-      fetchDormitories();
-    } catch (error) {
-      console.error("Error seeding dormitories: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingDormitories') }); // Add to JSON
-    } finally {
-      setIsSeeding(false);
-    }
-  };
-
   async function onSubmit(values: DormitoryFormValues) {
     setIsSubmitting(true);
     try {
       const dormData = { ...values, images: values.images ? [values.images] : [] };
       await addDoc(collection(db, "dormitories"), dormData);
-      toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') }); // Add to JSON
+      toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       fetchDormitories();
       form.reset();
       // Close dialog if it's open - manage dialog open state
     } catch (error) {
       console.error("Error adding dormitory: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorAddingDormitory') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorAddingDormitory') });
     } finally {
       setIsSubmitting(false);
     }
@@ -149,7 +121,7 @@ export default function AdminDormitoriesPage() {
   }
   
   const handleDelete = async (dormId: string) => {
-    if (!confirm(t('confirmDeleteDormitory'))) return; // Add to JSON
+    if (!confirm(t('confirmDeleteDormitory'))) return;
     try {
         await deleteDoc(doc(db, "dormitories", dormId));
         toast({ title: t('success'), description: t('dormitoryDeletedSuccessfully') });
@@ -177,7 +149,7 @@ export default function AdminDormitoriesPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{t('addNewDormitory')}</DialogTitle> {/* Add to JSON */}
+              <DialogTitle>{t('addNewDormitory')}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -203,11 +175,7 @@ export default function AdminDormitoriesPage() {
       {dormitories.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noDormitoriesFoundCta')}</p> {/* Add to JSON: "No dormitories found. Would you like to add some initial sample data?" */}
-            <Button onClick={handleSeedData} disabled={isSeeding}>
-              {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('seedInitialDormitories')} {/* Add to JSON */}
-            </Button>
+            <p>{t('noDormitoriesFoundPleaseAdd')}</p> {/* Add to JSON: "No dormitories found. Please add a new one using the button above." */}
           </CardContent>
         </Card>
       )}
@@ -265,7 +233,7 @@ export default function AdminDormitoriesPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('editDormitory')}</DialogTitle> {/* Add to JSON */}
+            <DialogTitle>{t('editDormitory')}</DialogTitle>
           </DialogHeader>
           {currentDormitory && (
             <Form {...editForm}>
