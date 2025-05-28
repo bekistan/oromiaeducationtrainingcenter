@@ -7,12 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useLanguage } from "@/hooks/use-language";
 import { useToast } from "@/hooks/use-toast";
-import { Download, FileSpreadsheet, FileText, CalendarDays, Printer, Loader2 } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, CalendarDays, Printer, Loader2, BarChart3 } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
-import type { Booking, User } from '@/types'; // Assuming User type is defined
+import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer } from 'firebase/firestore';
+import type { Booking } from '@/types';
 
 interface ReportData {
   title: string;
@@ -32,11 +32,13 @@ export default function AdminReportsPage() {
   const formatDate = (date: Date | Timestamp | undefined | string) => {
     if (!date) return 'N/A';
     if (date instanceof Timestamp) return date.toDate().toLocaleDateString();
-    if (typeof date === 'string') return new Date(date).toLocaleDateString();
+    if (typeof date === 'string') {
+      const parsedDate = new Date(date);
+      return isNaN(parsedDate.getTime()) ? 'Invalid Date' : parsedDate.toLocaleDateString();
+    }
     return date.toLocaleDateString();
   };
 
-  // Simulated data fetching functions (to be replaced with actual Firestore queries)
   const generateUserDormReport = async (range?: DateRange): Promise<ReportData> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const q = query(
@@ -52,7 +54,7 @@ export default function AdminReportsPage() {
       title: t('userDormReport'),
       data: bookings.map(b => ({ 
         [t('bookingId')]: b.id.substring(0,8), 
-        [t('guestName')]: b.guestName, 
+        [t('guestName')]: b.guestName || t('notAvailable'), 
         [t('item')]: b.items.map(i=>i.name).join(', '), 
         [t('startDate')]: formatDate(b.startDate), 
         [t('endDate')]: formatDate(b.endDate),
@@ -67,9 +69,6 @@ export default function AdminReportsPage() {
      const q = query(
       collection(db, "bookings"),
       where("paymentStatus", "==", "paid"),
-      // Firestore does not support range filters on different fields.
-      // For a real financial report, you'd typically filter by bookedAt or a paymentDate field if available.
-      // Here, we'll filter by bookedAt for demonstration.
       where("bookedAt", ">=", Timestamp.fromDate(range.from)),
       where("bookedAt", "<=", Timestamp.fromDate(range.to))
     );
@@ -80,7 +79,11 @@ export default function AdminReportsPage() {
     });
     return {
       title: t('financialSummaryReport'),
-      data: { [t('totalRevenue')]: `${totalRevenue.toLocaleString()} ETB`, [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`, [t('bookingsCount')]: snapshot.size },
+      data: { 
+        [t('totalRevenue')]: `${totalRevenue.toLocaleString()} ETB`, 
+        [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`, 
+        [t('bookingsCount')]: snapshot.size 
+      },
       type: 'summary',
     };
   };
@@ -96,41 +99,68 @@ export default function AdminReportsPage() {
     );
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-    // Simplified: just list facility bookings
     return {
       title: t('hallUtilizationReport'),
       data: bookings.map(b => ({ 
         [t('bookingId')]: b.id.substring(0,8), 
-        [t('companyName')]: b.companyName, 
+        [t('companyName')]: b.companyName || t('notAvailable'), 
         [t('item')]: b.items.map(i=>i.name).join(', '), 
         [t('startDate')]: formatDate(b.startDate), 
-        [t('endDate')]: formatDate(b.endDate)
+        [t('endDate')]: formatDate(b.endDate),
+        [t('totalCost')]: `${b.totalCost} ETB`
       })),
       type: 'list',
     };
   };
 
   const generateOccupancyAnalytics = async (range?: DateRange): Promise<ReportData> => {
-    // This would be complex. For now, a placeholder.
-     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
+    if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
+
+    const startTimestamp = Timestamp.fromDate(range.from);
+    const endTimestamp = Timestamp.fromDate(range.to);
+
+    const dormBookingsQuery = query(
+      collection(db, "bookings"),
+      where("bookingCategory", "==", "dormitory"),
+      where("startDate", ">=", startTimestamp),
+      where("startDate", "<=", endTimestamp)
+    );
+    const facilityBookingsQuery = query(
+      collection(db, "bookings"),
+      where("bookingCategory", "==", "facility"),
+      where("startDate", ">=", startTimestamp),
+      where("startDate", "<=", endTimestamp)
+    );
+
+    const [dormSnapshot, facilitySnapshot] = await Promise.all([
+        getCountFromServer(dormBookingsQuery),
+        getCountFromServer(facilityBookingsQuery)
+    ]);
+    
+    const dormBookingsCount = dormSnapshot.data().count;
+    const facilityBookingsCount = facilitySnapshot.data().count;
+
     return {
       title: t('occupancyAnalyticsReport'),
-      data: { [t('note')]: t('complexReportPlaceholder') },
+      data: { 
+        [t('dormitoryBookings')]: dormBookingsCount,
+        [t('facilityBookings')]: facilityBookingsCount,
+        [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`
+      },
       type: 'summary',
     };
   };
 
   const generatePeriodicDormBookings = async (period: 'daily' | 'weekly' | 'monthly', range?: DateRange): Promise<ReportData> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
-    // Actual implementation would involve grouping by day/week/month.
-    // For now, just fetch relevant dorm bookings.
+    
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
       where("startDate", "<=", Timestamp.fromDate(range.to)),
       orderBy("startDate", "desc"),
-      limit(20) // Limit for preview
+      limit(30) // Limit for preview
     );
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
@@ -143,9 +173,10 @@ export default function AdminReportsPage() {
     return {
       title: t(reportTitleKey),
       data: bookings.map(b => ({ 
-        [t('guestName')]: b.guestName, 
+        [t('guestName')]: b.guestName || t('notAvailable'), 
         [t('roomNumber')]: b.items.map(i=>i.name).join(', '), 
-        [t('dates')]: `${formatDate(b.startDate)} - ${formatDate(b.endDate)}`
+        [t('dates')]: `${formatDate(b.startDate)} - ${formatDate(b.endDate)}`,
+        [t('totalCost')]: `${b.totalCost} ETB`
       })),
       type: 'list',
     };
@@ -164,6 +195,7 @@ export default function AdminReportsPage() {
       setReportData(data);
       setIsReportDialogOpen(true);
     } catch (error: any) {
+      console.error(`Error generating report "${titleKey}":`, error);
       toast({ variant: "destructive", title: t('errorGeneratingReport'), description: error.message || t('unknownError') });
     } finally {
       setIsLoadingReport(false);
@@ -175,7 +207,7 @@ export default function AdminReportsPage() {
     { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel/PDF", action: () => handleGenerateReport(() => generateUserDormReport(dateRange), "userDormReport") },
     { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF", action: () => handleGenerateReport(() => generateFinancialSummary(dateRange), "financialSummaryReport") },
     { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel/PDF", action: () => handleGenerateReport(() => generateHallUtilizationReport(dateRange), "hallUtilizationReport") },
-    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF", action: () => handleGenerateReport(() => generateOccupancyAnalytics(dateRange), "occupancyAnalyticsReport") },
+    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <BarChart3 className="h-8 w-8 text-primary" />, format: "PDF", action: () => handleGenerateReport(() => generateOccupancyAnalytics(dateRange), "occupancyAnalyticsReport") },
   ];
 
   const dormitoryReportTypes = [
@@ -190,8 +222,8 @@ export default function AdminReportsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('reportFilters')}</CardTitle> {/* Add to JSON */}
-          <CardDescription>{t('selectDateRangeForReports')}</CardDescription> {/* Add to JSON */}
+          <CardTitle>{t('reportFilters')}</CardTitle>
+          <CardDescription>{t('selectDateRangeForReports')}</CardDescription>
         </CardHeader>
         <CardContent>
           <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
@@ -256,39 +288,43 @@ export default function AdminReportsPage() {
             <DialogTitle>{currentReportTitle || t('reportPreview')}</DialogTitle>
           </DialogHeader>
           <div className="overflow-y-auto py-4 px-1 flex-grow">
-            {reportData?.data && Object.keys(reportData.data).length > 0 ? (
+            {reportData?.data && (Array.isArray(reportData.data) ? reportData.data.length > 0 : Object.keys(reportData.data).length > 0) ? (
               reportData.type === 'list' && Array.isArray(reportData.data) ? (
                 <div className="space-y-2">
                   {reportData.data.length > 0 ? reportData.data.map((item, index) => (
                     <Card key={index} className="p-3 text-sm">
                       {Object.entries(item).map(([key, value]) => (
-                        <div key={key} className="flex justify-between">
+                        <div key={key} className="flex justify-between py-0.5 border-b border-border/50 last:border-b-0">
                           <span className="font-medium text-muted-foreground">{key}:</span>
-                          <span>{String(value)}</span>
+                          <span className="text-right">{String(value)}</span>
                         </div>
                       ))}
                     </Card>
-                  )) : <p>{t('noDataForReport')}</p>}
+                  )) : <p className="text-center text-muted-foreground">{t('noDataForReport')}</p>}
                 </div>
-              ) : reportData.type === 'summary' && typeof reportData.data === 'object' ? (
+              ) : reportData.type === 'summary' && typeof reportData.data === 'object' && !Array.isArray(reportData.data) ? (
                  <div className="space-y-1">
                     {Object.entries(reportData.data).map(([key, value]) => (
                        <div key={key} className="flex justify-between text-sm p-2 border-b">
                           <span className="font-medium text-muted-foreground">{key}:</span>
-                          <span className="font-semibold">{String(value)}</span>
+                          <span className="font-semibold text-right">{String(value)}</span>
                         </div>
                     ))}
                  </div>
-              ) : <p>{t('noDataForReport')}</p>
+              ) : <p className="text-center text-muted-foreground">{t('noDataForReport')}</p>
             ) : (
-              <p>{t('noDataForReport')}</p>
+              <p className="text-center text-muted-foreground">{t('noDataForReport')}</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>{t('close')}</Button>
+            {/* Placeholder for actual download/print if file was generated */}
+            {/* <Button onClick={() => alert('Actual download/print not implemented yet.')}><Download className="mr-2 h-4 w-4" /> {t('download')}</Button> */}
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+    
