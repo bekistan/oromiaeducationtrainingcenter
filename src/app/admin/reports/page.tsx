@@ -31,12 +31,12 @@ export default function AdminReportsPage() {
 
   const formatDate = (date: Date | Timestamp | undefined | string) => {
     if (!date) return 'N/A';
-    if (date instanceof Timestamp) return date.toDate().toLocaleDateString();
-    if (typeof date === 'string') {
-      const parsedDate = new Date(date);
-      return isNaN(parsedDate.getTime()) ? 'Invalid Date' : parsedDate.toLocaleDateString();
-    }
-    return date.toLocaleDateString();
+    let d: Date;
+    if (date instanceof Timestamp) d = date.toDate();
+    else if (typeof date === 'string') d = new Date(date);
+    else d = date;
+    
+    return isNaN(d.getTime()) ? t('invalidDate') : d.toLocaleDateString();
   };
 
   const generateUserDormReport = async (range?: DateRange): Promise<ReportData> => {
@@ -45,7 +45,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(range.to)),
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
       orderBy("startDate", "desc")
     );
     const snapshot = await getDocs(q);
@@ -70,7 +70,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("paymentStatus", "==", "paid"),
       where("bookedAt", ">=", Timestamp.fromDate(range.from)),
-      where("bookedAt", "<=", Timestamp.fromDate(range.to))
+      where("bookedAt", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))) // Include full end day
     );
     const snapshot = await getDocs(q);
     let totalRevenue = 0;
@@ -94,7 +94,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(range.to)),
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
       orderBy("startDate", "desc")
     );
     const snapshot = await getDocs(q);
@@ -117,7 +117,7 @@ export default function AdminReportsPage() {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
 
     const startTimestamp = Timestamp.fromDate(range.from);
-    const endTimestamp = Timestamp.fromDate(range.to);
+    const endTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999))); // Include full end day
 
     const dormBookingsQuery = query(
       collection(db, "bookings"),
@@ -143,8 +143,8 @@ export default function AdminReportsPage() {
     return {
       title: t('occupancyAnalyticsReport'),
       data: { 
-        [t('dormitoryBookings')]: dormBookingsCount,
-        [t('facilityBookings')]: facilityBookingsCount,
+        [t('dormitoryBookings')]: dormBookingsCount, // Add to JSON
+        [t('facilityBookings')]: facilityBookingsCount, // Add to JSON
         [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`
       },
       type: 'summary',
@@ -158,9 +158,9 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(range.to)),
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
       orderBy("startDate", "desc"),
-      limit(30) // Limit for preview
+      limit(30) // Limit for preview; full report would need different handling
     );
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
@@ -318,13 +318,9 @@ export default function AdminReportsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>{t('close')}</Button>
-            {/* Placeholder for actual download/print if file was generated */}
-            {/* <Button onClick={() => alert('Actual download/print not implemented yet.')}><Download className="mr-2 h-4 w-4" /> {t('download')}</Button> */}
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
-
-    
