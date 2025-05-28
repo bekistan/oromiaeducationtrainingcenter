@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall } from '@/types';
 import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
@@ -16,7 +16,7 @@ interface DashboardStats {
   totalBookings: number | null;
   totalRevenue: number | null;
   totalUsers: number | null;
-  availableDorms: { available: number; total: number } | null;
+  availableBedsStat: { available: number; total: number } | null;
   availableHalls: { available: number; total: number } | null;
 }
 
@@ -27,7 +27,7 @@ export default function AdminDashboardPage() {
     totalBookings: null,
     totalRevenue: null,
     totalUsers: null,
-    availableDorms: null,
+    availableBedsStat: null,
     availableHalls: null,
   });
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
@@ -55,23 +55,26 @@ export default function AdminDashboardPage() {
       const usersAggregateSnapshot = await getCountFromServer(usersCol);
       const totalUsers = usersAggregateSnapshot.data().count;
       
-      // Available Dorms
+      // Available Beds
       const dormsCol = collection(db, "dormitories");
       const dormsSnapshot = await getDocs(dormsCol);
-      let availableDormCount = 0;
-      dormsSnapshot.forEach(doc => {
-        if ((doc.data() as Dormitory).isAvailable) {
-          availableDormCount++;
+      let availableBedCount = 0;
+      let totalBedCount = 0;
+      dormsSnapshot.forEach(docSnap => {
+        const dormData = docSnap.data() as DocumentData as Dormitory; // Cast to Dormitory
+        totalBedCount += dormData.capacity || 0;
+        if (dormData.isAvailable) {
+          availableBedCount += dormData.capacity || 0;
         }
       });
-      const availableDorms = { available: availableDormCount, total: dormsSnapshot.size };
+      const availableBedsStat = { available: availableBedCount, total: totalBedCount };
 
       // Available Halls/Sections
       const hallsCol = collection(db, "halls");
       const hallsSnapshot = await getDocs(hallsCol);
       let availableHallCount = 0;
-      hallsSnapshot.forEach(doc => {
-        if ((doc.data() as Hall).isAvailable) {
+      hallsSnapshot.forEach(docSnap => {
+        if ((docSnap.data() as DocumentData as Hall).isAvailable) { // Cast to Hall
           availableHallCount++;
         }
       });
@@ -81,7 +84,7 @@ export default function AdminDashboardPage() {
         totalBookings,
         totalRevenue,
         totalUsers,
-        availableDorms,
+        availableBedsStat,
         availableHalls,
       });
 
@@ -139,7 +142,7 @@ export default function AdminDashboardPage() {
     { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats },
     { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `ETB ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats },
     { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats },
-    { titleKey: "availableDorms", value: stats.availableDorms ? `${stats.availableDorms.available} / ${stats.availableDorms.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "dormitories", isLoading: isLoadingStats },
+    { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats }, // Updated key
     { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats },
   ];
 
@@ -243,3 +246,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
