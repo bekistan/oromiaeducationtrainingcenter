@@ -9,10 +9,10 @@ body {
 
 @layer base {
   :root {
-    --background: 30 100% 92%; /* Light Peach/Orange */
+    --background: 35 100% 98%; /* Very Light, almost creamy orange */
     --foreground: 20 50% 25%; /* Dark Brown */
 
-    --card: 30 100% 97%; /* Very Light Peach */
+    --card: 30 100% 97%; /* Very Light Peach - can be same as background or slightly distinct */
     --card-foreground: 20 50% 25%;
 
     --popover: 30 100% 97%;
@@ -45,7 +45,7 @@ body {
     --radius: 0.5rem;
 
     /* Sidebar specific theme variables */
-    --sidebar-background: 35 100% 98%; /* Very Light, almost creamy orange */
+    --sidebar-background: 35 100% 98%; /* Consistent with main background */
     --sidebar-foreground: 20 50% 25%; /* Dark Brown text */
     --sidebar-primary: 200 80% 50%; /* Vibrant Cerulean Blue (same as main primary) */
     --sidebar-primary-foreground: 200 80% 95%; /* Light text for primary (same as main) */
