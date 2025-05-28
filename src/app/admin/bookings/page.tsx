@@ -19,48 +19,14 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-
-// Placeholder data for seeding
-const sampleBookingsForSeed: Omit<Booking, 'id' | 'bookedAt' | 'startDate' | 'endDate'>[] & { startDate: string; endDate: string }[] = [
-  { 
-    bookingCategory: "dormitory", 
-    items: [{ id: "d001_seeded", name: "Room 101A (Seeded)", itemType: "dormitory" }], 
-    guestName: "John Doe (Seeded)", 
-    startDate: "2024-08-01", 
-    endDate: "2024-08-05", 
-    totalCost: 2000, 
-    paymentStatus: "paid", 
-    approvalStatus: "approved", 
-    userId: "indUser456_seeded" 
-  },
-  { 
-    bookingCategory: "facility", 
-    items: [{ id: "h001_seeded", name: "Grand Meeting Hall A (Seeded)", itemType: "hall" }], 
-    companyName: "Tech Solutions Inc. (Seeded)", 
-    contactPerson: "Jane Smith (Rep)",
-    email: "jane@techsolutions.com",
-    phone: "555-0101",
-    startDate: "2024-09-10", 
-    endDate: "2024-09-10", 
-    totalCost: 5000, 
-    paymentStatus: "pending", 
-    approvalStatus: "pending", 
-    userId: "compUser123_seeded",
-    companyId: "comp001_seeded",
-    numberOfAttendees: 50,
-    serviceDetails: { lunch: 'level1' }
-  },
-];
-
 
 export default function AdminBookingsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
@@ -88,33 +54,6 @@ export default function AdminBookingsPage() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
-
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const batch = writeBatch(db);
-      sampleBookingsForSeed.forEach(booking => {
-        const docRef = doc(collection(db, "bookings"));
-        // Convert string dates to Timestamps for Firestore
-        const { startDate, endDate, ...restOfBooking } = booking;
-        const bookingWithTimestamps = {
-          ...restOfBooking,
-          startDate: Timestamp.fromDate(new Date(startDate)),
-          endDate: Timestamp.fromDate(new Date(endDate)),
-          bookedAt: Timestamp.now()
-        };
-        batch.set(docRef, bookingWithTimestamps);
-      });
-      await batch.commit();
-      toast({ title: t('success'), description: t('bookingDataSeeded') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error seeding bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingBookings') });
-    } finally {
-      setIsSeeding(false);
-    }
-  };
 
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     try {
@@ -201,11 +140,7 @@ export default function AdminBookingsPage() {
       {bookings.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noBookingsFoundCta')}</p>
-            <Button onClick={handleSeedData} disabled={isSeeding}>
-              {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('seedInitialBookings')}
-            </Button>
+            <p className="mb-4">{t('noBookingsFoundAdminCta')}</p> {/* Add to JSON: "No bookings found. New bookings will appear here as they are made." */}
           </CardContent>
         </Card>
       )}
@@ -242,7 +177,7 @@ export default function AdminBookingsPage() {
                     {booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}
                     {booking.userId && <span className="text-xs text-muted-foreground block"> (User ID: {booking.userId.substring(0,6)}...)</span>}
                   </TableCell>
-                  <TableCell>{new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
                   <TableCell>{booking.totalCost} ETB</TableCell>
                   <TableCell>
                     {getPaymentStatusBadge(booking.paymentStatus)}
@@ -290,3 +225,5 @@ export default function AdminBookingsPage() {
     </div>
   );
 }
+
+    

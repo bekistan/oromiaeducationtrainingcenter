@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
@@ -15,19 +14,12 @@ import type { Hall } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-
-// Placeholder data for seeding
-const sampleManageableItemsForSeed: Omit<Hall, 'id'>[] = [
-  { name: "Grand Meeting Hall A", itemType: "hall", capacity: 100, isAvailable: true, rentalCost: 5000, lunchServiceCost: 300, refreshmentServiceCost: 100, images: ["https://placehold.co/600x400.png"], dataAiHint: "conference hall", description: "Main hall for large events" },
-  { name: "Training Section Alpha", itemType: "section", capacity: 30, isAvailable: true, rentalCost: 2000, refreshmentServiceCost: 80, images: ["https://placehold.co/600x400.png"], dataAiHint: "training room", description: "Section for training" },
-  { name: "Workshop Area Beta", itemType: "section", capacity: 20, isAvailable: false, rentalCost: 1500, images: ["https://placehold.co/600x400.png"], dataAiHint: "workshop space", description: "Section for workshops" },
-];
 
 const hallSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }),
@@ -48,7 +40,6 @@ export default function AdminHallsAndSectionsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<Hall[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<Hall | null>(null);
@@ -75,12 +66,12 @@ export default function AdminHallsAndSectionsPage() {
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "halls")); // Firestore collection named 'halls'
-      const itemsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
+      const querySnapshot = await getDocs(collection(db, "halls"));
+      const itemsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
       setItems(itemsData);
     } catch (error) {
       console.error("Error fetching halls/sections: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHalls') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHalls') });
     } finally {
       setIsLoading(false);
     }
@@ -89,38 +80,19 @@ export default function AdminHallsAndSectionsPage() {
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
-
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const batch = writeBatch(db);
-      sampleManageableItemsForSeed.forEach(item => {
-        const docRef = doc(collection(db, "halls"));
-        batch.set(docRef, item);
-      });
-      await batch.commit();
-      toast({ title: t('success'), description: t('hallsDataSeeded') }); // Add to JSON
-      fetchItems();
-    } catch (error) {
-      console.error("Error seeding halls/sections: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSeedingHalls') }); // Add to JSON
-    } finally {
-      setIsSeeding(false);
-    }
-  };
   
   async function onSubmit(values: HallFormValues) {
     setIsSubmitting(true);
     try {
       const itemData = { ...values, images: values.images ? [values.images] : [] };
       await addDoc(collection(db, "halls"), itemData);
-      toast({ title: t('success'), description: t('itemAddedSuccessfully') }); // Add to JSON
+      toast({ title: t('success'), description: t('itemAddedSuccessfully') });
       fetchItems();
       form.reset();
-      // Close dialog
+      // Consider closing dialog here if it's open and you have state for it
     } catch (error) {
       console.error("Error adding item: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorAddingItem') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorAddingItem') });
     } finally {
       setIsSubmitting(false);
     }
@@ -131,8 +103,8 @@ export default function AdminHallsAndSectionsPage() {
     editForm.reset({
         ...item,
         images: item.images?.[0] || "",
-        lunchServiceCost: item.lunchServiceCost ?? undefined, // Handle optional number
-        refreshmentServiceCost: item.refreshmentServiceCost ?? undefined, // Handle optional number
+        lunchServiceCost: item.lunchServiceCost ?? undefined,
+        refreshmentServiceCost: item.refreshmentServiceCost ?? undefined,
     });
     setIsEditDialogOpen(true);
   };
@@ -145,8 +117,8 @@ export default function AdminHallsAndSectionsPage() {
       const updatedData = { 
           ...values, 
           images: values.images ? [values.images] : [],
-          lunchServiceCost: values.lunchServiceCost || null, // Store as null if empty
-          refreshmentServiceCost: values.refreshmentServiceCost || null, // Store as null if empty
+          lunchServiceCost: values.lunchServiceCost || null,
+          refreshmentServiceCost: values.refreshmentServiceCost || null,
       };
       await updateDoc(itemRef, updatedData);
       toast({ title: t('success'), description: t('itemUpdatedSuccessfully') });
@@ -162,7 +134,7 @@ export default function AdminHallsAndSectionsPage() {
   }
 
   const handleDelete = async (itemId: string) => {
-    if (!confirm(t('confirmDeleteItem'))) return; // Add to JSON
+    if (!confirm(t('confirmDeleteItem'))) return;
     try {
         await deleteDoc(doc(db, "halls", itemId));
         toast({ title: t('success'), description: t('itemDeletedSuccessfully') });
@@ -189,7 +161,7 @@ export default function AdminHallsAndSectionsPage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{t('addNewHallOrSection')}</DialogTitle> {/* Add to JSON */}
+              <DialogTitle>{t('addNewHallOrSection')}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -218,11 +190,7 @@ export default function AdminHallsAndSectionsPage() {
       {items.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noHallsFoundCta')}</p> {/* Add to JSON: "No halls or sections found. Would you like to add some initial sample data?" */}
-            <Button onClick={handleSeedData} disabled={isSeeding}>
-              {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('seedInitialHalls')} {/* Add to JSON */}
-            </Button>
+            <p>{t('noHallsFoundPleaseAdd')}</p> {/* Add to JSON: "No halls or sections found. Please add a new one using the button above." */}
           </CardContent>
         </Card>
       )}
@@ -280,7 +248,7 @@ export default function AdminHallsAndSectionsPage() {
        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('editItem')}</DialogTitle> {/* Add to JSON */}
+            <DialogTitle>{t('editItem')}</DialogTitle>
           </DialogHeader>
           {currentItem && (
             <Form {...editForm}>
@@ -310,3 +278,5 @@ export default function AdminHallsAndSectionsPage() {
     </div>
   );
 }
+
+    

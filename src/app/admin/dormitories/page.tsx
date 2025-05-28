@@ -175,7 +175,7 @@ export default function AdminDormitoriesPage() {
       {dormitories.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p>{t('noDormitoriesFoundPleaseAdd')}</p> {/* Add to JSON: "No dormitories found. Please add a new one using the button above." */}
+            <p>{t('noDormitoriesFoundPleaseAdd')}</p>
           </CardContent>
         </Card>
       )}
@@ -260,3 +260,5 @@ export default function AdminDormitoriesPage() {
     </div>
   );
 }
+
+    
