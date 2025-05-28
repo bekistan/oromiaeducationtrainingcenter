@@ -2,6 +2,7 @@
 "use client"; // Required for SidebarProvider and its hooks
 
 import type { ReactNode } from 'react';
+import React from 'react'; // Added React import
 import {
   SidebarProvider,
   Sidebar,
