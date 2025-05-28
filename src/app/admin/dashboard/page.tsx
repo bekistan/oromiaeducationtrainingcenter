@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer } from 'firebase/firestore';
-import type { Booking, User, Dormitory, Hall } from '@/types';
+import type { Booking, Dormitory, Hall } from '@/types';
 import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2 } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,8 +39,8 @@ export default function AdminDashboardPage() {
     try {
       // Total Bookings
       const bookingsCol = collection(db, "bookings");
-      const bookingsSnapshot = await getCountFromServer(bookingsCol);
-      const totalBookings = bookingsSnapshot.data().count;
+      const bookingsAggregateSnapshot = await getCountFromServer(bookingsCol);
+      const totalBookings = bookingsAggregateSnapshot.data().count;
 
       // Total Revenue
       const paidBookingsQuery = query(bookingsCol, where("paymentStatus", "==", "paid"));
@@ -52,8 +52,8 @@ export default function AdminDashboardPage() {
 
       // Total Users
       const usersCol = collection(db, "users");
-      const usersSnapshot = await getCountFromServer(usersCol);
-      const totalUsers = usersSnapshot.data().count;
+      const usersAggregateSnapshot = await getCountFromServer(usersCol);
+      const totalUsers = usersAggregateSnapshot.data().count;
       
       // Available Dorms
       const dormsCol = collection(db, "dormitories");
@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
 
     } catch (error) {
       console.error("Error fetching dashboard stats: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDashboardStats') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDashboardStats') });
     } finally {
       setIsLoadingStats(false);
     }
@@ -100,18 +100,31 @@ export default function AdminDashboardPage() {
       const querySnapshot = await getDocs(bookingsQuery);
       const bookingsData = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
+        
+        const bookedAt = data.bookedAt instanceof Timestamp 
+          ? data.bookedAt.toDate().toISOString() 
+          : (typeof data.bookedAt === 'string' ? data.bookedAt : new Date().toISOString());
+        
+        const startDate = data.startDate instanceof Timestamp 
+          ? data.startDate.toDate().toISOString().split('T')[0] 
+          : (typeof data.startDate === 'string' ? data.startDate : new Date().toISOString().split('T')[0]);
+        
+        const endDate = data.endDate instanceof Timestamp 
+          ? data.endDate.toDate().toISOString().split('T')[0] 
+          : (typeof data.endDate === 'string' ? data.endDate : new Date().toISOString().split('T')[0]);
+        
         return {
           id: docSnap.id,
           ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+          bookedAt,
+          startDate,
+          endDate,
         } as Booking;
       });
       setRecentBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching recent bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingRecentBookings') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingRecentBookings') });
     } finally {
       setIsLoadingRecentBookings(false);
     }
@@ -181,13 +194,13 @@ export default function AdminDashboardPage() {
                 <ClipboardList className="mr-2 h-5 w-5 text-primary" />
                 {t('recentBookings')}
             </CardTitle>
-            <CardDescription>{t('last5Bookings')}</CardDescription> {/* Add to JSON */}
+            <CardDescription>{t('last5Bookings')}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingRecentBookings ? (
               <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : recentBookings.length === 0 ? (
-              <p className="text-muted-foreground">{t('noRecentBookings')}</p> {/* Add to JSON */}
+              <p className="text-muted-foreground">{t('noRecentBookings')}</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -230,5 +243,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    
