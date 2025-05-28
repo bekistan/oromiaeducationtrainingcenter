@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Suspense } from 'react';
+import React, { Suspense } from 'react'; // Added React import
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
