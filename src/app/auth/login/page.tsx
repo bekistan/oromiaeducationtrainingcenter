@@ -15,7 +15,7 @@ import { LockKeyhole, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { t } = useLanguage();
-  const { login, user } = useAuth(); // Use real login
+  const { login, user } = useAuth(); 
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,33 +43,47 @@ export default function LoginPage() {
         } else {
           router.push('/'); // Default redirect for individual users or other roles
         }
-      } else {
-         // login function now throws error, so this case might not be reached directly
-         toast({ variant: "destructive", title: t('loginFailed'), description: t('invalidCredentials') });
-      }
+      } 
+      // No explicit else needed here, as login() will throw an error if userCredential or Firestore doc is missing
+      // which is caught below.
 
     } catch (error: any) {
       let errorMessage = t('invalidCredentials'); // Default error
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+      if (error.code === 'auth/user-not-found' || 
+          error.code === 'auth/wrong-password' || 
+          error.code === 'auth/invalid-credential') {
         errorMessage = t('invalidCredentials');
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = t('invalidEmailFormat'); // Add to JSON
+        errorMessage = t('invalidEmailFormat'); 
+      } else if (error.message === "userDataMissing") {
+        errorMessage = t('userDataMissingError'); // Add to JSON: "Login successful, but key profile data is missing. Please contact support."
+      } else if (error.message) {
+        // For other errors thrown from useAuth or Firebase that have a message
+        errorMessage = error.message;
       }
-      // console.error("Firebase login error:", error.code, error.message);
+      
       toast({ variant: "destructive", title: t('loginFailed'), description: errorMessage });
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Redirect if user is already logged in
+  // Redirect if user is already logged in and tries to access login page
   React.useEffect(() => {
     if (user) {
         const redirectParam = searchParams.get('redirect');
-        if (redirectParam) router.push(redirectParam);
-        // else if (user.role === 'admin' || user.role === 'superadmin') router.push('/admin/dashboard');
-        // else if (user.role === 'company_representative') router.push('/company/dashboard');
-        else router.push('/'); // Default to home if already logged in and no specific redirect
+        if (redirectParam) {
+            router.push(redirectParam);
+        } else {
+            // More specific default redirects based on role if already logged in
+            if (user.role === 'admin' || user.role === 'superadmin') {
+                router.push('/admin/dashboard');
+            } else if (user.role === 'company_representative') {
+                router.push('/company/dashboard');
+            } else {
+                router.push('/'); 
+            }
+        }
     }
   }, [user, router, searchParams]);
 
@@ -130,3 +144,4 @@ export default function LoginPage() {
     </Card>
   );
 }
+
