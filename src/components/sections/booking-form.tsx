@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -98,7 +98,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || "",
+        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", // Also prefill phone if available from user
         dateRange: (form.getValues() as FacilityBookingValues).dateRange,
         numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
         services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
@@ -120,45 +120,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return;
     }
     
-    const startDate = Timestamp.fromDate(new Date(data.dateRange.from));
-    const endDate = Timestamp.fromDate(new Date(data.dateRange.to));
-
+    // Dates are already Date objects from DatePickerWithRange
+    const startDateObject = new Date(data.dateRange.from);
+    const endDateObject = new Date(data.dateRange.to);
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
       if (item && typeof item.pricePerDay === 'number' && dormData.dateRange?.from && dormData.dateRange.to) {
-        const numberOfDays = differenceInCalendarDays(dormData.dateRange.to, dormData.dateRange.from) + 1;
+        const numberOfDays = differenceInCalendarDays(endDateObject, startDateObject) + 1;
         totalCost = numberOfDays * item.pricePerDay;
 
-        const bookingDataToSave = {
-            bookingCategory,
-            items: itemsToBook,
-            guestName: dormData.fullName,
-            guestEmployer: dormData.employer,
-            // guestIdScanUrl: "placeholder_url_after_upload", // Requires file upload logic
-            startDate,
-            endDate,
-            totalCost,
-            paymentStatus: 'pending', // Will be updated after payment
-            approvalStatus: 'approved', // Dorms usually auto-approved if paid
-            bookedAt: Timestamp.now(),
-            userId: user?.id, // If individual users can log in
-        };
-        // Don't save to DB yet, redirect to payment first.
-        // The actual save will happen after payment confirmation in a real scenario.
-        // For this demo, we'll pass data to Chapa page.
-
         const queryParams = new URLSearchParams({
-            bookingId: bookingIdForPayment, // This is a temporary ID for Chapa page
+            bookingId: bookingIdForPayment, 
             amount: totalCost.toString(),
             itemName: item.name,
             bookingCategory: 'dormitory',
-            // Pass all necessary fields to recreate bookingDataToSave on confirmation page
             guestName: dormData.fullName,
             guestEmployer: dormData.employer,
-            startDate: format(data.dateRange.from, "yyyy-MM-dd"),
-            endDate: format(data.dateRange.to, "yyyy-MM-dd"),
+            startDate: format(startDateObject, "yyyy-MM-dd"),
+            endDate: format(endDateObject, "yyyy-MM-dd"),
             userId: user?.id || "",
             itemIds: itemsToBook.map(i => i.id).join(','),
             itemNames: itemsToBook.map(i => i.name).join(','),
@@ -174,7 +155,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       
     } else { // Facility Booking
       const facilityData = data as FacilityBookingValues;
-      totalCost = itemsToBook.reduce((acc, curr) => acc + (curr.rentalCost || 0), 0); 
+      totalCost = itemsToBook.reduce((acc, curr) => acc + (curr.rentalCost || 0), 0); // Assuming rentalCost is per booking, not per day for facilities
+      // Add cost for services
       if (facilityData.services.lunch !== 'none') totalCost += (facilityData.numberOfAttendees * (facilityData.services.lunch === 'level1' ? 150 : 250) ); // Mock prices
       if (facilityData.services.refreshment !== 'none') totalCost += (facilityData.numberOfAttendees * (facilityData.services.refreshment === 'level1' ? 50 : 100) ); // Mock prices
 
@@ -193,14 +175,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
         phone: facilityData.phone,
-        startDate,
-        endDate,
+        startDate: Timestamp.fromDate(startDateObject),
+        endDate: Timestamp.fromDate(endDateObject),
         numberOfAttendees: facilityData.numberOfAttendees,
         ...(Object.keys(serviceDetails).length > 0 && { serviceDetails }),
         notes: facilityData.notes,
         totalCost,
-        paymentStatus: 'pending',
-        approvalStatus: 'pending',
+        paymentStatus: 'pending' as const,
+        approvalStatus: 'pending' as const,
         bookedAt: Timestamp.now(),
         userId: user?.id,
         companyId: user?.companyId,
@@ -209,10 +191,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         await addDoc(collection(db, "bookings"), bookingData);
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        router.push('/'); // Or a dedicated company dashboard page
+        router.push('/company/dashboard'); // Redirect to company dashboard
       } catch (error) {
         console.error("Error submitting facility booking: ", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') }); // Add to JSON
+        toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
       }
     }
     setIsSubmitting(false);
@@ -232,7 +214,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         </CardHeader>
         <CardContent className="text-center">
           <p>{t('mustBeLoggedInAsCompany')}</p>
-          {/* Optionally add a login button here */}
+           <Button onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)} className="mt-4">
+            {t('login')}
+          </Button>
         </CardContent>
       </Card>
     );
@@ -301,3 +285,4 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
