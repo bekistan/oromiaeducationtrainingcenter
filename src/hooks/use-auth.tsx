@@ -17,11 +17,11 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
-  collection, // Added
-  query,       // Added
-  where,       // Added
-  getDocs,     // Added
-  limit        // Added
+  collection, 
+  query,       
+  where,       
+  getDocs,     
+  limit        
 } from 'firebase/firestore';
 import type { User as AppUserType } from '@/types'; // App's User type
 
@@ -48,7 +48,6 @@ interface AuthState {
   login: (email: string, pass: string) => Promise<AppUserType | null>;
   signupCompany: (companyDetails: CompanyDetails) => Promise<AppUserType | null>;
   signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
-  createInitialSuperAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>; // New
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -147,6 +146,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           phone: userDataFromDb.phone,
           createdAt: createdAtString,
         };
+        // setUser(appUserData); // This will be set by onAuthStateChanged
         setLoading(false);
         return appUserData;
       } else {
@@ -194,6 +194,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             companyId: companyId,
             createdAt: new Date().toISOString(), 
         };
+        // setUser(registeredUser); // This will be set by onAuthStateChanged
         setLoading(false);
         return registeredUser;
       } catch (error) {
@@ -214,6 +215,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
       setLoading(true);
       try {
+        // Note: This creates the user in Firebase Auth.
+        // A separate mechanism might be needed if you want to avoid immediate sign-in
+        // or handle this via Admin SDK in a backend for more control.
+        // For client-side, this implies the superadmin is creating this and might get
+        // temporarily signed out if not handled carefully (though onAuthStateChanged should restore).
         const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
         const fbUserInstance = userCredential.user;
 
@@ -225,6 +231,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
         
+        // It's generally better not to sign in as the new admin immediately.
+        // The superadmin remains logged in.
+        // We can return the created admin's details.
         const registeredAdmin: AppUserType = {
             id: fbUserInstance.uid,
             email: adminDetails.email,
@@ -243,51 +252,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     [user?.role] 
   );
 
-  const createInitialSuperAdmin = useCallback(
-    async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
-      setLoading(true);
-      try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("role", "==", "superadmin"), limit(1));
-        const existingSuperAdminSnapshot = await getDocs(q);
-
-        if (!existingSuperAdminSnapshot.empty) {
-          setLoading(false);
-          throw new Error("A Super Admin account already exists. Cannot create another one.");
-        }
-
-        const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
-        const fbUserInstance = userCredential.user;
-
-        const newSuperAdminUserDocData: Omit<AppUserType, 'id' |'createdAt'> & { createdAt: any } = {
-          email: adminDetails.email,
-          name: adminDetails.name,
-          role: 'superadmin' as const,
-          createdAt: serverTimestamp(),
-        };
-        await setDoc(doc(db, "users", fbUserInstance.uid), newSuperAdminUserDocData);
-        
-        const registeredSuperAdmin: AppUserType = {
-            id: fbUserInstance.uid,
-            email: adminDetails.email,
-            name: adminDetails.name,
-            role: 'superadmin',
-            createdAt: new Date().toISOString(),
-        };
-        // The onAuthStateChanged listener will pick up the new user and set the state.
-        // No explicit login call needed here as createUserWithEmailAndPassword signs the user in.
-        setLoading(false);
-        return registeredSuperAdmin;
-      } catch (error) {
-        console.error("Initial Super Admin creation error:", error);
-        setLoading(false);
-        throw error;
-      }
-    },
-    []
-  );
-
-
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
@@ -305,6 +269,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
+        // If the updated user is the currently logged-in user, refresh their local state
         if (user && user.id === userId) { 
           const updatedUserSnapshot = await getDoc(userDocRef);
           if (updatedUserSnapshot.exists()) {
@@ -344,10 +309,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     signupCompany,
     signupAdmin,
-    createInitialSuperAdmin, // Added
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, createInitialSuperAdmin, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>

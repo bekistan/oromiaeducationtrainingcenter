@@ -8,7 +8,7 @@ import { LanguageSwitcher } from "./language-switcher";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Menu, LogOutIcon, UserCog, LayoutDashboard, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +86,9 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+              <SheetTitle className="sr-only">
+                Navigation Menu
+              </SheetTitle>
               <nav className="flex flex-col space-y-4 mt-8">
                 {PUBLIC_NAVS.map((item) => (
                   <Link

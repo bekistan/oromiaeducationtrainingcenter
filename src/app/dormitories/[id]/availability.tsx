@@ -23,7 +23,6 @@ const DormitoryAvailabilityPage: React.FC = () => {
     if (id) {
       const fetchAvailability = async () => {
         try {
-          setLoading(true);
           setError(null);
           const docRef = doc(db, 'dormitories', id);
           const docSnap = await getDoc(docRef);
@@ -36,14 +35,15 @@ const DormitoryAvailabilityPage: React.FC = () => {
         } catch (err) {
           setError('Failed to fetch availability.');
           console.error(err);
-        } finally {
-          setLoading(false);
         }
       };
       fetchAvailability();
     }
   }, [id]);
 
+  // Simulate a network request delay
+  useEffect(() => { setTimeout(() => setLoading(false), 1000); }, [setLoading]);
+  
   // Applying basic Tailwind classes for layout
   const containerClasses = "container mx-auto p-4 mt-8";
   const headingClasses = "text-2xl font-bold mb-4 text-center";
@@ -80,5 +80,3 @@ const DormitoryAvailabilityPage: React.FC = () => {
 };
 
 export default DormitoryAvailabilityPage;
-        setLoading(false);
-      }, 1000); // Simulate a network request
