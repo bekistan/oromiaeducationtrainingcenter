@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import type { Booking } from '@/types';
-import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { Booking, AgreementStatus } from '@/types'; // Added AgreementStatus
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass } from 'lucide-react'; // Added FileSignature, Hourglass
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore'; // Added doc, updateDoc
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
@@ -26,6 +26,7 @@ export default function CompanyDashboardPage() {
   const router = useRouter();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState<string | null>(null); // bookingId or null
 
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
@@ -40,9 +41,11 @@ export default function CompanyDashboardPage() {
           bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
           startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+          agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
+          agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
         } as Booking;
       });
-      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()));
+      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime()));
     } catch (error) {
       console.error("Error fetching company bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingYourBookings') });
@@ -75,8 +78,27 @@ export default function CompanyDashboardPage() {
   } = useSimpleTable<Booking>({
       initialData: allBookings,
       rowsPerPage: 10,
-      searchKeys: ['id'], // Can add item names if they are simple strings
+      searchKeys: ['id'], 
   });
+
+  const handleConfirmSignedAgreement = async (bookingId: string) => {
+    setIsSubmittingAgreement(bookingId);
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        agreementStatus: 'signed_by_client',
+        agreementSignedAt: Timestamp.now(),
+      });
+      toast({ title: t('success'), description: t('agreementMarkedAsSigned') }); // Add to JSON
+      fetchBookings(user!.companyId!); // Refetch bookings
+    } catch (error) {
+      console.error("Error confirming signed agreement:", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') });
+    } finally {
+      setIsSubmittingAgreement(null);
+    }
+  };
+
 
   if (authLoading) {
     return (
@@ -159,6 +181,23 @@ export default function CompanyDashboardPage() {
     }
   };
 
+  const getAgreementStatusBadge = (status?: AgreementStatus) => {
+    if (!status) return <Badge variant="outline">{t('notApplicable')}</Badge>;
+    switch (status) {
+      case 'pending_admin_action':
+        return <Badge className="bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200">{t('pendingAdminAction')}</Badge>;
+      case 'sent_to_client':
+        return <Badge className="bg-cyan-100 text-cyan-700 border-cyan-300 hover:bg-cyan-200">{t('sentToClient')}</Badge>;
+      case 'signed_by_client':
+        return <Badge className="bg-teal-100 text-teal-700 border-teal-300 hover:bg-teal-200">{t('signedByClient')}</Badge>;
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t('completed')}</Badge>;
+      default:
+        return <Badge variant="secondary">{t(status)}</Badge>;
+    }
+  };
+
+
   if (user.approvalStatus !== 'approved') {
     const { icon, title, message, cardClass } = getStatusMessageAndIcon();
     return (
@@ -236,6 +275,8 @@ export default function CompanyDashboardPage() {
                         <TableHead>{t('totalCost')}</TableHead>
                         <TableHead>{t('payment')}</TableHead>
                         <TableHead>{t('status')}</TableHead>
+                        <TableHead>{t('agreementStatus')}</TableHead> {/* New Column */}
+                        <TableHead className="text-right">{t('actions')}</TableHead> {/* New Column for actions */}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -266,6 +307,27 @@ export default function CompanyDashboardPage() {
                           <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} ETB</TableCell>
                           <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                           <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                          <TableCell>
+                            {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleConfirmSignedAgreement(booking.id)}
+                                disabled={isSubmittingAgreement === booking.id}
+                              >
+                                {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" /> }
+                                {t('confirmSignedAgreement')} {/* Add to JSON */}
+                              </Button>
+                            )}
+                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
+                               <span className="text-xs text-muted-foreground italic flex items-center justify-end">
+                                 <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')} {/* Add to JSON */}
+                               </span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -39,31 +39,45 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number;
-  rentalCost?: number;
+  pricePerDay?: number; // For dormitories
+  rentalCost?: number; // For facilities (per booking, not per day by default)
 };
+
+export type AgreementStatus = 
+  | 'pending_admin_action' // Admin needs to prepare/send
+  | 'sent_to_client'       // Admin has sent, awaiting client signature
+  | 'signed_by_client'     // Client has signed and returned
+  | 'completed';           // Agreement process finalized
 
 export interface Booking {
   id: string;
   bookingCategory: 'dormitory' | 'facility';
   items: BookingItem[];
   userId?: string;
-  companyId?: string;
+  companyId?: string; // For facility bookings by companies
+  // Dormitory specific
   guestName?: string;
-  guestIdScanUrl?: string;
+  guestIdScanUrl?: string; // Placeholder, not implemented
   guestEmployer?: string;
+  // Facility specific
   companyName?: string;
   contactPerson?: string;
   email?: string;
   phone?: string;
-  startDate: string | import('firebase/firestore').Timestamp; // Allow Timestamp for writing
-  endDate: string | import('firebase/firestore').Timestamp;   // Allow Timestamp for writing
   numberOfAttendees?: number;
   serviceDetails?: BookingServiceDetails;
+  notes?: string;
+  // Common
+  startDate: string | import('firebase/firestore').Timestamp; 
+  endDate: string | import('firebase/firestore').Timestamp;   
   totalCost: number;
   paymentStatus: 'pending' | 'paid' | 'failed';
   approvalStatus: 'pending' | 'approved' | 'rejected';
-  bookedAt: string | import('firebase/firestore').Timestamp; // Allow Timestamp for writing
+  bookedAt: string | import('firebase/firestore').Timestamp;
+  // Agreement specific for facilities
+  agreementStatus?: AgreementStatus;
+  agreementSentAt?: string | import('firebase/firestore').Timestamp;
+  agreementSignedAt?: string | import('firebase/firestore').Timestamp;
 }
 
 export interface User {
