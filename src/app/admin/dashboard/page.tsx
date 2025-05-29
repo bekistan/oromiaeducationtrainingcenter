@@ -1,16 +1,20 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall } from '@/types';
-import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2 } from "lucide-react";
+import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
+import { useSimpleTable } from '@/hooks/use-simple-table';
+import { Button } from '@/components/ui/button';
+
 
 interface DashboardStats {
   totalBookings: number | null;
@@ -30,19 +34,17 @@ export default function AdminDashboardPage() {
     availableBedsStat: null,
     availableHalls: null,
   });
-  const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  const [allRecentBookings, setAllRecentBookings] = useState<Booking[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingRecentBookings, setIsLoadingRecentBookings] = useState(true);
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
     try {
-      // Total Bookings
       const bookingsCol = collection(db, "bookings");
       const bookingsAggregateSnapshot = await getCountFromServer(bookingsCol);
       const totalBookings = bookingsAggregateSnapshot.data().count;
 
-      // Total Revenue
       const paidBookingsQuery = query(bookingsCol, where("paymentStatus", "==", "paid"));
       const paidBookingsSnapshot = await getDocs(paidBookingsQuery);
       let totalRevenue = 0;
@@ -50,31 +52,30 @@ export default function AdminDashboardPage() {
         totalRevenue += (doc.data() as Booking).totalCost;
       });
 
-      // Total Users
       const usersCol = collection(db, "users");
       const usersAggregateSnapshot = await getCountFromServer(usersCol);
       const totalUsers = usersAggregateSnapshot.data().count;
       
-      // Available Beds
       const dormsCol = collection(db, "dormitories");
       const dormsSnapshot = await getDocs(dormsCol);
       let availableBedCount = 0;
       let totalBedCount = 0;
       dormsSnapshot.forEach(docSnap => {
-        const dormData = docSnap.data() as DocumentData as Dormitory; // Cast to Dormitory
+        const dormData = docSnap.data() as DocumentData as Dormitory; 
         totalBedCount += dormData.capacity || 0;
-        if (dormData.isAvailable) {
-          availableBedCount += dormData.capacity || 0;
+        // For available beds, sum capacity only if room is available AND there are beds
+        if (dormData.isAvailable && dormData.capacity > 0) {
+          // This logic might need refinement if 'availableBeds' field is different from 'capacity' when 'isAvailable'
+          availableBedCount += dormData.capacity || 0; 
         }
       });
       const availableBedsStat = { available: availableBedCount, total: totalBedCount };
 
-      // Available Halls/Sections
       const hallsCol = collection(db, "halls");
       const hallsSnapshot = await getDocs(hallsCol);
       let availableHallCount = 0;
       hallsSnapshot.forEach(docSnap => {
-        if ((docSnap.data() as DocumentData as Hall).isAvailable) { // Cast to Hall
+        if ((docSnap.data() as DocumentData as Hall).isAvailable) { 
           availableHallCount++;
         }
       });
@@ -99,7 +100,7 @@ export default function AdminDashboardPage() {
   const fetchRecentBookings = useCallback(async () => {
     setIsLoadingRecentBookings(true);
     try {
-      const bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"), limit(5));
+      const bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"), limit(25)); // Fetch more for pagination
       const querySnapshot = await getDocs(bookingsQuery);
       const bookingsData = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
@@ -124,7 +125,7 @@ export default function AdminDashboardPage() {
           endDate,
         } as Booking;
       });
-      setRecentBookings(bookingsData);
+      setAllRecentBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching recent bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingRecentBookings') });
@@ -138,11 +139,28 @@ export default function AdminDashboardPage() {
     fetchRecentBookings();
   }, [fetchDashboardData, fetchRecentBookings]);
 
+  const {
+    paginatedData: displayedRecentBookings,
+    setSearchTerm,
+    searchTerm,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
+  } = useSimpleTable<Booking>({
+    initialData: allRecentBookings,
+    rowsPerPage: 5,
+    searchKeys: ['id', 'guestName', 'companyName'], // Add more if needed
+  });
+
   const statCards = [
     { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats },
     { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `ETB ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats },
     { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats },
-    { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats }, // Updated key
+    { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats },
     { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats },
   ];
 
@@ -193,43 +211,78 @@ export default function AdminDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-                <ClipboardList className="mr-2 h-5 w-5 text-primary" />
-                {t('recentBookings')}
-            </CardTitle>
-            <CardDescription>{t('last5Bookings')}</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center">
+                    <ClipboardList className="mr-2 h-5 w-5 text-primary" />
+                    {t('recentBookings')}
+                </CardTitle>
+                <Input
+                    placeholder={t('searchRecentBookings')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-xs text-sm"
+                />
+            </div>
+            <CardDescription>{t('lastNBookings', { count: totalItems })}</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingRecentBookings ? (
+            {isLoadingRecentBookings && !allRecentBookings.length ? (
               <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : recentBookings.length === 0 ? (
-              <p className="text-muted-foreground">{t('noRecentBookings')}</p>
+            ) : displayedRecentBookings.length === 0 ? (
+              <p className="text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noRecentBookings')}</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('bookingId')}</TableHead>
-                    <TableHead>{t('customer')}</TableHead>
-                    <TableHead>{t('item')}</TableHead>
-                    <TableHead>{t('cost')}</TableHead>
-                    <TableHead>{t('status')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentBookings.map(booking => (
-                    <TableRow key={booking.id}>
-                      <TableCell className="font-mono text-xs">{booking.id.substring(0, 8)}...</TableCell>
-                      <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
-                      <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
-                      <TableCell>ETB {booking.totalCost.toLocaleString()}</TableCell>
-                      <TableCell className="space-x-1">
-                        {getStatusBadge(booking.paymentStatus, 'payment')}
-                        {getStatusBadge(booking.approvalStatus, 'approval')}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('bookingId')}</TableHead>
+                        <TableHead>{t('customer')}</TableHead>
+                        <TableHead>{t('item')}</TableHead>
+                        <TableHead>{t('cost')}</TableHead>
+                        <TableHead>{t('status')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {displayedRecentBookings.map(booking => (
+                        <TableRow key={booking.id}>
+                          <TableCell className="font-mono text-xs">{booking.id.substring(0, 8)}...</TableCell>
+                          <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
+                          <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
+                          <TableCell>ETB {booking.totalCost.toLocaleString()}</TableCell>
+                          <TableCell className="space-x-1">
+                            {getStatusBadge(booking.paymentStatus, 'payment')}
+                            {getStatusBadge(booking.approvalStatus, 'approval')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                    <span className="text-sm text-muted-foreground">
+                        {t('page')} {pageCount > 0 ? currentPage + 1: 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                    </span>
+                    <div className="space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={previousPage}
+                            disabled={!canPreviousPage}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={nextPage}
+                            disabled={!canNextPage}
+                        >
+                           {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -239,11 +292,9 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">{t('placeholderNotifications')}</p>
-            {/* Placeholder for system notifications */}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-

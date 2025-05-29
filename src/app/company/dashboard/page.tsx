@@ -1,28 +1,30 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking } from '@/types';
-import { AlertCircle, CheckCircle, Hourglass, Building, ShoppingBag, Utensils, Coffee, Loader2, Info } from 'lucide-react';
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { useSimpleTable } from '@/hooks/use-simple-table';
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
 
   const fetchBookings = useCallback(async (companyId: string) => {
@@ -40,7 +42,7 @@ export default function CompanyDashboardPage() {
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
         } as Booking;
       });
-      setBookings(bookingsData.sort((a,b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()));
+      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt).getTime() - new Date(a.bookedAt).getTime()));
     } catch (error) {
       console.error("Error fetching company bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingYourBookings') });
@@ -53,11 +55,28 @@ export default function CompanyDashboardPage() {
     if (user && user.role === 'company_representative' && user.approvalStatus === 'approved' && user.companyId) {
       fetchBookings(user.companyId);
     } else if (user && user.role === 'company_representative' && user.approvalStatus !== 'approved') {
-        setIsLoadingBookings(false); // Not approved, no bookings to fetch
+        setIsLoadingBookings(false); 
     } else if (!user && !authLoading) {
-        setIsLoadingBookings(false); // No user, no bookings
+        setIsLoadingBookings(false); 
     }
   }, [user, authLoading, fetchBookings]);
+
+  const {
+    paginatedData: displayedBookings,
+    setSearchTerm,
+    searchTerm,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
+  } = useSimpleTable<Booking>({
+      initialData: allBookings,
+      rowsPerPage: 10,
+      searchKeys: ['id'], // Can add item names if they are simple strings
+  });
 
   if (authLoading) {
     return (
@@ -104,7 +123,7 @@ export default function CompanyDashboardPage() {
           message: t('registrationRejectedMessage'),
           cardClass: "border-destructive bg-red-50 dark:bg-red-900/20"
         };
-      default: // Should ideally not be reached if role is company_representative and status isn't approved
+      default: 
         return {
           icon: <Info className="w-12 h-12 text-muted-foreground mx-auto mb-4" />,
           title: t('statusUnknownTitle'),
@@ -179,70 +198,103 @@ export default function CompanyDashboardPage() {
         
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <ShoppingBag className="mr-2 h-6 w-6 text-primary" />
-              {t('yourBookingsTitle')}
-            </CardTitle>
+            <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center">
+                <ShoppingBag className="mr-2 h-6 w-6 text-primary" />
+                {t('yourBookingsTitle')}
+                </CardTitle>
+                <Input
+                    placeholder={t('searchYourBookings')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-xs text-sm"
+                />
+            </div>
             <CardDescription>{t('yourBookingsDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingBookings ? (
+            {isLoadingBookings && !allBookings.length ? (
               <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : bookings.length === 0 ? (
+            ) : displayedBookings.length === 0 ? (
               <div className="text-center py-10">
                 <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg text-muted-foreground">{t('noBookingsFound')}</p>
+                <p className="text-lg text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noBookingsFound')}</p>
                 <Link href="/halls" passHref>
                     <Button className="mt-4">{t('makeYourFirstBooking')}</Button>
                 </Link>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('bookingId')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead>{t('dates')}</TableHead>
-                      <TableHead>{t('services')}</TableHead>
-                      <TableHead>{t('totalCost')}</TableHead>
-                      <TableHead>{t('payment')}</TableHead>
-                      <TableHead>{t('status')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="font-mono text-xs">{booking.id.substring(0, 8)}...</TableCell>
-                        <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
-                        <TableCell>
-                          {new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col text-xs">
-                            {booking.serviceDetails?.lunch && (
-                              <span className="flex items-center">
-                                <Utensils className="w-3 h-3 mr-1 text-muted-foreground" /> {t('lunch')}: {t(booking.serviceDetails.lunch)}
-                              </span>
-                            )}
-                            {booking.serviceDetails?.refreshment && (
-                              <span className="flex items-center">
-                                <Coffee className="w-3 h-3 mr-1 text-muted-foreground" /> {t('refreshment')}: {t(booking.serviceDetails.refreshment)}
-                              </span>
-                            )}
-                            {(!booking.serviceDetails || (Object.keys(booking.serviceDetails).length === 0)) && (
-                                <span className="text-muted-foreground italic text-xs">{t('serviceLevelNone')}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-semibold">{booking.totalCost} ETB</TableCell>
-                        <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
-                        <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('bookingId')}</TableHead>
+                        <TableHead>{t('itemsBooked')}</TableHead>
+                        <TableHead>{t('dates')}</TableHead>
+                        <TableHead>{t('services')}</TableHead>
+                        <TableHead>{t('totalCost')}</TableHead>
+                        <TableHead>{t('payment')}</TableHead>
+                        <TableHead>{t('status')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {displayedBookings.map((booking) => (
+                        <TableRow key={booking.id}>
+                          <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
+                          <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell className="min-w-[120px]">
+                            <div className="flex flex-col text-xs">
+                              {booking.serviceDetails?.lunch && (
+                                <span className="flex items-center">
+                                  <Utensils className="w-3 h-3 mr-1 text-muted-foreground" /> {t('lunch')}: {t(booking.serviceDetails.lunch)}
+                                </span>
+                              )}
+                              {booking.serviceDetails?.refreshment && (
+                                <span className="flex items-center">
+                                  <Coffee className="w-3 h-3 mr-1 text-muted-foreground" /> {t('refreshment')}: {t(booking.serviceDetails.refreshment)}
+                                </span>
+                              )}
+                              {(!booking.serviceDetails || (Object.keys(booking.serviceDetails).length === 0)) && (
+                                  <span className="text-muted-foreground italic text-xs">{t('serviceLevelNone')}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} ETB</TableCell>
+                          <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
+                          <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                    <span className="text-sm text-muted-foreground">
+                        {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                    </span>
+                    <div className="space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={previousPage}
+                            disabled={!canPreviousPage}
+                        >
+                             <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={nextPage}
+                            disabled={!canNextPage}
+                        >
+                            {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                    </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -250,5 +302,3 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
-
-    

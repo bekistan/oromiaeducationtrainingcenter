@@ -1,28 +1,29 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth"; // Use new auth
+import { useAuth } from "@/hooks/use-auth"; 
 import type { User } from "@/types";
-import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2 } from "lucide-react";
+import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore'; // Removed writeBatch, doc, updateDoc for now, will use hook's update
+import { collection, getDocs, query, where } from 'firebase/firestore'; 
+import { useSimpleTable } from '@/hooks/use-simple-table';
 
 export default function ManageCompaniesPage() {
   const { t } = useLanguage();
-  const { user, loading: authLoading, updateUserDocument } = useAuth(); // Use new auth and updateUserDocument
+  const { user, loading: authLoading, updateUserDocument } = useAuth(); 
   const router = useRouter();
   const { toast } = useToast();
-  const [companies, setCompanies] = useState<User[]>([]);
+  const [allCompanies, setAllCompanies] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  // Removed isSeeding and handleSeedData as companies are now created via real registration
 
   const fetchCompanies = useCallback(async () => {
     setIsLoading(true);
@@ -30,7 +31,7 @@ export default function ManageCompaniesPage() {
       const q = query(collection(db, "users"), where("role", "==", "company_representative"));
       const querySnapshot = await getDocs(q);
       const companiesData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
-      setCompanies(companiesData);
+      setAllCompanies(companiesData.sort((a,b) => (a.companyName || "").localeCompare(b.companyName || "")));
     } catch (error) {
       console.error("Error fetching companies: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingCompanies') });
@@ -46,6 +47,23 @@ export default function ManageCompaniesPage() {
       setIsLoading(false); 
     }
   }, [authLoading, user, fetchCompanies]);
+
+  const {
+    paginatedData: displayedCompanies,
+    setSearchTerm,
+    searchTerm,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
+  } = useSimpleTable<User>({
+      initialData: allCompanies,
+      rowsPerPage: 10,
+      searchKeys: ['companyName', 'name', 'email'], 
+  });
 
   const handleApproval = async (companyId: string, newStatus: 'approved' | 'rejected') => {
     try {
@@ -74,7 +92,7 @@ export default function ManageCompaniesPage() {
     }
   };
 
-  if (authLoading || isLoading) {
+  if (authLoading || (isLoading && !allCompanies.length)) { // Show loading if auth is loading OR if data is loading and no companies yet
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
@@ -92,64 +110,96 @@ export default function ManageCompaniesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-foreground">{t('manageCompaniesTitle')}</h1>
+       <div className="mb-4">
+          <Input
+            placeholder={t('searchCompanies')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+      </div>
       
-      {companies.length === 0 && !isLoading && (
+      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+
+      {!isLoading && displayedCompanies.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p>{t('noCompaniesFoundAdmin')}</p> {/* Add to JSON: "No companies have registered yet." */}
+            <p>{searchTerm ? t('noCompaniesMatchSearch') : t('noCompaniesFoundAdmin')}</p>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('registeredCompaniesList')}</CardTitle>
-          <CardDescription>{t('viewAndApproveCompanies')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('companyName')}</TableHead>
-                <TableHead>{t('contactPerson')}</TableHead>
-                <TableHead>{t('email')}</TableHead>
-                <TableHead>{t('approvalStatus')}</TableHead>
-                <TableHead className="text-right">{t('actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companies.length === 0 && !isLoading && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center">{t('noCompaniesFound')}</TableCell>
-                </TableRow>
-              )}
-              {companies.map((company) => (
-                <TableRow key={company.id}>
-                  <TableCell className="font-medium">{company.companyName || t('notAvailable')}</TableCell>
-                  <TableCell>{company.name || t('notAvailable')}</TableCell>
-                  <TableCell>{company.email}</TableCell>
-                  <TableCell>{getStatusBadge(company.approvalStatus)}</TableCell>
-                  <TableCell className="text-right space-x-2">
-                    {company.approvalStatus === 'pending' && (
-                      <>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'approved')} className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
-                          <CheckCircle className="mr-1 h-4 w-4" /> {t('approveButton')}
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'rejected')} className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
-                           <XCircle className="mr-1 h-4 w-4" /> {t('rejectButton')}
-                        </Button>
-                      </>
-                    )}
-                     {company.approvalStatus !== 'pending' && (
-                        <span className="text-xs text-muted-foreground italic">{t('actionTaken')}</span>
-                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {!isLoading && displayedCompanies.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('registeredCompaniesList')}</CardTitle>
+            <CardDescription>{t('viewAndApproveCompanies')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('companyName')}</TableHead>
+                    <TableHead>{t('contactPerson')}</TableHead>
+                    <TableHead>{t('email')}</TableHead>
+                    <TableHead>{t('approvalStatus')}</TableHead>
+                    <TableHead className="text-right">{t('actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedCompanies.map((company) => (
+                    <TableRow key={company.id}>
+                      <TableCell className="font-medium">{company.companyName || t('notAvailable')}</TableCell>
+                      <TableCell>{company.name || t('notAvailable')}</TableCell>
+                      <TableCell>{company.email}</TableCell>
+                      <TableCell>{getStatusBadge(company.approvalStatus)}</TableCell>
+                      <TableCell className="text-right space-x-2">
+                        {company.approvalStatus === 'pending' && (
+                          <>
+                            <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'approved')} className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
+                              <CheckCircle className="mr-1 h-4 w-4" /> {t('approveButton')}
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'rejected')} className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
+                              <XCircle className="mr-1 h-4 w-4" /> {t('rejectButton')}
+                            </Button>
+                          </>
+                        )}
+                        {company.approvalStatus !== 'pending' && (
+                            <span className="text-xs text-muted-foreground italic">{t('actionTaken')}</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex items-center justify-between py-4">
+                <span className="text-sm text-muted-foreground">
+                    {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                </span>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={previousPage}
+                        disabled={!canPreviousPage}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={nextPage}
+                        disabled={!canNextPage}
+                    >
+                        {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

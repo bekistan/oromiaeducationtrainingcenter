@@ -1,16 +1,16 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox"; // For isAvailable
+import { Checkbox } from "@/components/ui/checkbox"; 
 import { useLanguage } from "@/hooks/use-language";
 import type { Dormitory } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -19,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useSimpleTable } from '@/hooks/use-simple-table';
 
 const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
@@ -26,7 +27,7 @@ const dormitorySchema = z.object({
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
   pricePerDay: z.coerce.number().min(0, { message: "Price must be a positive number." }),
   isAvailable: z.boolean().default(true),
-  images: z.string().optional(), // For simplicity, one image URL for now
+  images: z.string().optional(), 
   dataAiHint: z.string().optional(),
 });
 type DormitoryFormValues = z.infer<typeof dormitorySchema>;
@@ -34,9 +35,10 @@ type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 export default function AdminDormitoriesPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [dormitories, setDormitories] = useState<Dormitory[]>([]);
+  const [allDormitories, setAllDormitories] = useState<Dormitory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentDormitory, setCurrentDormitory] = useState<Dormitory | null>(null);
 
@@ -62,7 +64,7 @@ export default function AdminDormitoriesPage() {
     try {
       const querySnapshot = await getDocs(collection(db, "dormitories"));
       const dormsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
-      setDormitories(dormsData);
+      setAllDormitories(dormsData.sort((a,b) => (a.floor - b.floor) || a.roomNumber.localeCompare(b.roomNumber)));
     } catch (error) {
       console.error("Error fetching dormitories: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
@@ -75,6 +77,23 @@ export default function AdminDormitoriesPage() {
     fetchDormitories();
   }, [fetchDormitories]);
 
+  const {
+    paginatedData: displayedDormitories,
+    setSearchTerm,
+    searchTerm,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
+  } = useSimpleTable<Dormitory>({
+      initialData: allDormitories,
+      rowsPerPage: 10,
+      searchKeys: ['roomNumber', 'floor'], 
+  });
+
   async function onSubmit(values: DormitoryFormValues) {
     setIsSubmitting(true);
     try {
@@ -83,7 +102,7 @@ export default function AdminDormitoriesPage() {
       toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       fetchDormitories();
       form.reset();
-      // Close dialog if it's open - manage dialog open state
+      setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding dormitory: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorAddingDormitory') });
@@ -96,7 +115,7 @@ export default function AdminDormitoriesPage() {
     setCurrentDormitory(dorm);
     editForm.reset({
         ...dorm,
-        images: dorm.images?.[0] || "", // Assuming first image for simplicity
+        images: dorm.images?.[0] || "", 
     });
     setIsEditDialogOpen(true);
   };
@@ -132,18 +151,13 @@ export default function AdminDormitoriesPage() {
     }
   };
 
-
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageDormitories')}</h1>
-        <Dialog>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => setIsAddDialogOpen(true)}>
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addDormitory')}
             </Button>
           </DialogTrigger>
@@ -161,6 +175,7 @@ export default function AdminDormitoriesPage() {
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')}</FormLabel><FormControl><Input placeholder="https://placehold.co/300x200.png" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')}</FormLabel><FormControl><Input placeholder="dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('submit')}
@@ -171,65 +186,102 @@ export default function AdminDormitoriesPage() {
           </DialogContent>
         </Dialog>
       </div>
+      
+      <div className="mb-4">
+          <Input
+            placeholder={t('searchDormitories')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="max-w-sm"
+          />
+      </div>
 
-      {dormitories.length === 0 && !isLoading && (
+      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+
+      {!isLoading && displayedDormitories.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p>{t('noDormitoriesFoundPleaseAdd')}</p>
+            <p>{searchTerm ? t('noDormitoriesMatchSearch') : t('noDormitoriesFoundPleaseAdd')}</p>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('dormitoryList')}</CardTitle>
-          <CardDescription>{t('viewAndManageDormitories')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('roomNumber')}</TableHead>
-                <TableHead>{t('floor')}</TableHead>
-                <TableHead>{t('capacity')}</TableHead>
-                <TableHead>{t('pricePerDay')}</TableHead>
-                <TableHead>{t('availability')}</TableHead>
-                <TableHead className="text-right">{t('actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {dormitories.map((dorm) => (
-                <TableRow key={dorm.id}>
-                  <TableCell className="font-medium">{dorm.roomNumber}</TableCell>
-                  <TableCell>{dorm.floor}</TableCell>
-                  <TableCell>{dorm.capacity}</TableCell>
-                  <TableCell>{dorm.pricePerDay} ETB</TableCell>
-                  <TableCell>
-                    <Badge 
-                        variant={dorm.isAvailable ? "default" : "destructive"}
-                        className={dorm.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
+      {!isLoading && displayedDormitories.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('dormitoryList')}</CardTitle>
+            <CardDescription>{t('viewAndManageDormitories')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('roomNumber')}</TableHead>
+                    <TableHead>{t('floor')}</TableHead>
+                    <TableHead>{t('capacity')}</TableHead>
+                    <TableHead>{t('pricePerDay')}</TableHead>
+                    <TableHead>{t('availability')}</TableHead>
+                    <TableHead className="text-right">{t('actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedDormitories.map((dorm) => (
+                    <TableRow key={dorm.id}>
+                      <TableCell className="font-medium">{dorm.roomNumber}</TableCell>
+                      <TableCell>{dorm.floor}</TableCell>
+                      <TableCell>{dorm.capacity}</TableCell>
+                      <TableCell>{dorm.pricePerDay} ETB</TableCell>
+                      <TableCell>
+                        <Badge 
+                            variant={dorm.isAvailable ? "default" : "destructive"}
+                            className={dorm.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
+                        >
+                          {dorm.isAvailable ? t('available') : t('unavailable')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(dorm)}>
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">{t('edit')}</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => handleDelete(dorm.id)}>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">{t('delete')}</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex items-center justify-between py-4">
+                <span className="text-sm text-muted-foreground">
+                    {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                </span>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={previousPage}
+                        disabled={!canPreviousPage}
                     >
-                      {dorm.isAvailable ? t('available') : t('unavailable')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(dorm)}>
-                      <Edit className="h-4 w-4" />
-                      <span className="sr-only">{t('edit')}</span>
+                        <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
                     </Button>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => handleDelete(dorm.id)}>
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">{t('delete')}</span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={nextPage}
+                        disabled={!canNextPage}
+                    >
+                        {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
                     </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       
-      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -260,5 +312,3 @@ export default function AdminDormitoriesPage() {
     </div>
   );
 }
-
-    
