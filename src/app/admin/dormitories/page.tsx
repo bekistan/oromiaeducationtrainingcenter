@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox"; 
+import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/use-language";
 import type { Dormitory } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -20,6 +20,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import { PLACEHOLDER_THUMBNAIL_SIZE } from '@/constants';
 
 const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
@@ -27,8 +28,8 @@ const dormitorySchema = z.object({
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
   pricePerDay: z.coerce.number().min(0, { message: "Price must be a positive number." }),
   isAvailable: z.boolean().default(true),
-  images: z.string().optional(), 
-  dataAiHint: z.string().optional(),
+  images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
+  dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
 });
 type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 
@@ -42,6 +43,8 @@ export default function AdminDormitoriesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentDormitory, setCurrentDormitory] = useState<Dormitory | null>(null);
 
+  const defaultImage = `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`;
+
   const form = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
     defaultValues: {
@@ -54,7 +57,7 @@ export default function AdminDormitoriesPage() {
       dataAiHint: "dormitory room",
     },
   });
-  
+
   const editForm = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
   });
@@ -91,17 +94,29 @@ export default function AdminDormitoriesPage() {
   } = useSimpleTable<Dormitory>({
       initialData: allDormitories,
       rowsPerPage: 10,
-      searchKeys: ['roomNumber', 'floor'], 
+      searchKeys: ['roomNumber', 'floor'],
   });
 
   async function onSubmit(values: DormitoryFormValues) {
     setIsSubmitting(true);
     try {
-      const dormData = { ...values, images: values.images ? [values.images] : [] };
+      const dormData = {
+        ...values,
+        images: values.images ? [values.images] : [defaultImage],
+        dataAiHint: values.dataAiHint || "dormitory room",
+      };
       await addDoc(collection(db, "dormitories"), dormData);
       toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       fetchDormitories();
-      form.reset();
+      form.reset({
+        roomNumber: "",
+        floor: 1,
+        capacity: 2,
+        pricePerDay: 500,
+        isAvailable: true,
+        images: "",
+        dataAiHint: "dormitory room",
+      });
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error("Error adding dormitory: ", error);
@@ -110,12 +125,13 @@ export default function AdminDormitoriesPage() {
       setIsSubmitting(false);
     }
   }
-  
+
   const handleEdit = (dorm: Dormitory) => {
     setCurrentDormitory(dorm);
     editForm.reset({
         ...dorm,
-        images: dorm.images?.[0] || "", 
+        images: dorm.images?.[0] || "",
+        dataAiHint: dorm.dataAiHint || "dormitory room",
     });
     setIsEditDialogOpen(true);
   };
@@ -125,7 +141,11 @@ export default function AdminDormitoriesPage() {
     setIsSubmitting(true);
     try {
       const dormRef = doc(db, "dormitories", currentDormitory.id);
-      const updatedData = { ...values, images: values.images ? [values.images] : [] };
+      const updatedData = {
+        ...values,
+        images: values.images ? [values.images] : [defaultImage],
+        dataAiHint: values.dataAiHint || "dormitory room",
+      };
       await updateDoc(dormRef, updatedData);
       toast({ title: t('success'), description: t('dormitoryUpdatedSuccessfully') });
       fetchDormitories();
@@ -138,7 +158,7 @@ export default function AdminDormitoriesPage() {
       setIsSubmitting(false);
     }
   }
-  
+
   const handleDelete = async (dormId: string) => {
     if (!confirm(t('confirmDeleteDormitory'))) return;
     try {
@@ -157,7 +177,10 @@ export default function AdminDormitoriesPage() {
         <h1 className="text-3xl font-bold text-foreground">{t('manageDormitories')}</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
+            <Button onClick={() => {
+              form.reset(); // Reset form to default values when opening
+              setIsAddDialogOpen(true);
+            }}>
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addDormitory')}
             </Button>
           </DialogTrigger>
@@ -172,8 +195,8 @@ export default function AdminDormitoriesPage() {
                 <FormField control={form.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
-                <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')}</FormLabel><FormControl><Input placeholder="https://placehold.co/300x200.png" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')}</FormLabel><FormControl><Input placeholder="dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder="modern dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isSubmitting}>
@@ -186,7 +209,7 @@ export default function AdminDormitoriesPage() {
           </DialogContent>
         </Dialog>
       </div>
-      
+
       <div className="mb-4">
           <Input
             placeholder={t('searchDormitories')}
@@ -233,7 +256,7 @@ export default function AdminDormitoriesPage() {
                       <TableCell>{dorm.capacity}</TableCell>
                       <TableCell>{dorm.pricePerDay} ETB</TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                             variant={dorm.isAvailable ? "default" : "destructive"}
                             className={dorm.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
                         >
@@ -281,7 +304,7 @@ export default function AdminDormitoriesPage() {
           </CardContent>
         </Card>
       )}
-      
+
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -295,8 +318,8 @@ export default function AdminDormitoriesPage() {
                 <FormField control={editForm.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
-                <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')}</FormLabel><FormControl><Input placeholder="https://placehold.co/300x200.png" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')}</FormLabel><FormControl><Input placeholder="dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder="modern dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isSubmitting}>
@@ -312,3 +335,5 @@ export default function AdminDormitoriesPage() {
     </div>
   );
 }
+
+    
