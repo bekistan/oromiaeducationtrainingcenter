@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link'; 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,6 +83,7 @@ export default function AdminBookingsPage() {
     canPreviousPage,
     totalItems,
     rowsPerPage,
+    setDataSource,
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
@@ -91,13 +92,8 @@ export default function AdminBookingsPage() {
   
   useEffect(() => {
     // This effect ensures that when dropdown filters change, the table hook updates its data source.
-    // The hook itself then resets pagination.
-    // We need to set the hook's internal data source.
-    // Let's modify the hook to expose a setter for the data.
-    if (typeof (useSimpleTable as any).setDataSource === 'function') {
-        (useSimpleTable as any).setDataSource(filteredBookings);
-    }
-  }, [filteredBookings]);
+    setDataSource(filteredBookings);
+  }, [filteredBookings, setDataSource]);
 
 
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
