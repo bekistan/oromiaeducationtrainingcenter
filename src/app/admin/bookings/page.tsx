@@ -9,8 +9,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -35,6 +46,8 @@ export default function AdminBookingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
@@ -131,16 +144,24 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const handleDeleteBooking = async (bookingId: string) => {
-    if (!confirm(t('confirmDeleteBooking'))) return;
+  const confirmDeleteBooking = async () => {
+    if (!bookingToDeleteId) return;
     try {
-      await deleteDoc(doc(db, "bookings", bookingId));
+      await deleteDoc(doc(db, "bookings", bookingToDeleteId));
       toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
       fetchBookings();
     } catch (error) {
       console.error("Error deleting booking: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorDeletingBooking') });
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setBookingToDeleteId(null);
     }
+  };
+
+  const openDeleteDialog = (bookingId: string) => {
+    setBookingToDeleteId(bookingId);
+    setIsDeleteDialogOpen(true);
   };
 
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
@@ -187,158 +208,182 @@ export default function AdminBookingsPage() {
 
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-foreground">{t('manageBookings')}</h1>
-        <div className="flex items-center space-x-2">
-          <Input
-            placeholder={t('searchBookings')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-xs"
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Filter className="mr-2 h-4 w-4" /> {t('filterBookings')}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56">
-              <DropdownMenuLabel>{t('approvalStatus')}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {(['all', 'pending', 'approved', 'rejected'] as ApprovalStatusFilter[]).map(status => (
-                <DropdownMenuCheckboxItem key={status} checked={approvalFilter === status} onCheckedChange={() => setApprovalFilter(status)}>
-                  {t(status)}
-                </DropdownMenuCheckboxItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>{t('paymentStatus')}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {(['all', 'pending', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
-                 <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
-                  {t(status)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-foreground">{t('manageBookings')}</h1>
+          <div className="flex items-center space-x-2">
+            <Input
+              placeholder={t('searchBookings')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-xs"
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="mr-2 h-4 w-4" /> {t('filterBookings')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>{t('approvalStatus')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(['all', 'pending', 'approved', 'rejected'] as ApprovalStatusFilter[]).map(status => (
+                  <DropdownMenuCheckboxItem key={status} checked={approvalFilter === status} onCheckedChange={() => setApprovalFilter(status)}>
+                    {t(status)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{t('paymentStatus')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(['all', 'pending', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
+                  <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
+                    {t(status)}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
+
+        {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+
+        {!isLoading && displayedBookings.length === 0 && (
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noBookingsFoundAdminCta')}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {!isLoading && displayedBookings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('bookingList')}</CardTitle>
+              <CardDescription>{t('viewAndManageAllBookings')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
+                          <Button variant="ghost" size="icon" title={t('viewDetails')}>
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">{t('viewDetails')}</span>
+                          </Button>
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" title={t('moreActions')}>
+                                      <MoreHorizontal className="h-4 w-4" />
+                                      <span className="sr-only">{t('moreActions')}</span>
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
+                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
+                                      {t('setAsPending')}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                      {t('rejectBooking')}
+                                  </DropdownMenuItem>
+
+                                  {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
+                                      <DropdownMenuItem asChild>
+                                        <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
+                                          <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
+                                        </Link>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
+                                        disabled={booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed'}
+                                      >
+                                        <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
+                                        disabled={booking.agreementStatus !== 'sent_to_client'}
+                                      >
+                                        <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
+                                      <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                                  </DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between py-4">
+                <span className="text-sm text-muted-foreground">
+                    {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                </span>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={previousPage}
+                        disabled={!canPreviousPage}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={nextPage}
+                        disabled={!canNextPage}
+                    >
+                        {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-
-      {!isLoading && displayedBookings.length === 0 && (
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noBookingsFoundAdminCta')}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isLoading && displayedBookings.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('bookingList')}</CardTitle>
-            <CardDescription>{t('viewAndManageAllBookings')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedBookings.map((booking) => (
-                    <TableRow key={booking.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
-                        <Button variant="ghost" size="icon" title={t('viewDetails')}>
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">{t('viewDetails')}</span>
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" title={t('moreActions')}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">{t('moreActions')}</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
-                                    <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                    {t('setAsPending')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                    {t('rejectBooking')}
-                                </DropdownMenuItem>
-
-                                {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
-                                    <DropdownMenuItem asChild>
-                                      <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
-                                        <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
-                                      </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                      disabled={booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed'}
-                                    >
-                                      <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
-                                      disabled={booking.agreementStatus !== 'sent_to_client'}
-                                    >
-                                      <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
-
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => handleDeleteBooking(booking.id)}>
-                                    <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="flex items-center justify-between py-4">
-              <span className="text-sm text-muted-foreground">
-                  {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
-              </span>
-              <div className="space-x-2">
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={previousPage}
-                      disabled={!canPreviousPage}
-                  >
-                      <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
-                  </Button>
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={nextPage}
-                      disabled={!canNextPage}
-                  >
-                      {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="mr-2 h-5 w-5 text-destructive" />
+                {t('confirmDeleteBookingTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmDeleteBookingMessage')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBookingToDeleteId(null)}>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
-
