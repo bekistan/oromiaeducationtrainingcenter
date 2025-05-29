@@ -2,12 +2,13 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link'; // Import Link
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Edit, Trash2, Filter, MoreHorizontal, Loader2 } from "lucide-react";
+import { Eye, Edit, Trash2, Filter, MoreHorizontal, Loader2, FileText } from "lucide-react"; // Added FileText
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -140,7 +141,7 @@ export default function AdminBookingsPage() {
       {bookings.length === 0 && !isLoading && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p className="mb-4">{t('noBookingsFoundAdminCta')}</p> {/* Add to JSON: "No bookings found. New bookings will appear here as they are made." */}
+            <p className="mb-4">{t('noBookingsFoundAdminCta')}</p>
           </CardContent>
         </Card>
       )}
@@ -209,6 +210,16 @@ export default function AdminBookingsPage() {
                             <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                 {t('rejectBooking')}
                             </DropdownMenuItem>
+                            {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
+                                    <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
+                                  </Link>
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => handleDeleteBooking(booking.id)}>
                                 <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
@@ -225,5 +236,4 @@ export default function AdminBookingsPage() {
     </div>
   );
 }
-
     
