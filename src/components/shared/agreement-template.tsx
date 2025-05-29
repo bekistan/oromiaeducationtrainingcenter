@@ -7,13 +7,21 @@ import { format } from 'date-fns';
 
 interface AgreementTemplateProps {
   booking: Booking | null;
+  customTerms?: string; // Accept custom terms as a prop
 }
 
 // Consistent pricing with BookingForm
 const LUNCH_PRICES = { level1: 150, level2: 250 }; // ETB per person
 const REFRESHMENT_PRICES = { level1: 50, level2: 100 }; // ETB per person
 
-export function AgreementTemplate({ booking }: AgreementTemplateProps) {
+const DEFAULT_TERMS_KEYS = [
+  'termsPlaceholder1',
+  'termsPlaceholder2',
+  'termsPlaceholder3',
+  'termsPlaceholder4',
+];
+
+export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
   const { t } = useLanguage();
 
   if (!booking) {
@@ -45,9 +53,9 @@ export function AgreementTemplate({ booking }: AgreementTemplateProps) {
     refreshmentServiceDescription = `${t(booking.serviceDetails.refreshment)} ${t('refreshment')} (${pricePerPerson} ETB ${t('perPerson')} x ${numberOfAttendees} = ${refreshmentServiceCost.toFixed(2)} ETB)`;
   }
   
-  // Calculate facility rental cost by subtracting service costs from total cost
-  // This assumes totalCost correctly includes these if they were selected.
   const facilityRentalCost = booking.totalCost - lunchServiceCost - refreshmentServiceCost;
+
+  const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
 
   return (
     <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4">
@@ -151,11 +159,8 @@ export function AgreementTemplate({ booking }: AgreementTemplateProps) {
         
         <section className="mb-8">
             <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('termsAndConditions')}</h2>
-            <div className="prose prose-sm max-w-none text-gray-700 space-y-1 text-xs border border-gray-300 p-3 rounded-md h-32 overflow-y-auto bg-slate-50">
-                <p>{t('termsPlaceholder1')}</p>
-                <p>{t('termsPlaceholder2')}</p>
-                <p>{t('termsPlaceholder3')}</p>
-                <p>{t('termsPlaceholder4')}</p>
+            <div className="prose prose-sm max-w-none text-gray-700 space-y-1 text-xs border border-gray-300 p-3 rounded-md h-32 overflow-y-auto bg-slate-50 whitespace-pre-wrap">
+                {termsToRender}
             </div>
         </section>
 
@@ -178,14 +183,6 @@ export function AgreementTemplate({ booking }: AgreementTemplateProps) {
         <footer className="mt-16 text-center text-xs text-gray-500 no-print">
           <p>{t('thankYouForBusiness')}</p>
         </footer>
-      </div>
-      <div className="text-center mt-8 no-print">
-        <button 
-            onClick={() => window.print()}
-            className="px-8 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition duration-150 text-base font-medium"
-        >
-            {t('printAgreement')} 
-        </button>
       </div>
     </div>
   );

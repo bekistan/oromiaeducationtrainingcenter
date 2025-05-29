@@ -11,10 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import type { Booking, AgreementStatus } from '@/types'; // Added AgreementStatus
-import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass } from 'lucide-react'; // Added FileSignature, Hourglass
+import type { Booking, AgreementStatus } from '@/types';
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore'; // Added doc, updateDoc
+import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
@@ -89,8 +89,8 @@ export default function CompanyDashboardPage() {
         agreementStatus: 'signed_by_client',
         agreementSignedAt: Timestamp.now(),
       });
-      toast({ title: t('success'), description: t('agreementMarkedAsSigned') }); // Add to JSON
-      fetchBookings(user!.companyId!); // Refetch bookings
+      toast({ title: t('success'), description: t('agreementMarkedAsSigned') });
+      fetchBookings(user!.companyId!); 
     } catch (error) {
       console.error("Error confirming signed agreement:", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') });
@@ -98,7 +98,6 @@ export default function CompanyDashboardPage() {
       setIsSubmittingAgreement(null);
     }
   };
-
 
   if (authLoading) {
     return (
@@ -197,7 +196,6 @@ export default function CompanyDashboardPage() {
     }
   };
 
-
   if (user.approvalStatus !== 'approved') {
     const { icon, title, message, cardClass } = getStatusMessageAndIcon();
     return (
@@ -275,8 +273,8 @@ export default function CompanyDashboardPage() {
                         <TableHead>{t('totalCost')}</TableHead>
                         <TableHead>{t('payment')}</TableHead>
                         <TableHead>{t('status')}</TableHead>
-                        <TableHead>{t('agreementStatus')}</TableHead> {/* New Column */}
-                        <TableHead className="text-right">{t('actions')}</TableHead> {/* New Column for actions */}
+                        <TableHead>{t('agreementStatus')}</TableHead>
+                        <TableHead className="text-right">{t('actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -310,22 +308,37 @@ export default function CompanyDashboardPage() {
                           <TableCell>
                             {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right space-x-1">
                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
                               <Button 
                                 size="sm" 
                                 variant="outline"
                                 onClick={() => handleConfirmSignedAgreement(booking.id)}
                                 disabled={isSubmittingAgreement === booking.id}
+                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
                               >
                                 {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" /> }
-                                {t('confirmSignedAgreement')} {/* Add to JSON */}
+                                {t('confirmSignedAgreement')}
                               </Button>
+                            )}
+                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
+                                <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
+                                  <Button size="sm" variant="outline" asChild>
+                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
+                                  </Button>
+                                </Link>
                             )}
                              {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
                                <span className="text-xs text-muted-foreground italic flex items-center justify-end">
-                                 <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')} {/* Add to JSON */}
+                                 <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')}
                                </span>
+                            )}
+                             {booking.bookingCategory === 'facility' && booking.agreementStatus === 'signed_by_client' && (
+                                <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
+                                  <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewAgreement')}</a>
+                                  </Button>
+                                </Link>
                             )}
                           </TableCell>
                         </TableRow>

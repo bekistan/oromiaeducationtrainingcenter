@@ -67,6 +67,7 @@ export interface Booking {
   numberOfAttendees?: number;
   serviceDetails?: BookingServiceDetails;
   notes?: string;
+  customAgreementTerms?: string; // For admin-edited terms
   // Common
   startDate: string | import('firebase/firestore').Timestamp; 
   endDate: string | import('firebase/firestore').Timestamp;   
@@ -89,7 +90,7 @@ export interface User {
   companyName?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected'; // For company users
   phone?: string;
-  createdAt?: string | import('firebase/firestore').FieldValue; // FieldValue for serverTimestamp
+  createdAt?: string; // ISO string representation
 }
 
 export interface CompanyProfile { // This might be merged or related to User type for companies

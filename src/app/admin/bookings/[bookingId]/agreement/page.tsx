@@ -2,30 +2,44 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation'; // Added useRouter
+import { useParams, useRouter } from 'next/navigation';
 import type { Booking } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/use-language';
 import { AgreementTemplate } from '@/components/shared/agreement-template';
-import { Loader2, AlertTriangle, ArrowLeft } from 'lucide-react'; 
-import { Button } from '@/components/ui/button'; // Import Button
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Loader2, AlertTriangle, ArrowLeft, Save, Printer } from 'lucide-react'; 
 
-export default function BookingAgreementPage() {
+const DEFAULT_TERMS_KEYS = [
+  'termsPlaceholder1',
+  'termsPlaceholder2',
+  'termsPlaceholder3',
+  'termsPlaceholder4',
+];
+
+export default function AdminBookingAgreementPage() {
   const params = useParams();
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter();
   const bookingId = params.bookingId as string;
   const { toast } = useToast();
   const { t } = useLanguage();
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [editableTerms, setEditableTerms] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const defaultTermsText = useCallback(() => {
+    return DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
+  }, [t]);
 
   const fetchBookingDetails = useCallback(async (id: string) => {
     if (!id) {
-      setError(t('invalidBookingId')); 
+      setError(t('invalidBookingId'));
       setIsLoading(false);
       return;
     }
@@ -40,7 +54,6 @@ export default function BookingAgreementPage() {
         const fetchedBooking = {
           id: docSnap.id,
           ...data,
-          // Ensure dates are consistently strings for the template, or handle Timestamps there
           bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : (typeof data.bookedAt === 'string' ? data.bookedAt : new Date().toISOString()),
           startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : (typeof data.startDate === 'string' ? data.startDate : new Date().toISOString().split('T')[0]),
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : (typeof data.endDate === 'string' ? data.endDate : new Date().toISOString().split('T')[0]),
@@ -51,6 +64,7 @@ export default function BookingAgreementPage() {
             setBooking(null);
         } else {
             setBooking(fetchedBooking);
+            setEditableTerms(fetchedBooking.customAgreementTerms || defaultTermsText());
         }
       } else {
         setError(t('bookingNotFound')); 
@@ -62,7 +76,7 @@ export default function BookingAgreementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [t, toast]);
+  }, [t, toast, defaultTermsText]);
 
   useEffect(() => {
     if (bookingId) {
@@ -72,6 +86,24 @@ export default function BookingAgreementPage() {
       setIsLoading(false);
     }
   }, [bookingId, fetchBookingDetails]);
+
+  const handleSaveTerms = async () => {
+    if (!booking) return;
+    setIsSaving(true);
+    try {
+      const bookingRef = doc(db, "bookings", booking.id);
+      await updateDoc(bookingRef, {
+        customAgreementTerms: editableTerms,
+      });
+      setBooking(prev => prev ? { ...prev, customAgreementTerms: editableTerms } : null);
+      toast({ title: t('success'), description: t('agreementTermsSaved') }); // Add to JSON
+    } catch (err) {
+      console.error("Error saving agreement terms:", err);
+      toast({ variant: "destructive", title: t('error'), description: t('errorSavingTerms') }); // Add to JSON
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -96,12 +128,38 @@ export default function BookingAgreementPage() {
   
   return (
     <div className="bg-slate-100 min-h-screen py-8 px-2 print:bg-white">
-        <div className="max-w-4xl mx-auto mb-4 no-print">
-            <Button onClick={() => router.back()} variant="outline" size="sm">
-                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToBookings')}
-            </Button>
+        <div className="max-w-4xl mx-auto mb-6 no-print">
+            <div className="flex justify-between items-center mb-4">
+                <Button onClick={() => router.back()} variant="outline" size="sm">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToBookings')}
+                </Button>
+                <div className="space-x-2">
+                    <Button onClick={handleSaveTerms} variant="default" size="sm" disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {t('saveTerms')} {/* Add to JSON */}
+                    </Button>
+                    <Button onClick={() => window.print()} variant="outline" size="sm">
+                        <Printer className="mr-2 h-4 w-4" /> {t('printAgreement')}
+                    </Button>
+                </div>
+            </div>
+
+            <div className="space-y-2 mb-6 p-4 border rounded-md bg-background">
+                <label htmlFor="editableTerms" className="block text-sm font-medium text-foreground">
+                {t('editAgreementTerms')}: {/* Add to JSON */}
+                </label>
+                <Textarea
+                    id="editableTerms"
+                    value={editableTerms}
+                    onChange={(e) => setEditableTerms(e.target.value)}
+                    rows={10}
+                    className="w-full text-xs"
+                    placeholder={t('enterCustomTermsHere')} /* Add to JSON */
+                />
+                <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p> {/* Add to JSON */}
+            </div>
         </div>
-        <AgreementTemplate booking={booking} />
+        <AgreementTemplate booking={booking} customTerms={editableTerms} />
     </div>
   );
 }

@@ -1,0 +1,132 @@
+
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import type { Booking } from '@/types';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/hooks/use-language';
+import { useAuth } from '@/hooks/use-auth'; // For checking user role
+import { AgreementTemplate } from '@/components/shared/agreement-template';
+import { Button } from '@/components/ui/button';
+import { Loader2, AlertTriangle, ArrowLeft, Printer } from 'lucide-react';
+import { PublicLayout } from '@/components/layout/public-layout'; // Use public layout
+
+export default function CompanyBookingAgreementViewPage() {
+  const params = useParams();
+  const router = useRouter();
+  const bookingId = params.bookingId as string;
+  const { toast } = useToast();
+  const { t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBookingDetails = useCallback(async (id: string) => {
+    if (!id) {
+      setError(t('invalidBookingId'));
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const bookingRef = doc(db, "bookings", id);
+      const docSnap = await getDoc(bookingRef);
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const fetchedBooking = {
+          id: docSnap.id,
+          ...data,
+          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : (typeof data.bookedAt === 'string' ? data.bookedAt : new Date().toISOString()),
+          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : (typeof data.startDate === 'string' ? data.startDate : new Date().toISOString().split('T')[0]),
+          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : (typeof data.endDate === 'string' ? data.endDate : new Date().toISOString().split('T')[0]),
+        } as Booking;
+        
+        // Security check: Ensure the logged-in company user owns this booking
+        if (user && user.role === 'company_representative' && fetchedBooking.companyId !== user.companyId) {
+            setError(t('accessDeniedViewAgreement')); // Add to JSON
+            setBooking(null);
+        } else if (fetchedBooking.bookingCategory !== 'facility' || fetchedBooking.approvalStatus !== 'approved' || (fetchedBooking.agreementStatus !== 'sent_to_client' && fetchedBooking.agreementStatus !== 'signed_by_client' && fetchedBooking.agreementStatus !== 'completed')) {
+            setError(t('agreementNotReadyForViewing')); // Add to JSON
+            setBooking(null);
+        } else {
+            setBooking(fetchedBooking);
+        }
+      } else {
+        setError(t('bookingNotFound')); 
+      }
+    } catch (err) {
+      console.error("Error fetching booking details for agreement view:", err);
+      setError(t('errorFetchingBookingDetails')); 
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookingDetails') });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t, toast, user]);
+
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth state to load
+
+    if (!user || user.role !== 'company_representative') {
+      setError(t('mustBeLoggedInAsCompanyToViewAgreement')); // Add to JSON
+      setIsLoading(false);
+      return;
+    }
+
+    if (bookingId) {
+      fetchBookingDetails(bookingId);
+    } else {
+      setError(t('noBookingIdProvided')); 
+      setIsLoading(false);
+    }
+  }, [bookingId, fetchBookingDetails, user, authLoading]);
+
+  if (isLoading || authLoading) {
+    return (
+      <PublicLayout>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] p-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-lg text-muted-foreground">{t('loadingAgreementDetails')}</p> 
+        </div>
+      </PublicLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <PublicLayout>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] p-4 text-center">
+            <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+            <p className="text-lg text-destructive mb-6">{error}</p>
+            <Button onClick={() => router.push('/company/dashboard')} variant="outline">
+                <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToCompanyDashboard')} {/* Add to JSON */}
+            </Button>
+        </div>
+      </PublicLayout>
+    );
+  }
+  
+  return (
+    <PublicLayout>
+        <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white">
+            <div className="max-w-4xl mx-auto mb-4 no-print">
+                <div className="flex justify-between items-center">
+                    <Button onClick={() => router.push('/company/dashboard')} variant="outline" size="sm">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToCompanyDashboard')}
+                    </Button>
+                    <Button onClick={() => window.print()} variant="default" size="sm">
+                        <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')} {/* Add to JSON */}
+                    </Button>
+                </div>
+            </div>
+            <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />
+        </div>
+    </PublicLayout>
+  );
+}
