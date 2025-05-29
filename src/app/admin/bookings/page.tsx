@@ -252,34 +252,25 @@ export default function AdminBookingsPage() {
                     <TableHead>{t('totalCost')}</TableHead>
                     <TableHead>{t('paymentStatus')}</TableHead>
                     <TableHead>{t('approvalStatus')}</TableHead>
-                    <TableHead>{t('agreementStatus')}</TableHead> {/* New Column */}
+                    <TableHead>{t('agreementStatus')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell>
-                      <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
-                      <TableCell className="min-w-[150px]">
+                      <TableCell className="font-medium whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">
                         {booking.items.map(item => item.name).join(', ')} ({booking.items.length})
-                      </TableCell>
-                      <TableCell className="min-w-[150px]">
+                      </TableCell><TableCell className="min-w-[150px]">
                         {booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}
                         {booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
-                      <TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell>
-                      <TableCell>
+                      </TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>
                         {getPaymentStatusBadge(booking.paymentStatus)}
-                      </TableCell>
-                      <TableCell>
+                      </TableCell><TableCell>
                         {getApprovalStatusBadge(booking.approvalStatus)}
-                      </TableCell>
-                       <TableCell>
+                      </TableCell><TableCell>
                         {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
+                      </TableCell><TableCell className="text-right space-x-1">
                         <Button variant="ghost" size="icon" title={t('viewDetails')}>
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">{t('viewDetails')}</span>
@@ -307,7 +298,7 @@ export default function AdminBookingsPage() {
                                 {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
                                   <>
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel> {/* Add to JSON */}
+                                    <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
                                     <DropdownMenuItem asChild>
                                       <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
                                         <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
@@ -317,13 +308,13 @@ export default function AdminBookingsPage() {
                                       onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
                                       disabled={booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed'}
                                     >
-                                      <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')} {/* Add to JSON */}
+                                      <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem 
                                       onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
                                       disabled={booking.agreementStatus !== 'sent_to_client'}
                                     >
-                                      <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')} {/* Add to JSON */}
+                                      <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
                                     </DropdownMenuItem>
                                   </>
                                 )}
