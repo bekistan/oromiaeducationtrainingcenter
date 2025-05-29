@@ -1,18 +1,19 @@
 
 'use client';
 
-import type { Booking } from '@/types';
+import type { Booking, BookingItem } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays, parseISO } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 interface AgreementTemplateProps {
   booking: Booking | null;
-  customTerms?: string; // Accept custom terms as a prop
+  customTerms?: string; 
 }
 
-// Consistent pricing with BookingForm
-const LUNCH_PRICES = { level1: 150, level2: 250 }; // ETB per person
-const REFRESHMENT_PRICES = { level1: 50, level2: 100 }; // ETB per person
+// Consistent pricing with BookingForm (per person per day)
+const LUNCH_PRICES_PER_DAY = { level1: 150, level2: 250 }; 
+const REFRESHMENT_PRICES_PER_DAY = { level1: 50, level2: 100 };
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -33,27 +34,35 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   }
 
   const agreementDate = format(new Date(), 'MMMM dd, yyyy');
-  const startDate = booking.startDate ? format(new Date(booking.startDate as string), 'MMMM dd, yyyy') : t('notAvailable');
-  const endDate = booking.endDate ? format(new Date(booking.endDate as string), 'MMMM dd, yyyy') : t('notAvailable');
+  
+  const startDateObj = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
+  const endDateObj = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+
+  const startDate = format(startDateObj, 'MMMM dd, yyyy');
+  const endDate = format(endDateObj, 'MMMM dd, yyyy');
+  const numberOfDays = differenceInCalendarDays(endDateObj, startDateObj) + 1;
+  
   const numberOfAttendees = booking.numberOfAttendees || 0;
 
-  let lunchServiceDescription = t('serviceLevelNone');
-  let lunchServiceCost = 0;
-  if (booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0) {
-    const pricePerPerson = LUNCH_PRICES[booking.serviceDetails.lunch];
-    lunchServiceCost = pricePerPerson * numberOfAttendees;
-    lunchServiceDescription = `${t(booking.serviceDetails.lunch)} ${t('lunch')} (${pricePerPerson} ETB ${t('perPerson')} x ${numberOfAttendees} = ${lunchServiceCost.toFixed(2)} ETB)`;
+  let calculatedFacilityRentalCost = 0;
+  booking.items.forEach(item => {
+    calculatedFacilityRentalCost += (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
+  });
+
+  let calculatedLunchServiceCost = 0;
+  if (booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
+    const pricePerPersonPerDay = LUNCH_PRICES_PER_DAY[booking.serviceDetails.lunch];
+    calculatedLunchServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
   }
 
-  let refreshmentServiceDescription = t('serviceLevelNone');
-  let refreshmentServiceCost = 0;
-  if (booking.serviceDetails?.refreshment && booking.serviceDetails.refreshment !== 'none' && numberOfAttendees > 0) {
-    const pricePerPerson = REFRESHMENT_PRICES[booking.serviceDetails.refreshment];
-    refreshmentServiceCost = pricePerPerson * numberOfAttendees;
-    refreshmentServiceDescription = `${t(booking.serviceDetails.refreshment)} ${t('refreshment')} (${pricePerPerson} ETB ${t('perPerson')} x ${numberOfAttendees} = ${refreshmentServiceCost.toFixed(2)} ETB)`;
+  let calculatedRefreshmentServiceCost = 0;
+  if (booking.serviceDetails?.refreshment && booking.serviceDetails.refreshment !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
+    const pricePerPersonPerDay = REFRESHMENT_PRICES_PER_DAY[booking.serviceDetails.refreshment];
+    calculatedRefreshmentServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
   }
   
-  const facilityRentalCost = booking.totalCost - lunchServiceCost - refreshmentServiceCost;
+  // booking.totalCost should be the authoritative source from the booking record
+  const totalBookingCostFromRecord = booking.totalCost;
 
   const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
 
@@ -112,7 +121,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
           <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('serviceDetails')}</h2>
           <div className="space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
             <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {booking.items.map(item => item.name).join(', ')}</p>
-            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate}</p>
+            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> {/* Add 'days' to JSON */}
             <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
           </div>
         </section>
@@ -131,26 +140,26 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
               <tbody>
                 <tr>
                   <td className="border border-slate-300 p-2">{t('facilityRental')}</td>
-                  <td className="border border-slate-300 p-2">{booking.items.map(item => item.name).join(', ')}</td>
-                  <td className="border border-slate-300 p-2 text-right">{facilityRentalCost.toFixed(2)}</td>
+                  <td className="border border-slate-300 p-2">{booking.items.map(item => item.name).join(', ')} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
+                  <td className="border border-slate-300 p-2 text-right">{calculatedFacilityRentalCost.toFixed(2)}</td>
                 </tr>
                 {booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && (
                   <tr>
                     <td className="border border-slate-300 p-2">{t('lunchService')}</td>
-                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.lunch)} - {numberOfAttendees} {t('persons')}</td>
-                    <td className="border border-slate-300 p-2 text-right">{lunchServiceCost.toFixed(2)}</td>
+                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.lunch)} - {numberOfAttendees} {t('persons')} x {numberOfDays} {numberOfDays === 1 ? t('day') : t('days')}</td>
+                    <td className="border border-slate-300 p-2 text-right">{calculatedLunchServiceCost.toFixed(2)}</td>
                   </tr>
                 )}
                 {booking.serviceDetails?.refreshment && booking.serviceDetails.refreshment !== 'none' && numberOfAttendees > 0 && (
                    <tr>
                     <td className="border border-slate-300 p-2">{t('refreshmentService')}</td>
-                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.refreshment)} - {numberOfAttendees} {t('persons')}</td>
-                    <td className="border border-slate-300 p-2 text-right">{refreshmentServiceCost.toFixed(2)}</td>
+                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.refreshment)} - {numberOfAttendees} {t('persons')} x {numberOfDays} {numberOfDays === 1 ? t('day') : t('days')}</td>
+                    <td className="border border-slate-300 p-2 text-right">{calculatedRefreshmentServiceCost.toFixed(2)}</td>
                   </tr>
                 )}
                 <tr className="font-bold bg-slate-100">
                   <td colSpan={2} className="border border-slate-300 p-2 text-right">{t('totalBookingCost')}</td>
-                  <td className="border border-slate-300 p-2 text-right">{booking.totalCost.toFixed(2)} ETB</td>
+                  <td className="border border-slate-300 p-2 text-right">{totalBookingCostFromRecord.toFixed(2)} ETB</td>
                 </tr>
               </tbody>
             </table>
@@ -187,3 +196,5 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     </div>
   );
 }
+
+    

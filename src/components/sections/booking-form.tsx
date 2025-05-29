@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -24,12 +24,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import type { BookingServiceDetails, BookingItem } from '@/types';
+import type { BookingServiceDetails, BookingItem, Booking } from '@/types';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2 } from 'lucide-react';
-import { differenceInCalendarDays, format } from 'date-fns';
+import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+
+// Define service prices (per person per day)
+const LUNCH_PRICES_PER_DAY = { level1: 150, level2: 250 };
+const REFRESHMENT_PRICES_PER_DAY = { level1: 50, level2: 100 };
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -38,7 +43,7 @@ interface BookingFormProps {
 
 const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(), // File upload handling is complex, keeping as optional/mock
+  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(), 
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
@@ -71,6 +76,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const router = useRouter();
   const isDormitoryBooking = bookingCategory === 'dormitory';
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+
 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
   
@@ -78,7 +86,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     companyName: user?.role === 'company_representative' ? user.companyName || "" : "",
     contactPerson: user?.role === 'company_representative' ? user.name || "" : "",
     email: user?.email || "",
-    phone: "",
+    phone: user?.phone || "",
     dateRange: undefined,
     numberOfAttendees: 1,
     services: { lunch: 'none' as const, refreshment: 'none' as const },
@@ -92,13 +100,79 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       : defaultFacilityValues,
   });
   
+  const watchedDateRange = form.watch('dateRange');
+
+  const checkFacilityAvailability = async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
+    if (!selectedRange.from || !selectedRange.to) return null;
+
+    const fromTimestamp = Timestamp.fromDate(selectedRange.from);
+    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999))); // End of day for 'to'
+
+    const q = query(
+      collection(db, "bookings"),
+      where("bookingCategory", "==", "facility"),
+      where("approvalStatus", "in", ["approved", "pending"]),
+      // Broad phase: Check for bookings whose start date is before or on the selected range's end date.
+      where("startDate", "<=", toTimestamp) 
+    );
+
+    try {
+      const querySnapshot = await getDocs(q);
+      const conflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
+
+      for (const item of itemsToCheck) {
+        // Check if the item itself is marked as unavailable by admin
+        const itemDocRef = doc(db, "halls", item.id); // Assuming 'halls' collection stores both halls and sections
+        const itemDocSnap = await getDoc(itemDocRef);
+        if (itemDocSnap.exists() && !itemDocSnap.data().isAvailable) {
+          return t('facilityNotAvailableOverride', { itemName: item.name });
+        }
+
+        // Narrow phase: Check for actual overlaps and item conflicts
+        for (const booking of conflictingBookings) {
+          const bookingStartDate = (booking.startDate instanceof Timestamp) ? booking.startDate.toDate() : parseISO(booking.startDate as string);
+          const bookingEndDate = (booking.endDate instanceof Timestamp) ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+          
+          // Check if booking's end date is after or on the selected range's start date (completes the overlap check)
+          if (bookingEndDate >= selectedRange.from) {
+            const itemBookedInConflict = booking.items.find(bookedItem => bookedItem.id === item.id);
+            if (itemBookedInConflict) {
+              return t('itemUnavailableConflict', { itemName: item.name });
+            }
+          }
+        }
+      }
+      return null; // No conflicts
+    } catch (error) {
+      console.error("Error checking facility availability:", error);
+      toast({ variant: "destructive", title: t('error'), description: "Error checking availability. Please try again."});
+      return "Error checking availability. Please try again.";
+    }
+  };
+
+  useEffect(() => {
+    if (bookingCategory === 'facility' && itemsToBook.length > 0 && watchedDateRange?.from && watchedDateRange?.to) {
+      const performCheck = async () => {
+        setIsCheckingAvailability(true);
+        setAvailabilityError(null);
+        const errorMsg = await checkFacilityAvailability(itemsToBook, watchedDateRange);
+        setAvailabilityError(errorMsg);
+        setIsCheckingAvailability(false);
+      };
+      performCheck();
+    } else {
+      setAvailabilityError(null); // Clear error if not facility or dates incomplete
+    }
+  }, [itemsToBook, watchedDateRange, bookingCategory, t]); // Removed checkFacilityAvailability from deps as it's defined outside effect and uses `t`
+
+
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", // Also prefill phone if available from user
+        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", 
         dateRange: (form.getValues() as FacilityBookingValues).dateRange,
         numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
         services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
@@ -110,7 +184,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
     setIsSubmitting(true);
-    const bookingIdForPayment = `bk_temp_${Date.now()}`; // Temporary ID for payment redirect
+    const bookingIdForPayment = `bk_temp_${Date.now()}`; 
     let totalCost = 0;
     const itemName = itemsToBook.map(item => item.name).join(', ');
 
@@ -120,15 +194,20 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return;
     }
     
-    // Dates are already Date objects from DatePickerWithRange
     const startDateObject = new Date(data.dateRange.from);
     const endDateObject = new Date(data.dateRange.to);
+    const numberOfDays = differenceInCalendarDays(endDateObject, startDateObject) + 1;
+
+    if (numberOfDays <= 0) {
+        toast({ title: t('error'), description: t('invalidDateRange'), variant: "destructive" }); // Add to JSON
+        setIsSubmitting(false);
+        return;
+    }
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
-      if (item && typeof item.pricePerDay === 'number' && dormData.dateRange?.from && dormData.dateRange.to) {
-        const numberOfDays = differenceInCalendarDays(endDateObject, startDateObject) + 1;
+      if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
 
         const queryParams = new URLSearchParams({
@@ -155,10 +234,25 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       
     } else { // Facility Booking
       const facilityData = data as FacilityBookingValues;
-      totalCost = itemsToBook.reduce((acc, curr) => acc + (curr.rentalCost || 0), 0); // Assuming rentalCost is per booking, not per day for facilities
-      // Add cost for services
-      if (facilityData.services.lunch !== 'none') totalCost += (facilityData.numberOfAttendees * (facilityData.services.lunch === 'level1' ? 150 : 250) ); // Mock prices
-      if (facilityData.services.refreshment !== 'none') totalCost += (facilityData.numberOfAttendees * (facilityData.services.refreshment === 'level1' ? 50 : 100) ); // Mock prices
+      
+      let rentalCostComponent = 0;
+      itemsToBook.forEach(item => {
+        rentalCostComponent += (item.rentalCost || 0) * numberOfDays;
+      });
+
+      let lunchCostComponent = 0;
+      if (facilityData.services.lunch !== 'none') {
+        const pricePerDay = LUNCH_PRICES_PER_DAY[facilityData.services.lunch];
+        lunchCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
+      }
+      
+      let refreshmentCostComponent = 0;
+      if (facilityData.services.refreshment !== 'none') {
+        const pricePerDay = REFRESHMENT_PRICES_PER_DAY[facilityData.services.refreshment];
+        refreshmentCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
+      }
+      
+      totalCost = rentalCostComponent + lunchCostComponent + refreshmentCostComponent;
 
       const serviceDetails: BookingServiceDetails = {};
       if (facilityData.services.lunch && facilityData.services.lunch !== 'none') {
@@ -191,7 +285,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         await addDoc(collection(db, "bookings"), bookingData);
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        router.push('/company/dashboard'); // Redirect to company dashboard
+        router.push('/company/dashboard'); 
       } catch (error) {
         console.error("Error submitting facility booking: ", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
@@ -237,6 +331,19 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {isCheckingAvailability && (
+              <div className="flex items-center justify-center text-sm text-muted-foreground p-2">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t('checkingAvailability')}
+              </div>
+            )}
+            {availabilityError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>{t('availabilityErrorTitle')}</AlertTitle> {/* Add to JSON */}
+                <AlertDescription>{availabilityError}</AlertDescription>
+              </Alert>
+            )}
             <FormField
               control={form.control}
               name="dateRange"
@@ -275,8 +382,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>{t('notesOrSpecialRequests')}</FormLabel><FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               </>
             )}
-            <Button type="submit" className="w-full" disabled={authLoading || isSubmitting}>
-                {(authLoading || isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={authLoading || isSubmitting || isCheckingAvailability || !!availabilityError}>
+                {(authLoading || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isDormitoryBooking ? t('proceedToPayment') : t('submitBooking')}
             </Button>
           </form>
@@ -286,3 +393,4 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   );
 }
 
+    
