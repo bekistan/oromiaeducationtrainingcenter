@@ -2,14 +2,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link'; 
+import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import type { Booking, AgreementStatus } from "@/types"; // Added AgreementStatus
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle } from "lucide-react"; 
+import type { Booking, AgreementStatus } from "@/types";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -42,8 +42,8 @@ export default function AdminBookingsPage() {
       const querySnapshot = await getDocs(collection(db, "bookings"));
       const bookingsData = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
-        return { 
-          id: docSnap.id, 
+        return {
+          id: docSnap.id,
           ...data,
           bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
           startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
@@ -88,9 +88,9 @@ export default function AdminBookingsPage() {
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
-      searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory', 'email', 'phone'], 
+      searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory', 'email', 'phone'],
   });
-  
+
   useEffect(() => {
     setDataSource(filteredBookings);
   }, [filteredBookings, setDataSource]);
@@ -100,12 +100,13 @@ export default function AdminBookingsPage() {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
       const updateData: Partial<Booking> = { approvalStatus: newStatus };
-      if (newStatus === 'approved' && displayedBookings.find(b => b.id === bookingId)?.bookingCategory === 'facility') {
+      const currentBooking = allBookings.find(b => b.id === bookingId);
+      if (newStatus === 'approved' && currentBooking?.bookingCategory === 'facility') {
         updateData.agreementStatus = 'pending_admin_action';
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('bookingStatusUpdated') });
-      fetchBookings(); 
+      fetchBookings();
     } catch (error) {
       console.error("Error updating booking status: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
@@ -122,14 +123,14 @@ export default function AdminBookingsPage() {
         updateData.agreementSignedAt = Timestamp.now();
       }
       await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('agreementStatusUpdated') }); // Add to JSON
+      toast({ title: t('success'), description: t('agreementStatusUpdated') });
       fetchBookings();
     } catch (error) {
       console.error("Error updating agreement status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') });
     }
   };
-  
+
   const handleDeleteBooking = async (bookingId: string) => {
     if (!confirm(t('confirmDeleteBooking'))) return;
     try {
@@ -169,16 +170,16 @@ export default function AdminBookingsPage() {
   };
 
   const getAgreementStatusBadge = (status?: AgreementStatus) => {
-    if (!status) return <Badge variant="outline">{t('notApplicable')}</Badge>; // Add to JSON
+    if (!status) return <Badge variant="outline">{t('notApplicable')}</Badge>;
     switch (status) {
       case 'pending_admin_action':
-        return <Badge className="bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200">{t('pendingAdminAction')}</Badge>; // Add to JSON
+        return <Badge className="bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200">{t('pendingAdminAction')}</Badge>;
       case 'sent_to_client':
-        return <Badge className="bg-cyan-100 text-cyan-700 border-cyan-300 hover:bg-cyan-200">{t('sentToClient')}</Badge>; // Add to JSON
+        return <Badge className="bg-cyan-100 text-cyan-700 border-cyan-300 hover:bg-cyan-200">{t('sentToClient')}</Badge>;
       case 'signed_by_client':
-        return <Badge className="bg-teal-100 text-teal-700 border-teal-300 hover:bg-teal-200">{t('signedByClient')}</Badge>; // Add to JSON
+        return <Badge className="bg-teal-100 text-teal-700 border-teal-300 hover:bg-teal-200">{t('signedByClient')}</Badge>;
       case 'completed':
-        return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t('completed')}</Badge>; // Add to JSON
+        return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t('completed')}</Badge>;
       default:
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
@@ -244,33 +245,13 @@ export default function AdminBookingsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('bookingId')}</TableHead>
-                    <TableHead>{t('category')}</TableHead>
-                    <TableHead>{t('itemsBooked')}</TableHead>
-                    <TableHead>{t('customer')}</TableHead>
-                    <TableHead>{t('dates')}</TableHead>
-                    <TableHead>{t('totalCost')}</TableHead>
-                    <TableHead>{t('paymentStatus')}</TableHead>
-                    <TableHead>{t('approvalStatus')}</TableHead>
-                    <TableHead>{t('agreementStatus')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
+                    <TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="font-medium whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">
-                        {booking.items.map(item => item.name).join(', ')} ({booking.items.length})
-                      </TableCell><TableCell className="min-w-[150px]">
-                        {booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}
-                        {booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}
-                      </TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>
-                        {getPaymentStatusBadge(booking.paymentStatus)}
-                      </TableCell><TableCell>
-                        {getApprovalStatusBadge(booking.approvalStatus)}
-                      </TableCell><TableCell>
-                        {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
-                      </TableCell><TableCell className="text-right space-x-1">
+                      <TableCell className="font-medium whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
                         <Button variant="ghost" size="icon" title={t('viewDetails')}>
                           <Eye className="h-4 w-4" />
                           <span className="sr-only">{t('viewDetails')}</span>
@@ -294,7 +275,7 @@ export default function AdminBookingsPage() {
                                 <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                     {t('rejectBooking')}
                                 </DropdownMenuItem>
-                                
+
                                 {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
                                   <>
                                     <DropdownMenuSeparator />
@@ -304,13 +285,13 @@ export default function AdminBookingsPage() {
                                         <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
                                       </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
                                       disabled={booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed'}
                                     >
                                       <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem 
+                                    <DropdownMenuItem
                                       onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
                                       disabled={booking.agreementStatus !== 'sent_to_client'}
                                     >
@@ -360,3 +341,4 @@ export default function AdminBookingsPage() {
     </div>
   );
 }
+
