@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
-import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText } from 'lucide-react';
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,9 @@ export default function CompanyDashboardPage() {
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [isSubmittingAgreement, setIsSubmittingAgreement] = useState<string | null>(null); // bookingId or null
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentBookingIdForUpload, setCurrentBookingIdForUpload] = useState<string | null>(null);
+
 
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
@@ -81,23 +84,39 @@ export default function CompanyDashboardPage() {
       searchKeys: ['id'], 
   });
 
-  const handleConfirmSignedAgreement = async (bookingId: string) => {
-    setIsSubmittingAgreement(bookingId);
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      await updateDoc(bookingRef, {
-        agreementStatus: 'signed_by_client',
-        agreementSignedAt: Timestamp.now(),
-      });
-      toast({ title: t('success'), description: t('agreementMarkedAsSigned') });
-      fetchBookings(user!.companyId!); 
-    } catch (error) {
-      console.error("Error confirming signed agreement:", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') });
-    } finally {
-      setIsSubmittingAgreement(null);
+  const handleTriggerFileUpload = (bookingId: string) => {
+    setCurrentBookingIdForUpload(bookingId);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelectedAndConfirm = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0 && currentBookingIdForUpload) {
+      const bookingId = currentBookingIdForUpload;
+      setIsSubmittingAgreement(bookingId);
+      try {
+        const bookingRef = doc(db, "bookings", bookingId);
+        await updateDoc(bookingRef, {
+          agreementStatus: 'signed_by_client',
+          agreementSignedAt: Timestamp.now(),
+        });
+        toast({ title: t('success'), description: t('agreementConfirmedAndMockUploaded') }); // Add to JSON
+        if (user?.companyId) fetchBookings(user.companyId); 
+      } catch (error) {
+        console.error("Error confirming signed agreement:", error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorMockUploadingAgreement') }); // Add to JSON
+      } finally {
+        setIsSubmittingAgreement(null);
+        setCurrentBookingIdForUpload(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""; // Reset file input
+        }
+      }
+    } else {
+        // Handle case where no file was selected but input was triggered
+        setCurrentBookingIdForUpload(null);
     }
   };
+
 
   if (authLoading) {
     return (
@@ -221,6 +240,13 @@ export default function CompanyDashboardPage() {
   return (
     <PublicLayout>
       <div className="container mx-auto py-8 px-4 space-y-8">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          onChange={handleFileSelectedAndConfirm} 
+          accept=".pdf,.doc,.docx,.jpg,.png" // Example accepted file types
+        />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-primary">{t('companyDashboardTitle')}</h1>
@@ -310,30 +336,30 @@ export default function CompanyDashboardPage() {
                           </TableCell>
                           <TableCell className="text-right space-x-1">
                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleConfirmSignedAgreement(booking.id)}
-                                disabled={isSubmittingAgreement === booking.id}
-                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
-                              >
-                                {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" /> }
-                                {t('confirmSignedAgreement')}
-                              </Button>
-                            )}
-                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
+                              <>
                                 <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
                                   <Button size="sm" variant="outline" asChild>
                                       <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
                                   </Button>
                                 </Link>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => handleTriggerFileUpload(booking.id)}
+                                  disabled={isSubmittingAgreement === booking.id}
+                                  className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+                                >
+                                  {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
+                                  {t('uploadAndConfirmSignedAgreement')} {/* Add to JSON */}
+                                </Button>
+                              </>
                             )}
                              {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
                                <span className="text-xs text-muted-foreground italic flex items-center justify-end">
                                  <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')}
                                </span>
                             )}
-                             {booking.bookingCategory === 'facility' && booking.agreementStatus === 'signed_by_client' && (
+                             {booking.bookingCategory === 'facility' && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
                                 <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
                                   <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
                                       <a><FileText className="mr-2 h-4 w-4" />{t('viewAgreement')}</a>
@@ -377,3 +403,6 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
+
+
+    
