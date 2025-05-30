@@ -6,11 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/use-language";
 import type { Dormitory } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -42,6 +52,9 @@ export default function AdminDormitoriesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentDormitory, setCurrentDormitory] = useState<Dormitory | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [dormitoryToDeleteId, setDormitoryToDeleteId] = useState<string | null>(null);
+
 
   const defaultImage = `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`;
 
@@ -159,19 +172,28 @@ export default function AdminDormitoriesPage() {
     }
   }
 
-  const handleDelete = async (dormId: string) => {
-    if (!confirm(t('confirmDeleteDormitory'))) return;
+  const openDeleteDialog = (dormId: string) => {
+    setDormitoryToDeleteId(dormId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteDormitory = async () => {
+    if (!dormitoryToDeleteId) return;
     try {
-        await deleteDoc(doc(db, "dormitories", dormId));
+        await deleteDoc(doc(db, "dormitories", dormitoryToDeleteId));
         toast({ title: t('success'), description: t('dormitoryDeletedSuccessfully') });
         fetchDormitories();
     } catch (error) {
         console.error("Error deleting dormitory: ", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorDeletingDormitory') });
+    } finally {
+        setIsDeleteDialogOpen(false);
+        setDormitoryToDeleteId(null);
     }
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageDormitories')}</h1>
@@ -276,7 +298,7 @@ export default function AdminDormitoriesPage() {
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">{t('edit')}</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => handleDelete(dorm.id)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(dorm.id)}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">{t('delete')}</span>
                         </Button>
@@ -341,7 +363,29 @@ export default function AdminDormitoriesPage() {
         </DialogContent>
       </Dialog>
     </div>
+
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="mr-2 h-5 w-5 text-destructive" />
+                {t('confirmDeleteDormitoryTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('confirmDeleteDormitoryMessage')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDormitoryToDeleteId(null)}>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteDormitory}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {t('delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
-
-    
