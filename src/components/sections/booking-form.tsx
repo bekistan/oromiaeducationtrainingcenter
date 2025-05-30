@@ -30,7 +30,7 @@ import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
 const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
@@ -111,7 +111,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999))); 
 
-    // Query for bookings that are approved or pending and start before or on the selected end date.
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
@@ -122,31 +121,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     try {
       const querySnapshot = await getDocs(q);
       const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
-
-      // Further filter client-side for endDate overlap
       const conflictingBookings = potentiallyConflictingBookings.filter(booking => {
         const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
         return bookingEndDate >= selectedRange.from!;
       });
 
-
       for (const item of itemsToCheck) {
-        // Check if the item itself is marked as unavailable by admin
         const itemDocRef = doc(db, "halls", item.id); 
         const itemDocSnap = await getDoc(itemDocRef);
         if (itemDocSnap.exists() && !itemDocSnap.data().isAvailable) {
-          return t('facilityNotAvailableOverride', { itemName: item.name }); // Add to JSON
+          return t('facilityNotAvailableOverride', { itemName: item.name }); 
         }
 
-        // Check against existing bookings
         for (const booking of conflictingBookings) {
             const itemBookedInConflict = booking.items.find(bookedItem => bookedItem.id === item.id);
             if (itemBookedInConflict) {
-              return t('itemUnavailableConflict', { itemName: item.name }); // Add to JSON
+              return t('itemUnavailableConflict', { itemName: item.name }); 
             }
         }
       }
-      return null; // No conflicts found
+      return null; 
     } catch (error) {
       console.error("Error checking facility availability:", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability')}); 
@@ -154,42 +148,89 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     }
   }, [t, toast]);
 
+  const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
+    if (!selectedRange.from || !selectedRange.to || !itemToCheck.capacity) return null;
+    if (selectedRange.to < selectedRange.from) {
+        return t('invalidDateRange');
+    }
+
+    const fromTimestamp = Timestamp.fromDate(selectedRange.from);
+    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
+
+    // Query for approved bookings of this specific dormitory room that overlap the selected dates
+    const q = query(
+        collection(db, "bookings"),
+        where("bookingCategory", "==", "dormitory"),
+        where("items", "array-contains", { id: itemToCheck.id, name: itemToCheck.name, itemType: "dormitory" }), // More precise item check
+        where("approvalStatus", "==", "approved"),
+        where("startDate", "<=", toTimestamp)
+        // We must filter endDate client-side as Firestore doesn't support range filters on two different fields
+    );
+
+    try {
+        const querySnapshot = await getDocs(q);
+        let bookedBedsDuringPeriod = 0;
+        querySnapshot.forEach(docSnap => {
+            const booking = docSnap.data() as Booking;
+            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            if (bookingEndDate >= selectedRange.from!) { // Check for overlap
+                // Assuming 1 booking = 1 bed for now. Refine if multiple beds can be booked per booking document.
+                bookedBedsDuringPeriod++;
+            }
+        });
+        
+        if (bookedBedsDuringPeriod >= itemToCheck.capacity) {
+            return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name }); // Add to JSON
+        }
+        return null; // Beds available
+    } catch (error) {
+        console.error("Error checking dormitory bed availability:", error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability')});
+        return t('errorCheckingAvailability');
+    }
+  }, [t, toast]);
+
+
   useEffect(() => {
-    if (bookingCategory === 'facility' && itemsToBook.length > 0 && watchedDateRange?.from && watchedDateRange?.to) {
+    if (watchedDateRange?.from && watchedDateRange?.to) {
       const performCheck = async () => {
         setIsCheckingAvailability(true);
         setAvailabilityError(null);
-        const errorMsg = await checkFacilityAvailability(itemsToBook, watchedDateRange);
+        let errorMsg: string | null = null;
+        if (bookingCategory === 'facility' && itemsToBook.length > 0) {
+          errorMsg = await checkFacilityAvailability(itemsToBook, watchedDateRange);
+        } else if (bookingCategory === 'dormitory' && itemsToBook.length === 1 && itemsToBook[0].capacity) {
+          errorMsg = await checkDormitoryBedAvailability(itemsToBook[0], watchedDateRange);
+        }
         setAvailabilityError(errorMsg);
         setIsCheckingAvailability(false);
       };
       performCheck();
     } else {
-      setAvailabilityError(null); // Clear error if conditions are not met (e.g., date range cleared)
+      setAvailabilityError(null); 
     }
-  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability]); // Rerun when these change
+  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability, checkDormitoryBedAvailability]);
 
 
   React.useEffect(() => {
-    // Pre-fill company form fields if user is a company representative
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", // Preserve if already typed
+        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", 
         dateRange: (form.getValues() as FacilityBookingValues).dateRange,
         numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
         services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
         notes: (form.getValues() as FacilityBookingValues).notes || "",
       });
     }
-  }, [user, form, isDormitoryBooking]); // Only run when user changes or form/type changes
+  }, [user, form, isDormitoryBooking]);
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
     setIsSubmitting(true);
-    const bookingIdForPayment = `bk_temp_${Date.now()}`; // Temporary ID for payment page
+    const bookingIdForPayment = `bk_temp_${Date.now()}`; 
     let totalCost = 0;
     const itemName = itemsToBook.map(item => item.name).join(', ');
 
@@ -212,13 +253,12 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
-      const item = itemsToBook[0]; // Assuming only one dorm can be booked at a time via this form path
+      const item = itemsToBook[0]; 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
 
-        // Prepare query params for Chapa payment page
         const queryParams = new URLSearchParams({
-            bookingId: bookingIdForPayment, // Pass temp ID
+            bookingId: bookingIdForPayment, 
             amount: totalCost.toString(),
             itemName: item.name,
             bookingCategory: 'dormitory',
@@ -226,7 +266,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             guestEmployer: dormData.employer,
             startDate: format(startDateObject, "yyyy-MM-dd"),
             endDate: format(endDateObject, "yyyy-MM-dd"),
-            userId: user?.id || "", // Pass user ID if available
+            userId: user?.id || "", 
             itemIds: itemsToBook.map(i => i.id).join(','),
             itemNames: itemsToBook.map(i => i.name).join(','),
             itemTypes: itemsToBook.map(i => i.itemType).join(','),
@@ -239,23 +279,19 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return;
       }
       
-    } else { // Facility Booking
+    } else { 
       const facilityData = data as FacilityBookingValues;
-      
-      // Calculate rental cost component
       let rentalCostComponent = 0;
       itemsToBook.forEach(item => {
         rentalCostComponent += (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
       });
 
-      // Calculate lunch service cost
       let lunchCostComponent = 0;
       if (facilityData.services.lunch !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = LUNCH_PRICES_PER_DAY[facilityData.services.lunch];
         lunchCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
       
-      // Calculate refreshment service cost
       let refreshmentCostComponent = 0;
       if (facilityData.services.refreshment !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = REFRESHMENT_PRICES_PER_DAY[facilityData.services.refreshment];
@@ -272,7 +308,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
       
-      const bookingData: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
         items: itemsToBook,
         companyName: facilityData.companyName,
@@ -286,29 +322,21 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         notes: facilityData.notes,
         totalCost,
         paymentStatus: 'pending' as const,
-        approvalStatus: 'pending' as const, // Facility bookings start as pending
-        bookedAt: Timestamp.now(), // Will be serverTimestamp in actual save
-        userId: user?.id, // Logged-in user ID
-        companyId: user?.companyId, // Company ID from logged-in user
+        approvalStatus: 'pending' as const, 
+        bookedAt: serverTimestamp(), 
+        userId: user?.id, 
+        companyId: user?.companyId, 
       };
       
       try {
-        // Save to Firestore
-        const docRef = await addDoc(collection(db, "bookings"), {
-          ...bookingData,
-          bookedAt: serverTimestamp(), // Use server timestamp
-        });
+        await addDoc(collection(db, "bookings"), bookingDataToSave);
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        router.push('/company/dashboard'); // Redirect to company dashboard
+        router.push('/company/dashboard'); 
       } catch (error) {
         console.error("Error submitting facility booking: ", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
       }
     }
-    // Note: setIsSubmitting(false) is reached after router.push for dorms or in finally block for facilities if needed
-    // For dorms, payment page is next, so form effectively "resets" on navigation
-    // For facilities, after submission and redirect, form state is gone.
-    // If staying on page, setIsSubmitting(false) in a finally block would be good.
     setIsSubmitting(false);
   }
   
@@ -316,8 +344,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
-  // Check for facility bookings if user is not a company rep (already handled by redirect in page.tsx)
-  // This is an additional safeguard if component is used elsewhere or logic changes
   if (!isDormitoryBooking && (!user || user.role !== 'company_representative')) {
     return (
       <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
@@ -361,7 +387,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>
-                  {availabilityError === t('errorCheckingAvailability') ? t('error') : t('availabilityErrorTitle')}
+                   {availabilityError === t('errorCheckingAvailability') ? t('error') : t('availabilityErrorTitle')}
                 </AlertTitle>
                 <AlertDescription>{availabilityError}</AlertDescription>
               </Alert>
@@ -414,4 +440,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-

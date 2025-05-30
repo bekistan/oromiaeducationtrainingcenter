@@ -47,6 +47,7 @@ export default function BookDormitoryPage() {
           name: `${dormData.roomNumber} (${t('floor')} ${dormData.floor})`,
           itemType: "dormitory",
           pricePerDay: dormData.pricePerDay,
+          capacity: dormData.capacity, // Pass capacity for availability check
         });
       } else {
         setError(t('itemNotFound')); // Use existing key

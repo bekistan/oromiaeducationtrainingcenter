@@ -22,8 +22,8 @@ export interface Hall {
   capacity: number;
   isAvailable: boolean;
   rentalCost: number;
-  lunchServiceCost?: number;
-  refreshmentServiceCost?: number;
+  lunchServiceCost?: number | null; // Allow null for Firestore
+  refreshmentServiceCost?: number | null; // Allow null for Firestore
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -41,6 +41,7 @@ export type BookingItem = {
   itemType: 'dormitory' | 'hall' | 'section';
   pricePerDay?: number; // For dormitories
   rentalCost?: number; // For facilities (per booking, not per day by default)
+  capacity?: number; // For dormitory bed availability check
 };
 
 export type AgreementStatus = 
@@ -109,3 +110,4 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][]; // Specify which roles can see this nav item
 }
+
