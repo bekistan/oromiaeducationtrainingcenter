@@ -9,14 +9,24 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2 } from "lucide-react";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation"; // Import usePathname
+import { usePathname } from "next/navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 export function Header() {
   const { t } = useLanguage();
   const { user, logout, loading } = useAuth();
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname();
 
   const isCompanyRep = user?.role === 'company_representative';
   const isAdminOrSuper = user?.role === 'admin' || user?.role === 'superadmin';
@@ -42,23 +52,23 @@ export function Header() {
               </Link>
             );
           })}
-           {isCompanyRep && user.approvalStatus === 'approved' && (
+           {isCompanyRep && user.approvalStatus === 'approved' && !pathname.startsWith('/company/dashboard') && (
             <Link
               href="/company/dashboard"
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname.startsWith("/company/dashboard") ? "text-primary font-semibold" : "text-foreground/70" // Adjusted inactive to be slightly more visible
+                 "text-foreground/70"
               )}
             >
               <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('dashboard')}
             </Link>
           )}
-          {isAdminOrSuper && (
+          {isAdminOrSuper && !pathname.startsWith('/admin/dashboard') && (
              <Link
               href="/admin/dashboard"
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                pathname.startsWith("/admin/dashboard") ? "text-primary font-semibold" : "text-foreground/70"
+                "text-foreground/70"
               )}
             >
                <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('adminDashboard')}
@@ -74,12 +84,48 @@ export function Header() {
                 <Loader2 className="h-4 w-4 animate-spin" />
              </Button>
           ) : user ? (
-            <>
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user.companyName || user.name || user.email} ({t(user.role)})</span>
-              <Button variant="ghost" size="sm" onClick={logout}>
-                <LogOutIcon className="mr-1 h-4 w-4"/> {t('logout')}
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <UserCircle className="h-6 w-6" />
+                  <span className="sr-only">{t('openUserMenu')}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {user.name || user.companyName || t('user')}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.email} ({t(user.role)})
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isAdminOrSuper && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/dashboard">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>{t('adminDashboard')}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {isCompanyRep && user.approvalStatus === 'approved' && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/company/dashboard">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>{t('dashboard')}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                {(isAdminOrSuper || (isCompanyRep && user.approvalStatus === 'approved')) && <DropdownMenuSeparator />}
+                <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
+                  <LogOutIcon className="mr-2 h-4 w-4" />
+                  <span>{t('logout')}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <>
               <Button asChild variant="outline" size="sm">
@@ -95,12 +141,12 @@ export function Header() {
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
                 <Menu className="h-6 w-6" />
-                <span className="sr-only">Toggle menu</span>
+                <span className="sr-only">{t('toggleMenu')}</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px]">
               <SheetTitle className="sr-only">
-                Navigation Menu
+                {t('navigationMenu')}
               </SheetTitle>
               <nav className="flex flex-col space-y-4 mt-8">
                 {PUBLIC_NAVS.map((item) => {
@@ -138,10 +184,20 @@ export function Header() {
                       <LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('adminDashboard')}
                   </Link>
                 )}
-                {!user && !loading && (
-                   <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
+                 {!user && !loading && (
+                   <>
+                    <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
+                      {t('login')}
+                    </Link>
+                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
                       {t('registerCompanyButton')}
                     </Link>
+                   </>
+                )}
+                {user && !loading && (
+                   <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-lg p-0">
+                    <LogOutIcon className="mr-2 h-5 w-5" />{t('logout')}
+                   </Button>
                 )}
               </nav>
             </SheetContent>
