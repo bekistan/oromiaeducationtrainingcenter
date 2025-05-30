@@ -5,6 +5,7 @@ import type { Booking, BookingItem } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
+import { SITE_NAME } from '@/constants'; // Import SITE_NAME
 
 interface AgreementTemplateProps {
   booking: Booking | null;
@@ -104,7 +105,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="font-medium text-gray-700">{t('serviceProvider')}</h3>
-              <p className="text-sm">{t('siteName')}</p>
+              <p className="text-sm">{SITE_NAME}</p>
               <p className="text-sm">{t('providerAddressPlaceholder')}</p>
               <p className="text-sm">{t('providerContactPlaceholder')}</p>
             </div>
@@ -179,7 +180,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             <div className="text-center">
               <div className="h-12 border-b-2 border-gray-400 mb-2"></div>
               <p className="text-sm text-gray-600">{t('signatureOfBidGiver')}</p>
-              <p className="text-sm font-medium text-gray-800">{t('siteName')}</p>
+              <p className="text-sm font-medium text-gray-800">{SITE_NAME}</p>
             </div>
             <div className="text-center">
               <div className="h-12 border-b-2 border-gray-400 mb-2"></div>

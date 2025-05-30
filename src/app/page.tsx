@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils, Globe, ShieldCheck, Settings, Languages } from "lucide-react";
-import { PLACEHOLDER_IMAGE_SIZE } from "@/constants";
+import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages } from "lucide-react"; // Added Languages
+import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME } from "@/constants"; // Import SITE_NAME
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -47,7 +47,7 @@ export default function HomePage() {
       descriptionKey: "chapaGateway",
     },
     {
-      icon: <Languages className="h-10 w-10 text-accent" />, // Using Languages icon instead of Globe for multilingual
+      icon: <Languages className="h-10 w-10 text-accent" />, 
       titleKey: "multilingualSupport",
       descriptionKey: "languagesSupported",
     },
@@ -64,7 +64,7 @@ export default function HomePage() {
       <section className="relative py-20 md:py-32 bg-gradient-to-b from-primary/10 to-background">
         <div className="container mx-auto text-center">
           <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
-            {t('welcomeTo')} {t('siteName')}
+            {t('welcomeTo')} {SITE_NAME}
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-foreground/80">
             {t('tagline')}

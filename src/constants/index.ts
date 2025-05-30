@@ -1,7 +1,7 @@
 
 import type { NavItem, User } from '@/types'; // Added User import
 
-export const SITE_NAME = "OromiaEduRent";
+export const SITE_NAME = "Oromia Education Training Center";
 export const SITE_DESCRIPTION = "Oromia Education Research and Training Center Rental Services";
 
 export const SUPPORTED_LOCALES = [
@@ -36,3 +36,4 @@ export const FOOTER_LINKS = [
 
 export const PLACEHOLDER_IMAGE_SIZE = "600x400";
 export const PLACEHOLDER_THUMBNAIL_SIZE = "300x200";
+
