@@ -18,7 +18,7 @@ body {
     --popover: 40 100% 96%; /* Slightly off-cream for popover */
     --popover-foreground: 220 25% 25%;
 
-    --primary: 210 80% 50%; /* Vibrant Cerulean/Royal Blue */
+    --primary: 210 80% 50%; /* Vibrant Cerulean Blue */
     --primary-foreground: 210 80% 95%; /* Very Light Blue/White */
 
     --secondary: 210 60% 75%; /* Softer, Lighter Blue */
@@ -51,6 +51,8 @@ body {
     --sidebar-primary-foreground: 210 80% 95%; /* Light text for primary (same as main) */
     --sidebar-accent: 210 80% 92%; /* Very light blue (for item hover background) */
     --sidebar-accent-foreground: 210 80% 30%; /* Darker blue text on sidebar accent */
+    --sidebar-active-background: 40 60% 90%; /* Muted, slightly darker cream/light tan for active item */
+    --sidebar-active-foreground: 40 40% 30%; /* Darker tan/brown text for active item */
     --sidebar-border: 210 20% 88%; /* Light Blue-Grey border for sidebar */
     --sidebar-ring: 210 80% 55%; /* Cerulean Blue for focus rings (same as main ring) */
   }
@@ -97,6 +99,8 @@ body {
     --sidebar-primary-foreground: 210 85% 10%; /* Dark blue text on primary (same as main primary dark) */
     --sidebar-accent: 210 70% 30%; /* Dark, somewhat saturated blue for item hover */
     --sidebar-accent-foreground: 210 70% 85%; /* Light blue text on dark sidebar accent */
+    --sidebar-active-background: 40 30% 25%; /* Darker, muted tan for active item in dark mode */
+    --sidebar-active-foreground: 40 60% 85%; /* Lighter tan text for active item in dark mode */
     --sidebar-border: 210 20% 28%; /* Dark Blue-Grey border for sidebar */
     --sidebar-ring: 210 85% 70%; /* Brighter Cerulean Blue for focus rings (same as main ring dark) */
   }
