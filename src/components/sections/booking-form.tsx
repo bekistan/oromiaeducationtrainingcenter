@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -239,13 +239,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       });
 
       let lunchCostComponent = 0;
-      if (facilityData.services.lunch !== 'none') {
+      if (facilityData.services.lunch !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = LUNCH_PRICES_PER_DAY[facilityData.services.lunch];
         lunchCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
       
       let refreshmentCostComponent = 0;
-      if (facilityData.services.refreshment !== 'none') {
+      if (facilityData.services.refreshment !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = REFRESHMENT_PRICES_PER_DAY[facilityData.services.refreshment];
         refreshmentCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
