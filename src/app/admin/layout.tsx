@@ -15,39 +15,42 @@ import {
 import { AdminSidebarNav } from "@/components/layout/admin-sidebar-nav";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, UserCircle, Loader2 } from "lucide-react"; // Added Loader2 for loading state
+import { LogOut, UserCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from '@/hooks/use-language';
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
-import { useRouter } from 'next/navigation'; // Import useRouter for redirection
-import { useToast } from '@/hooks/use-toast'; // Import useToast for notifications
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdminLayoutProps {
   children: ReactNode;
+  params?: Record<string, string | string[] | undefined>; // Explicitly type params to acknowledge its potential presence
 }
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
+export default function AdminLayout({ children, params: receivedRouteParams }: AdminLayoutProps) { // Destructure params
   const { t } = useLanguage();
-  const { user, logout, loading: authLoading } = useAuth(); // Get user, logout, and loading state
+  const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+
+  // receivedRouteParams is acknowledged but not directly used in this component's rendering,
+  // to avoid potential enumeration if it were spread or passed down implicitly.
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
       await logout();
-      toast({ title: t('logoutSuccessfulTitle'), description: t('logoutSuccessfulMessage') }); // Add keys to JSON
+      toast({ title: t('logoutSuccessfulTitle'), description: t('logoutSuccessfulMessage') });
       router.push('/auth/login');
     } catch (error) {
       console.error("Logout failed:", error);
-      toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') }); // Add keys to JSON
+      toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') });
       setIsLoggingOut(false);
     }
-    // No need to setIsLoggingOut(false) on success because page will redirect
   };
 
-  const displayName = user?.name || user?.email || t('adminUser'); // Fallback display name
+  const displayName = user?.name || user?.email || t('adminUser');
   const displayEmail = user?.email || t('notAvailable');
 
   return (
