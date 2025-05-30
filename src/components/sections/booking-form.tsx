@@ -121,11 +121,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     try {
       const querySnapshot = await getDocs(q);
       const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
-      const conflictingBookings = potentiallyConflictingBookings.filter(booking => {
-        const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-        return bookingEndDate >= selectedRange.from!;
-      });
-
+      
       for (const item of itemsToCheck) {
         const itemDocRef = doc(db, "halls", item.id); 
         const itemDocSnap = await getDoc(itemDocRef);
@@ -133,11 +129,15 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           return t('facilityNotAvailableOverride', { itemName: item.name }); 
         }
 
-        for (const booking of conflictingBookings) {
-            const itemBookedInConflict = booking.items.find(bookedItem => bookedItem.id === item.id);
-            if (itemBookedInConflict) {
-              return t('itemUnavailableConflict', { itemName: item.name }); 
-            }
+        const conflictingBookingsForItem = potentiallyConflictingBookings.filter(booking => {
+          const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+          const overlaps = bookingEndDate >= selectedRange.from!;
+          if (!overlaps) return false;
+          return booking.items.some(bookedItem => bookedItem.id === item.id);
+        });
+
+        if (conflictingBookingsForItem.length > 0) {
+          return t('itemUnavailableConflict', { itemName: item.name }); 
         }
       }
       return null; 
@@ -149,22 +149,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   }, [t, toast]);
 
   const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
-    if (!selectedRange.from || !selectedRange.to || !itemToCheck.capacity) return null;
+    if (!selectedRange.from || !selectedRange.to) return null;
     if (selectedRange.to < selectedRange.from) {
         return t('invalidDateRange');
+    }
+    if (!itemToCheck.capacity || itemToCheck.capacity <= 0) {
+        console.warn(`Dormitory ${itemToCheck.name} has invalid capacity: ${itemToCheck.capacity}. Availability check cannot be performed accurately.`);
+        return t('errorCheckingAvailability'); // Or a more specific error about misconfigured capacity
     }
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
 
-    // Query for approved bookings of this specific dormitory room that overlap the selected dates
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("items", "array-contains", { id: itemToCheck.id, name: itemToCheck.name, itemType: "dormitory" }), // More precise item check
-        where("approvalStatus", "==", "approved"),
-        where("startDate", "<=", toTimestamp)
-        // We must filter endDate client-side as Firestore doesn't support range filters on two different fields
+        where("approvalStatus", "==", "approved"), // Only count approved (paid) bookings
+        where("startDate", "<=", toTimestamp) // Bookings starting before or on the end of our selected range
     );
 
     try {
@@ -172,21 +173,35 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         let bookedBedsDuringPeriod = 0;
         querySnapshot.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
+            // Firestore Timestamps or ISO strings need consistent conversion
+            const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
             const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-            if (bookingEndDate >= selectedRange.from!) { // Check for overlap
-                // Assuming 1 booking = 1 bed for now. Refine if multiple beds can be booked per booking document.
-                bookedBedsDuringPeriod++;
+            
+            // Check for date overlap: (BookingStart <= selectedRange.to) AND (BookingEnd >= selectedRange.from)
+            // The startDate check is already done in the query. We only need to check endDate here.
+            if (bookingEndDate >= selectedRange.from!) {
+                // Check if this booking is for the specific room we are checking
+                const isForThisRoom = booking.items.some(bookedItem => 
+                    bookedItem.id === itemToCheck.id && 
+                    bookedItem.itemType === "dormitory"
+                );
+
+                if (isForThisRoom) {
+                    // Assuming one booking document = 1 bed taken for that specific room.
+                    // If a booking could reserve multiple beds in the same room (not current model), this needs adjustment.
+                    bookedBedsDuringPeriod++;
+                }
             }
         });
         
-        if (bookedBedsDuringPeriod >= itemToCheck.capacity) {
-            return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name }); // Add to JSON
+        if (itemToCheck.capacity && bookedBedsDuringPeriod >= itemToCheck.capacity) {
+            return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
         }
         return null; // Beds available
     } catch (error) {
         console.error("Error checking dormitory bed availability:", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability')});
-        return t('errorCheckingAvailability');
+        return t('errorCheckingAvailability'); // Return error message to display
     }
   }, [t, toast]);
 
@@ -199,7 +214,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         let errorMsg: string | null = null;
         if (bookingCategory === 'facility' && itemsToBook.length > 0) {
           errorMsg = await checkFacilityAvailability(itemsToBook, watchedDateRange);
-        } else if (bookingCategory === 'dormitory' && itemsToBook.length === 1 && itemsToBook[0].capacity) {
+        } else if (bookingCategory === 'dormitory' && itemsToBook.length === 1 && itemsToBook[0].capacity && itemsToBook[0].capacity > 0) {
           errorMsg = await checkDormitoryBedAvailability(itemsToBook[0], watchedDateRange);
         }
         setAvailabilityError(errorMsg);
@@ -209,7 +224,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     } else {
       setAvailabilityError(null); 
     }
-  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability, checkDormitoryBedAvailability]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsToBook, watchedDateRange, bookingCategory]); // Removed checkFacilityAvailability & checkDormitoryBedAvailability as they are stable
 
 
   React.useEffect(() => {
@@ -232,7 +248,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     setIsSubmitting(true);
     const bookingIdForPayment = `bk_temp_${Date.now()}`; 
     let totalCost = 0;
-    const itemName = itemsToBook.map(item => item.name).join(', ');
+    const itemNameForConfirmation = itemsToBook.map(item => item.name).join(', ');
 
     if (!data.dateRange?.from || !data.dateRange.to) {
         toast({ title: t('error'), description: t('dateRangeRequired'), variant: "destructive" });
@@ -260,7 +276,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         const queryParams = new URLSearchParams({
             bookingId: bookingIdForPayment, 
             amount: totalCost.toString(),
-            itemName: item.name,
+            itemName: itemNameForConfirmation, // Use the joined names
             bookingCategory: 'dormitory',
             guestName: dormData.fullName,
             guestEmployer: dormData.employer,
@@ -268,7 +284,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             endDate: format(endDateObject, "yyyy-MM-dd"),
             userId: user?.id || "", 
             itemIds: itemsToBook.map(i => i.id).join(','),
-            itemNames: itemsToBook.map(i => i.name).join(','),
+            itemNames: itemsToBook.map(i => i.name).join(','), // Send the display names
             itemTypes: itemsToBook.map(i => i.itemType).join(','),
         });
         router.push(`/payment/chapa?${queryParams.toString()}`);
@@ -310,7 +326,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       
       const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
-        items: itemsToBook,
+        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType })), // Store clean item info
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -440,3 +456,4 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
