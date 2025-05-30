@@ -2,7 +2,7 @@
 "use client"; // Required for SidebarProvider and its hooks
 
 import type { ReactNode } from 'react';
-import React from 'react'; // Added React import
+import React, { useCallback } from 'react'; // Added useCallback import
 import {
   SidebarProvider,
   Sidebar,
@@ -37,7 +37,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   // receivedRouteParams is acknowledged but not directly used in this component's rendering,
   // to avoid potential enumeration if it were spread or passed down implicitly.
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
       await logout();
@@ -48,7 +48,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
       toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') });
       setIsLoggingOut(false);
     }
-  };
+  }, [logout, router, t, toast]);
 
   const displayName = user?.name || user?.email || t('adminUser');
   const displayEmail = user?.email || t('notAvailable');
