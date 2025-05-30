@@ -111,6 +111,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999))); 
 
+    // Query for bookings that are approved or pending and start before or on the selected end date.
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
@@ -120,26 +121,32 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     try {
       const querySnapshot = await getDocs(q);
-      const conflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
+      const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
+
+      // Further filter client-side for endDate overlap
+      const conflictingBookings = potentiallyConflictingBookings.filter(booking => {
+        const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+        return bookingEndDate >= selectedRange.from!;
+      });
+
 
       for (const item of itemsToCheck) {
+        // Check if the item itself is marked as unavailable by admin
         const itemDocRef = doc(db, "halls", item.id); 
         const itemDocSnap = await getDoc(itemDocRef);
         if (itemDocSnap.exists() && !itemDocSnap.data().isAvailable) {
-          return t('facilityNotAvailableOverride', { itemName: item.name });
+          return t('facilityNotAvailableOverride', { itemName: item.name }); // Add to JSON
         }
 
+        // Check against existing bookings
         for (const booking of conflictingBookings) {
-          const bookingEndDate = (booking.endDate instanceof Timestamp) ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-          if (bookingEndDate >= selectedRange.from) {
             const itemBookedInConflict = booking.items.find(bookedItem => bookedItem.id === item.id);
             if (itemBookedInConflict) {
-              return t('itemUnavailableConflict', { itemName: item.name });
+              return t('itemUnavailableConflict', { itemName: item.name }); // Add to JSON
             }
-          }
         }
       }
-      return null; 
+      return null; // No conflicts found
     } catch (error) {
       console.error("Error checking facility availability:", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability')}); 
@@ -158,30 +165,31 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       };
       performCheck();
     } else {
-      setAvailabilityError(null); 
+      setAvailabilityError(null); // Clear error if conditions are not met (e.g., date range cleared)
     }
-  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability]); 
+  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability]); // Rerun when these change
 
 
   React.useEffect(() => {
+    // Pre-fill company form fields if user is a company representative
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", 
+        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "", // Preserve if already typed
         dateRange: (form.getValues() as FacilityBookingValues).dateRange,
         numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
         services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
         notes: (form.getValues() as FacilityBookingValues).notes || "",
       });
     }
-  }, [user, form, isDormitoryBooking]);
+  }, [user, form, isDormitoryBooking]); // Only run when user changes or form/type changes
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
     setIsSubmitting(true);
-    const bookingIdForPayment = `bk_temp_${Date.now()}`; 
+    const bookingIdForPayment = `bk_temp_${Date.now()}`; // Temporary ID for payment page
     let totalCost = 0;
     const itemName = itemsToBook.map(item => item.name).join(', ');
 
@@ -204,12 +212,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
-      const item = itemsToBook[0];
+      const item = itemsToBook[0]; // Assuming only one dorm can be booked at a time via this form path
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
 
+        // Prepare query params for Chapa payment page
         const queryParams = new URLSearchParams({
-            bookingId: bookingIdForPayment, 
+            bookingId: bookingIdForPayment, // Pass temp ID
             amount: totalCost.toString(),
             itemName: item.name,
             bookingCategory: 'dormitory',
@@ -217,7 +226,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             guestEmployer: dormData.employer,
             startDate: format(startDateObject, "yyyy-MM-dd"),
             endDate: format(endDateObject, "yyyy-MM-dd"),
-            userId: user?.id || "",
+            userId: user?.id || "", // Pass user ID if available
             itemIds: itemsToBook.map(i => i.id).join(','),
             itemNames: itemsToBook.map(i => i.name).join(','),
             itemTypes: itemsToBook.map(i => i.itemType).join(','),
@@ -230,20 +239,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return;
       }
       
-    } else { 
+    } else { // Facility Booking
       const facilityData = data as FacilityBookingValues;
       
+      // Calculate rental cost component
       let rentalCostComponent = 0;
       itemsToBook.forEach(item => {
-        rentalCostComponent += (item.rentalCost || 0) * numberOfDays;
+        rentalCostComponent += (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
       });
 
+      // Calculate lunch service cost
       let lunchCostComponent = 0;
       if (facilityData.services.lunch !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = LUNCH_PRICES_PER_DAY[facilityData.services.lunch];
         lunchCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
       
+      // Calculate refreshment service cost
       let refreshmentCostComponent = 0;
       if (facilityData.services.refreshment !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
         const pricePerDay = REFRESHMENT_PRICES_PER_DAY[facilityData.services.refreshment];
@@ -260,7 +272,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
       
-      const bookingData = {
+      const bookingData: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
         items: itemsToBook,
         companyName: facilityData.companyName,
@@ -274,21 +286,29 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         notes: facilityData.notes,
         totalCost,
         paymentStatus: 'pending' as const,
-        approvalStatus: 'pending' as const,
-        bookedAt: Timestamp.now(),
-        userId: user?.id,
-        companyId: user?.companyId,
+        approvalStatus: 'pending' as const, // Facility bookings start as pending
+        bookedAt: Timestamp.now(), // Will be serverTimestamp in actual save
+        userId: user?.id, // Logged-in user ID
+        companyId: user?.companyId, // Company ID from logged-in user
       };
       
       try {
-        await addDoc(collection(db, "bookings"), bookingData);
+        // Save to Firestore
+        const docRef = await addDoc(collection(db, "bookings"), {
+          ...bookingData,
+          bookedAt: serverTimestamp(), // Use server timestamp
+        });
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        router.push('/company/dashboard'); 
+        router.push('/company/dashboard'); // Redirect to company dashboard
       } catch (error) {
         console.error("Error submitting facility booking: ", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
       }
     }
+    // Note: setIsSubmitting(false) is reached after router.push for dorms or in finally block for facilities if needed
+    // For dorms, payment page is next, so form effectively "resets" on navigation
+    // For facilities, after submission and redirect, form state is gone.
+    // If staying on page, setIsSubmitting(false) in a finally block would be good.
     setIsSubmitting(false);
   }
   
@@ -296,6 +316,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
+  // Check for facility bookings if user is not a company rep (already handled by redirect in page.tsx)
+  // This is an additional safeguard if component is used elsewhere or logic changes
   if (!isDormitoryBooking && (!user || user.role !== 'company_representative')) {
     return (
       <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
@@ -338,7 +360,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             {availabilityError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>{t('availabilityErrorTitle')}</AlertTitle> 
+                <AlertTitle>
+                  {availabilityError === t('errorCheckingAvailability') ? t('error') : t('availabilityErrorTitle')}
+                </AlertTitle>
                 <AlertDescription>{availabilityError}</AlertDescription>
               </Alert>
             )}
@@ -391,4 +415,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   );
 }
 
-    
