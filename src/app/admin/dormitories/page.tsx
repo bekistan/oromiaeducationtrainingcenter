@@ -178,7 +178,15 @@ export default function AdminDormitoriesPage() {
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => {
-              form.reset(); // Reset form to default values when opening
+              form.reset({
+                roomNumber: "",
+                floor: 1,
+                capacity: 2,
+                pricePerDay: 500,
+                isAvailable: true,
+                images: "",
+                dataAiHint: "dormitory room",
+              });
               setIsAddDialogOpen(true);
             }}>
               <PlusCircle className="mr-2 h-4 w-4" /> {t('addDormitory')}
@@ -196,7 +204,7 @@ export default function AdminDormitoriesPage() {
                 <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder="modern dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isSubmitting}>
@@ -254,7 +262,7 @@ export default function AdminDormitoriesPage() {
                       <TableCell className="font-medium">{dorm.roomNumber}</TableCell>
                       <TableCell>{dorm.floor}</TableCell>
                       <TableCell>{dorm.capacity}</TableCell>
-                      <TableCell>{dorm.pricePerDay} ETB</TableCell>
+                      <TableCell>{dorm.pricePerDay} {t('currencySymbol')}</TableCell>
                       <TableCell>
                         <Badge
                             variant={dorm.isAvailable ? "default" : "destructive"}
@@ -319,7 +327,7 @@ export default function AdminDormitoriesPage() {
                 <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder="modern dormitory room" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>
                   <Button type="submit" disabled={isSubmitting}>

@@ -21,7 +21,7 @@ function BookMultipleSectionsContent() {
   const [isLoadingItems, setIsLoadingItems] = useState(true);
 
   useEffect(() => {
-    const itemParams = searchParams.getAll('item'); // e.g., ["s001:Training Section Alpha:section", "s002:Workshop Area Beta:section"]
+    const itemParams = searchParams.getAll('item'); 
     if (itemParams.length > 0) {
       const parsedItems: BookingItem[] = itemParams.map(param => {
         const [id, name, itemType] = param.split(':');
@@ -36,7 +36,7 @@ function BookMultipleSectionsContent() {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">{t('loadingDetails')}</p> {/* Add to JSON */}
+        <p className="ml-2">{t('loadingDetails')}</p> 
       </div>
     );
   }
@@ -60,9 +60,9 @@ function BookMultipleSectionsContent() {
     return (
       <div className="text-center py-8">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <p className="text-xl text-destructive">{t('noSectionsSelected')}</p> {/* Add to JSON */}
+        <p className="text-xl text-destructive">{t('noSectionsSelected')}</p> 
         <Button onClick={() => router.push('/halls')} variant="link" className="mt-4">
-          {t('backToHallsPage')} {/* Add to JSON */}
+          {t('backToHallsPage')} 
         </Button>
       </div>
     );
@@ -73,9 +73,9 @@ function BookMultipleSectionsContent() {
       <div className="flex flex-col items-center mb-8">
         <Presentation className="w-12 h-12 text-primary mb-2" />
         <h1 className="text-3xl font-bold text-primary text-center">
-          {t('bookMultipleSections')} {/* Add to JSON */}
+          {t('bookMultipleSections')} 
         </h1>
-        <p className="text-muted-foreground text-center max-w-md">{t('fillFormToBookSelectedSections')}</p> {/* Add to JSON */}
+        <p className="text-muted-foreground text-center max-w-md">{t('fillFormToBookSelectedSections')}</p> 
       </div>
       <BookingForm bookingCategory="facility" itemsToBook={itemsToBook} />
     </>
@@ -84,13 +84,16 @@ function BookMultipleSectionsContent() {
 
 
 export default function BookMultipleSectionsPage() {
+  const { t } = useLanguage(); // Import t here for fallback
   return (
     <PublicLayout>
       <div className="container mx-auto py-8 px-4">
-        <Suspense fallback={<div className="flex justify-center items-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Loading...</p></div>}>
+        <Suspense fallback={<div className="flex justify-center items-center min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}</p></div>}>
           <BookMultipleSectionsContent />
         </Suspense>
       </div>
     </PublicLayout>
   );
 }
+
+    

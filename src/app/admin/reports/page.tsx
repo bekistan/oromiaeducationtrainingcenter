@@ -45,7 +45,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), 
       orderBy("startDate", "desc")
     );
     const snapshot = await getDocs(q);
@@ -58,7 +58,7 @@ export default function AdminReportsPage() {
         [t('item')]: b.items.map(i=>i.name).join(', '), 
         [t('startDate')]: formatDate(b.startDate), 
         [t('endDate')]: formatDate(b.endDate),
-        [t('totalCost')]: `${b.totalCost} ETB`
+        [t('totalCost')]: `${b.totalCost} ${t('currencySymbol')}`
       })),
       type: 'list',
     };
@@ -70,7 +70,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("paymentStatus", "==", "paid"),
       where("bookedAt", ">=", Timestamp.fromDate(range.from)),
-      where("bookedAt", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))) // Include full end day
+      where("bookedAt", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))) 
     );
     const snapshot = await getDocs(q);
     let totalRevenue = 0;
@@ -80,7 +80,7 @@ export default function AdminReportsPage() {
     return {
       title: t('financialSummaryReport'),
       data: { 
-        [t('totalRevenue')]: `${totalRevenue.toLocaleString()} ETB`, 
+        [t('totalRevenue')]: `${totalRevenue.toLocaleString()} ${t('currencySymbol')}`, 
         [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`, 
         [t('bookingsCount')]: snapshot.size 
       },
@@ -94,7 +94,7 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), 
       orderBy("startDate", "desc")
     );
     const snapshot = await getDocs(q);
@@ -107,7 +107,7 @@ export default function AdminReportsPage() {
         [t('item')]: b.items.map(i=>i.name).join(', '), 
         [t('startDate')]: formatDate(b.startDate), 
         [t('endDate')]: formatDate(b.endDate),
-        [t('totalCost')]: `${b.totalCost} ETB`
+        [t('totalCost')]: `${b.totalCost} ${t('currencySymbol')}`
       })),
       type: 'list',
     };
@@ -117,7 +117,7 @@ export default function AdminReportsPage() {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
 
     const startTimestamp = Timestamp.fromDate(range.from);
-    const endTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999))); // Include full end day
+    const endTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
 
     const dormBookingsQuery = query(
       collection(db, "bookings"),
@@ -143,8 +143,8 @@ export default function AdminReportsPage() {
     return {
       title: t('occupancyAnalyticsReport'),
       data: { 
-        [t('dormitoryBookings')]: dormBookingsCount, // Add to JSON
-        [t('facilityBookings')]: facilityBookingsCount, // Add to JSON
+        [t('dormitoryBookings')]: dormBookingsCount, 
+        [t('facilityBookings')]: facilityBookingsCount, 
         [t('period')]: `${formatDate(range.from)} - ${formatDate(range.to)}`
       },
       type: 'summary',
@@ -158,9 +158,9 @@ export default function AdminReportsPage() {
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
-      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), // Include full end day
+      where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), 
       orderBy("startDate", "desc"),
-      limit(30) // Limit for preview; full report would need different handling
+      limit(30) 
     );
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
@@ -176,7 +176,7 @@ export default function AdminReportsPage() {
         [t('guestName')]: b.guestName || t('notAvailable'), 
         [t('roomNumber')]: b.items.map(i=>i.name).join(', '), 
         [t('dates')]: `${formatDate(b.startDate)} - ${formatDate(b.endDate)}`,
-        [t('totalCost')]: `${b.totalCost} ETB`
+        [t('totalCost')]: `${b.totalCost} ${t('currencySymbol')}`
       })),
       type: 'list',
     };
@@ -204,16 +204,16 @@ export default function AdminReportsPage() {
 
 
   const reportTypes = [
-    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel/PDF", action: () => handleGenerateReport(() => generateUserDormReport(dateRange), "userDormReport") },
-    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: "PDF", action: () => handleGenerateReport(() => generateFinancialSummary(dateRange), "financialSummaryReport") },
-    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: "Excel/PDF", action: () => handleGenerateReport(() => generateHallUtilizationReport(dateRange), "hallUtilizationReport") },
-    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <BarChart3 className="h-8 w-8 text-primary" />, format: "PDF", action: () => handleGenerateReport(() => generateOccupancyAnalytics(dateRange), "occupancyAnalyticsReport") },
+    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: t('reportFormatExcelPdf'), action: () => handleGenerateReport(() => generateUserDormReport(dateRange), "userDormReport") },
+    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: t('reportFormatPdf'), action: () => handleGenerateReport(() => generateFinancialSummary(dateRange), "financialSummaryReport") },
+    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: t('reportFormatExcelPdf'), action: () => handleGenerateReport(() => generateHallUtilizationReport(dateRange), "hallUtilizationReport") },
+    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <BarChart3 className="h-8 w-8 text-primary" />, format: t('reportFormatPdf'), action: () => handleGenerateReport(() => generateOccupancyAnalytics(dateRange), "occupancyAnalyticsReport") },
   ];
 
   const dormitoryReportTypes = [
-    { id: "daily_dorm_bookings", nameKey: "dailyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: "Print/PDF", action: () => handleGenerateReport(() => generatePeriodicDormBookings('daily', dateRange), "dailyDormBookingsReport") },
-    { id: "weekly_dorm_bookings", nameKey: "weeklyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: "Print/PDF", action: () => handleGenerateReport(() => generatePeriodicDormBookings('weekly', dateRange), "weeklyDormBookingsReport") },
-    { id: "monthly_dorm_bookings", nameKey: "monthlyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: "Print/PDF", action: () => handleGenerateReport(() => generatePeriodicDormBookings('monthly', dateRange), "monthlyDormBookingsReport") },
+    { id: "daily_dorm_bookings", nameKey: "dailyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('reportFormatPrintPdf'), action: () => handleGenerateReport(() => generatePeriodicDormBookings('daily', dateRange), "dailyDormBookingsReport") },
+    { id: "weekly_dorm_bookings", nameKey: "weeklyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('reportFormatPrintPdf'), action: () => handleGenerateReport(() => generatePeriodicDormBookings('weekly', dateRange), "weeklyDormBookingsReport") },
+    { id: "monthly_dorm_bookings", nameKey: "monthlyDormBookingsReport", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('reportFormatPrintPdf'), action: () => handleGenerateReport(() => generatePeriodicDormBookings('monthly', dateRange), "monthlyDormBookingsReport") },
   ];
 
   return (
@@ -324,3 +324,5 @@ export default function AdminReportsPage() {
     </div>
   );
 }
+
+    

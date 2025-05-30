@@ -26,7 +26,7 @@ export default function CompanyDashboardPage() {
   const router = useRouter();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
-  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState<string | null>(null); // bookingId or null
+  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState<string | null>(null); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentBookingIdForUpload, setCurrentBookingIdForUpload] = useState<string | null>(null);
 
@@ -99,20 +99,19 @@ export default function CompanyDashboardPage() {
           agreementStatus: 'signed_by_client',
           agreementSignedAt: Timestamp.now(),
         });
-        toast({ title: t('success'), description: t('agreementConfirmedAndMockUploaded') }); // Add to JSON
+        toast({ title: t('success'), description: t('agreementConfirmedAndMockUploaded') }); 
         if (user?.companyId) fetchBookings(user.companyId); 
       } catch (error) {
         console.error("Error confirming signed agreement:", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorMockUploadingAgreement') }); // Add to JSON
+        toast({ variant: "destructive", title: t('error'), description: t('errorMockUploadingAgreement') }); 
       } finally {
         setIsSubmittingAgreement(null);
         setCurrentBookingIdForUpload(null);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""; // Reset file input
+          fileInputRef.current.value = ""; 
         }
       }
     } else {
-        // Handle case where no file was selected but input was triggered
         setCurrentBookingIdForUpload(null);
     }
   };
@@ -245,7 +244,7 @@ export default function CompanyDashboardPage() {
           ref={fileInputRef} 
           style={{ display: 'none' }} 
           onChange={handleFileSelectedAndConfirm} 
-          accept=".pdf,.doc,.docx,.jpg,.png" // Example accepted file types
+          accept=".pdf,.doc,.docx,.jpg,.png" 
         />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
@@ -291,17 +290,7 @@ export default function CompanyDashboardPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('bookingId')}</TableHead>
-                        <TableHead>{t('itemsBooked')}</TableHead>
-                        <TableHead>{t('dates')}</TableHead>
-                        <TableHead>{t('services')}</TableHead>
-                        <TableHead>{t('totalCost')}</TableHead>
-                        <TableHead>{t('payment')}</TableHead>
-                        <TableHead>{t('status')}</TableHead>
-                        <TableHead>{t('agreementStatus')}</TableHead>
-                        <TableHead className="text-right">{t('actions')}</TableHead>
-                      </TableRow>
+                      <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {displayedBookings.map((booking) => (
@@ -328,7 +317,7 @@ export default function CompanyDashboardPage() {
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} ETB</TableCell>
+                          <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                           <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                           <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                           <TableCell>
@@ -350,7 +339,7 @@ export default function CompanyDashboardPage() {
                                   className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
                                 >
                                   {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
-                                  {t('uploadAndConfirmSignedAgreement')} {/* Add to JSON */}
+                                  {t('uploadAndConfirmSignedAgreement')} 
                                 </Button>
                               </>
                             )}
@@ -403,6 +392,5 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
-
 
     

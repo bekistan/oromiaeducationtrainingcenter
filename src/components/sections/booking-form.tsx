@@ -32,9 +32,9 @@ import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 
-// Define service prices (per person per day)
-const LUNCH_PRICES_PER_DAY = { level1: 150, level2: 250 };
-const REFRESHMENT_PRICES_PER_DAY = { level1: 50, level2: 100 };
+const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
+const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
+
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -60,8 +60,8 @@ const facilityBookingSchema = z.object({
   }),
   numberOfAttendees: z.coerce.number().min(1, { message: "At least 1 attendee is required." }),
   services: z.object({
-    lunch: z.enum(['none', 'level1', 'level2'], { errorMap: () => ({ message: "Please select a lunch option." }) }).default('none'),
-    refreshment: z.enum(['none', 'level1', 'level2'], { errorMap: () => ({ message: "Please select a refreshment option." }) }).default('none'),
+    lunch: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
+    refreshment: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
   }),
   notes: z.string().optional(),
 });
@@ -102,17 +102,19 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   
   const watchedDateRange = form.watch('dateRange');
 
-  const checkFacilityAvailability = async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
+  const checkFacilityAvailability = useCallback(async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
     if (!selectedRange.from || !selectedRange.to) return null;
+    if (selectedRange.to < selectedRange.from) {
+        return t('invalidDateRange');
+    }
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
-    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999))); // End of day for 'to'
+    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999))); 
 
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
       where("approvalStatus", "in", ["approved", "pending"]),
-      // Broad phase: Check for bookings whose start date is before or on the selected range's end date.
       where("startDate", "<=", toTimestamp) 
     );
 
@@ -121,19 +123,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const conflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
 
       for (const item of itemsToCheck) {
-        // Check if the item itself is marked as unavailable by admin
-        const itemDocRef = doc(db, "halls", item.id); // Assuming 'halls' collection stores both halls and sections
+        const itemDocRef = doc(db, "halls", item.id); 
         const itemDocSnap = await getDoc(itemDocRef);
         if (itemDocSnap.exists() && !itemDocSnap.data().isAvailable) {
           return t('facilityNotAvailableOverride', { itemName: item.name });
         }
 
-        // Narrow phase: Check for actual overlaps and item conflicts
         for (const booking of conflictingBookings) {
-          const bookingStartDate = (booking.startDate instanceof Timestamp) ? booking.startDate.toDate() : parseISO(booking.startDate as string);
           const bookingEndDate = (booking.endDate instanceof Timestamp) ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-          
-          // Check if booking's end date is after or on the selected range's start date (completes the overlap check)
           if (bookingEndDate >= selectedRange.from) {
             const itemBookedInConflict = booking.items.find(bookedItem => bookedItem.id === item.id);
             if (itemBookedInConflict) {
@@ -142,13 +139,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           }
         }
       }
-      return null; // No conflicts
+      return null; 
     } catch (error) {
       console.error("Error checking facility availability:", error);
-      toast({ variant: "destructive", title: t('error'), description: "Error checking availability. Please try again."});
-      return "Error checking availability. Please try again.";
+      toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability')}); 
+      return t('errorCheckingAvailability');
     }
-  };
+  }, [t, toast]);
 
   useEffect(() => {
     if (bookingCategory === 'facility' && itemsToBook.length > 0 && watchedDateRange?.from && watchedDateRange?.to) {
@@ -161,9 +158,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       };
       performCheck();
     } else {
-      setAvailabilityError(null); // Clear error if not facility or dates incomplete
+      setAvailabilityError(null); 
     }
-  }, [itemsToBook, watchedDateRange, bookingCategory, t]); // Removed checkFacilityAvailability from deps as it's defined outside effect and uses `t`
+  }, [itemsToBook, watchedDateRange, bookingCategory, checkFacilityAvailability]); 
 
 
   React.useEffect(() => {
@@ -196,13 +193,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     
     const startDateObject = new Date(data.dateRange.from);
     const endDateObject = new Date(data.dateRange.to);
-    const numberOfDays = differenceInCalendarDays(endDateObject, startDateObject) + 1;
-
-    if (numberOfDays <= 0) {
-        toast({ title: t('error'), description: t('invalidDateRange'), variant: "destructive" }); // Add to JSON
+    
+    if (endDateObject < startDateObject) {
+        toast({ title: t('error'), description: t('invalidDateRange'), variant: "destructive" });
         setIsSubmitting(false);
         return;
     }
+    const numberOfDays = differenceInCalendarDays(endDateObject, startDateObject) + 1;
+
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
@@ -232,7 +230,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return;
       }
       
-    } else { // Facility Booking
+    } else { 
       const facilityData = data as FacilityBookingValues;
       
       let rentalCostComponent = 0;
@@ -340,7 +338,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             {availabilityError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle>{t('availabilityErrorTitle')}</AlertTitle> {/* Add to JSON */}
+                <AlertTitle>{t('availabilityErrorTitle')}</AlertTitle> 
                 <AlertDescription>{availabilityError}</AlertDescription>
               </Alert>
             )}
@@ -376,7 +374,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="contactPerson" render={({ field }) => ( <FormItem><FormLabel>{t('contactPerson')}</FormLabel><FormControl><Input placeholder={t('enterContactPerson')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="numberOfAttendees" render={({ field }) => ( <FormItem><FormLabel>{t('numberOfAttendees')}</FormLabel><FormControl><Input type="number" min="1" placeholder="e.g., 25" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="numberOfAttendees" render={({ field }) => ( <FormItem><FormLabel>{t('numberOfAttendees')}</FormLabel><FormControl><Input type="number" min="1" placeholder={t('exampleAttendees')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="services.lunch" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('lunchLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('lunch')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('lunch')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="services.refreshment" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('refreshmentLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('refreshment')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('refreshment')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>{t('notesOrSpecialRequests')}</FormLabel><FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl><FormMessage /></FormItem> )} />

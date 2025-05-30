@@ -1,20 +1,19 @@
 
 'use client';
 
-import type { Booking, BookingItem } from '@/types';
+import type { Booking } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { SITE_NAME } from '@/constants'; // Import SITE_NAME
+import { SITE_NAME } from '@/constants'; 
 
 interface AgreementTemplateProps {
   booking: Booking | null;
   customTerms?: string; 
 }
 
-// Consistent pricing with BookingForm (per person per day)
-const LUNCH_PRICES_PER_DAY = { level1: 150, level2: 250 }; 
-const REFRESHMENT_PRICES_PER_DAY = { level1: 50, level2: 100 };
+const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 }; 
+const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -62,7 +61,6 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     calculatedRefreshmentServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
   }
   
-  // booking.totalCost should be the authoritative source from the booking record
   const totalBookingCostFromRecord = booking.totalCost;
 
   const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
@@ -83,14 +81,14 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             top: 0;
             width: 100%;
             margin: 0;
-            padding: 20px; /* Adjust print padding as needed */
+            padding: 20px; 
           }
           .no-print {
             display: none !important;
           }
           @page {
             size: A4;
-            margin: 20mm; /* Standard A4 margins */
+            margin: 20mm; 
           }
         }
       `}</style>
@@ -122,7 +120,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
           <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('serviceDetails')}</h2>
           <div className="space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
             <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {booking.items.map(item => item.name).join(', ')}</p>
-            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> {/* Add 'days' to JSON */}
+            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> 
             <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
           </div>
         </section>
@@ -135,7 +133,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
                 <tr>
                   <th className="border border-slate-300 p-2">{t('serviceItem')}</th>
                   <th className="border border-slate-300 p-2">{t('details')}</th>
-                  <th className="border border-slate-300 p-2 text-right">{t('cost')} (ETB)</th>
+                  <th className="border border-slate-300 p-2 text-right">{t('cost')} ({t('currencySymbol')})</th>
                 </tr>
               </thead>
               <tbody>
@@ -160,7 +158,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
                 )}
                 <tr className="font-bold bg-slate-100">
                   <td colSpan={2} className="border border-slate-300 p-2 text-right">{t('totalBookingCost')}</td>
-                  <td className="border border-slate-300 p-2 text-right">{totalBookingCostFromRecord.toFixed(2)} ETB</td>
+                  <td className="border border-slate-300 p-2 text-right">{totalBookingCostFromRecord.toFixed(2)} {t('currencySymbol')}</td>
                 </tr>
               </tbody>
             </table>

@@ -133,7 +133,7 @@ export default function AdminBookingsPage() {
       if (newStatus === 'sent_to_client') {
         updateData.agreementSentAt = Timestamp.now();
       } else if (newStatus === 'signed_by_client') {
-        updateData.agreementSignedAt = Timestamp.now();
+        updateData.agreementSignedAt = Timestamp.now(); // Admin confirms receipt
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('agreementStatusUpdated') });
@@ -266,14 +266,12 @@ export default function AdminBookingsPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead>
-                    </TableRow>
+                    <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> (User ID: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} ETB</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title={t('viewDetails')}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">{t('viewDetails')}</span>
@@ -309,7 +307,7 @@ export default function AdminBookingsPage() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
                                         onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                        disabled={booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed'}
+                                        disabled={!(!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action')}
                                       >
                                         <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
                                       </DropdownMenuItem>
@@ -387,3 +385,5 @@ export default function AdminBookingsPage() {
     </>
   );
 }
+
+    
