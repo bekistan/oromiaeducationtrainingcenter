@@ -21,7 +21,7 @@ export interface Hall {
   name: string;
   capacity: number;
   isAvailable: boolean;
-  rentalCost: number;
+  rentalCost: number; // This is treated as a per-day cost in calculations
   lunchServiceCost?: number | null; // Allow null for Firestore
   refreshmentServiceCost?: number | null; // Allow null for Firestore
   images?: string[];
@@ -40,7 +40,7 @@ export type BookingItem = {
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
   pricePerDay?: number; // For dormitories
-  rentalCost?: number; // For facilities (per booking, not per day by default)
+  rentalCost?: number; // For facilities, treated as a per-day cost in booking form calculations
   capacity?: number; // For dormitory bed availability check
 };
 
