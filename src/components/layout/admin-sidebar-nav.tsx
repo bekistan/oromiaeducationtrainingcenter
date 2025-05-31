@@ -19,11 +19,12 @@ import {
   LayoutDashboard, 
   Bed, 
   Building, 
-  ListChecks, 
+  ListChecks, // Re-use for facility bookings
   FileText, 
   UserCircle,
-  UserPlus, // For Register Admin
-  Users // For Manage Companies
+  UserPlus, 
+  Users,
+  BedDouble // Specific for dormitory bookings
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -31,20 +32,20 @@ const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   manageDormitories: Bed,
   manageHalls: Building,
-  manageBookings: ListChecks,
+  manageDormitoryBookings: BedDouble, // New icon for dormitory bookings
+  manageFacilityBookings: ListChecks, // Re-using ListChecks or could use Building
+  manageCompanies: Users,
   reports: FileText,
   userProfile: UserCircle,
   registerAdmin: UserPlus,
-  manageCompanies: Users,
 };
 
 export function AdminSidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const { user, loading } = useAuth(); // Get user and loading state
+  const { user, loading } = useAuth(); 
 
   if (loading) {
-    // Optionally return a loading state for the sidebar
     return <ScrollArea className="h-full py-4"><p className="p-4 text-muted-foreground">{t('loading')}...</p></ScrollArea>;
   }
 
@@ -54,10 +55,10 @@ export function AdminSidebarNav() {
         <SidebarGroup>
           <SidebarGroupLabel className="sr-only">{t('adminNavigation')}</SidebarGroupLabel>
             {ADMIN_NAVS.filter(item => {
-              if (!item.roles || item.roles.length === 0) return true; // No specific roles required
-              return item.roles.includes(user?.role as never); // Check if user's role is in the allowed roles
+              if (!item.roles || item.roles.length === 0) return true; 
+              return item.roles.includes(user?.role as never); 
             }).map((item) => {
-              const Icon = ICONS[item.labelKey] || LayoutDashboard;
+              const Icon = ICONS[item.labelKey] || LayoutDashboard; // Fallback to LayoutDashboard
               return (
                 <SidebarMenuItem key={item.href}>
                   <Link href={item.href} passHref legacyBehavior>
