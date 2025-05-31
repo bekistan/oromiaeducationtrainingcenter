@@ -6,11 +6,13 @@ import { PublicLayout } from "@/components/layout/public-layout";
 import { BookingForm } from "@/components/sections/booking-form";
 import { useLanguage } from "@/hooks/use-language";
 import { useParams } from 'next/navigation';
-import { BedDouble, Loader2 } from "lucide-react";
+import { BedDouble, Loader2, AlertCircle } from "lucide-react"; // Added AlertCircle
 import type { BookingItem, Dormitory } from "@/types";
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Added Card imports
+import { Button } from '@/components/ui/button'; // Added Button import
 
 export default function BookDormitoryPage() {
   const { t } = useLanguage();
@@ -24,7 +26,7 @@ export default function BookDormitoryPage() {
 
   const fetchDormitoryDetails = useCallback(async (id: string) => {
     if (!id) {
-      setError(t('invalidDormitoryId')); // Add to JSON: "Invalid dormitory ID."
+      setError(t('invalidDormitoryId'));
       setIsLoading(false);
       return;
     }
@@ -37,24 +39,25 @@ export default function BookDormitoryPage() {
       if (docSnap.exists()) {
         const dormData = docSnap.data() as Dormitory;
         if (!dormData.isAvailable) {
-          setError(t('dormitoryNotAvailableError')); // Add to JSON: "This dormitory is currently not available for booking."
+          // Use a more specific key for admin-disabled dormitories
+          setError(t('dormitoryNotAvailableAdminOverride', { roomNumber: dormData.roomNumber })); 
           setIsLoading(false);
-          setBookingItem(null); // Ensure no booking item if not available
+          setBookingItem(null);
           return;
         }
         setBookingItem({
           id: docSnap.id,
-          name: `${dormData.roomNumber} (${t('floor')} ${dormData.floor})`,
+          name: `${t('roomNumber')} ${dormData.roomNumber} (${t('floor')} ${dormData.floor})`,
           itemType: "dormitory",
           pricePerDay: dormData.pricePerDay,
-          capacity: dormData.capacity, // Pass capacity for availability check
+          capacity: dormData.capacity,
         });
       } else {
-        setError(t('itemNotFound')); // Use existing key
+        setError(t('itemNotFound'));
       }
     } catch (err) {
       console.error("Error fetching dormitory details:", err);
-      setError(t('errorFetchingDormitoryDetails')); // Add to JSON: "Error fetching dormitory details. Please try again."
+      setError(t('errorFetchingDormitoryDetails'));
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitoryDetails')});
     } finally {
       setIsLoading(false);
@@ -66,7 +69,7 @@ export default function BookDormitoryPage() {
       fetchDormitoryDetails(dormitoryId);
     } else {
       setIsLoading(false);
-      setError(t('noDormitoryIdProvided')); // Add to JSON: "No dormitory ID was provided."
+      setError(t('noDormitoryIdProvided'));
     }
   }, [dormitoryId, fetchDormitoryDetails]);
 
@@ -75,7 +78,7 @@ export default function BookDormitoryPage() {
       <PublicLayout>
         <div className="container mx-auto py-8 px-4 text-center flex flex-col items-center justify-center min-h-[calc(100vh-12rem)]">
           <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p>{t('loadingDormitoryDetails')}</p> {/* Add to JSON: "Loading dormitory details..." */}
+          <p>{t('loadingDormitoryDetails')}</p>
         </div>
       </PublicLayout>
     );
@@ -84,8 +87,17 @@ export default function BookDormitoryPage() {
   if (error || !bookingItem) {
     return (
       <PublicLayout>
-        <div className="container mx-auto py-8 px-4 text-center">
-          <h1 className="text-2xl text-destructive">{error || t('itemNotFound')}</h1>
+        <div className="container mx-auto py-12 px-4 flex justify-center items-center min-h-[calc(100vh-8rem)]">
+          <Card className="w-full max-w-md shadow-xl text-center">
+            <CardHeader>
+              <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <CardTitle className="text-2xl text-destructive">{t('bookingErrorTitle')}</CardTitle> {/* Add to JSON */}
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">{error || t('itemNotFound')}</p>
+              <Button onClick={() => window.history.back()}>{t('goBack')}</Button>
+            </CardContent>
+          </Card>
         </div>
       </PublicLayout>
     );
