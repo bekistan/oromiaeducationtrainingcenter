@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -27,7 +27,7 @@ import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem, Booking } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, List, Loader2 } from 'lucide-react';
+import { AlertCircle, List, Loader2, Camera, Upload } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -45,7 +45,7 @@ interface BookingFormProps {
 
 const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(), // Optional for now
+  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(),
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
@@ -79,21 +79,34 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const { toast } = useToast();
   const router = useRouter();
   const isDormitoryBooking = bookingCategory === 'dormitory';
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
+  // Camera and ID Scan state
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null); // For preview
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+
+
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
-  const defaultDormitoryValues = { 
+  const defaultDormitoryValues: DormitoryBookingValues = { 
     fullName: "", 
     employer: "", 
     dateRange: undefined,
     bankName: "",
     accountNumber: "",
+    idCardScan: undefined,
   };
 
-  const defaultFacilityValues = {
+  const defaultFacilityValues: FacilityBookingValues = {
     companyName: user?.role === 'company_representative' ? user.companyName || "" : "",
     contactPerson: user?.role === 'company_representative' ? user.name || "" : "",
     email: user?.email || "",
@@ -158,17 +171,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   }, [t, toast]);
 
   const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
-    console.log(`DORM CHECK INIT (${itemToCheck.name}): Capacity: ${itemToCheck.capacity}, Range: ${selectedRange.from?.toLocaleDateString()} - ${selectedRange.to?.toLocaleDateString()}`);
     if (!selectedRange.from || !selectedRange.to) return null;
-    if (selectedRange.to < selectedRange.from) {
-      console.log("DORM CHECK: Invalid date range (to < from)");
-      return t('invalidDateRange');
-    }
-    
-    if (!itemToCheck.capacity || itemToCheck.capacity <= 0) {
-      console.warn(`DORM CHECK WARN (${itemToCheck.name}): Invalid capacity: ${itemToCheck.capacity}.`);
-      return t('dormitoryCapacityNotConfigured');
-    }
+    if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
+    if (!itemToCheck.capacity || itemToCheck.capacity <= 0) return t('dormitoryCapacityNotConfigured');
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
@@ -183,39 +188,16 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     try {
         const querySnapshot = await getDocs(q);
         let bookedBedsDuringPeriod = 0;
-        console.log(`DORM CHECK (${itemToCheck.name}): Found ${querySnapshot.docs.length} potentially conflicting approved dorm bookings starting before or on ${selectedRange.to.toLocaleDateString()}`);
-
         querySnapshot.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
             const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
             const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-            
-            console.log(` DORM CHECK - Evaluating existing booking ${docSnap.id} for room ${itemToCheck.id} (${itemToCheck.name}): Dates ${bookingStartDate.toLocaleDateString()} to ${bookingEndDate.toLocaleDateString()}`);
-
             if (bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
-                console.log(`  Overlap detected with booking ${docSnap.id}. Checking items...`);
-                const isForThisRoom = booking.items.some(bookedItem =>
-                    bookedItem.id === itemToCheck.id &&
-                    bookedItem.itemType === "dormitory"
-                );
-
-                if (isForThisRoom) {
-                    bookedBedsDuringPeriod++;
-                    console.log(`   Booking ${docSnap.id} IS for room ${itemToCheck.name}. Booked beds for period now: ${bookedBedsDuringPeriod}`);
-                } else {
-                    console.log(`   Booking ${docSnap.id} is NOT for room ${itemToCheck.name}. Items:`, booking.items);
-                }
-            } else {
-                 console.log(`  No date overlap with booking ${docSnap.id}.`);
+                const isForThisRoom = booking.items.some(bookedItem => bookedItem.id === itemToCheck.id && bookedItem.itemType === "dormitory");
+                if (isForThisRoom) bookedBedsDuringPeriod++;
             }
         });
-        
-        console.log(`DORM CHECK FINAL (${itemToCheck.name}): Total booked beds in period: ${bookedBedsDuringPeriod}. Capacity: ${itemToCheck.capacity}`);
-        if (bookedBedsDuringPeriod >= itemToCheck.capacity) {
-            console.log(`   RESULT: Beds unavailable.`);
-            return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
-        }
-        console.log(`   RESULT: Beds available.`);
+        if (bookedBedsDuringPeriod >= itemToCheck.capacity) return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
         return null; 
     } catch (error: any) {
         console.error("Error checking dormitory bed availability:", error);
@@ -223,7 +205,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return error.message || t('errorCheckingAvailability');
     }
   }, [t, toast]);
-
 
  useEffect(() => {
     let isActive = true;
@@ -257,7 +238,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     const debounceTimer = setTimeout(() => {
       performCheck();
-    }, 500); // Debounce for 500ms
+    }, 500);
 
     return () => { 
       isActive = false; 
@@ -269,25 +250,100 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     watchedDateRange?.to?.toISOString(),   
     bookingCategory,
     t,
-    checkFacilityAvailability, // Added as dependency
-    checkDormitoryBedAvailability // Added as dependency
+    checkFacilityAvailability,
+    checkDormitoryBedAvailability
   ]);
-
 
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
+        ...defaultFacilityValues, // Start with defaults
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: (form.getValues() as FacilityBookingValues).phone || user.phone || "",
-        dateRange: (form.getValues() as FacilityBookingValues).dateRange,
-        numberOfAttendees: (form.getValues() as FacilityBookingValues).numberOfAttendees || 1,
-        services: (form.getValues() as FacilityBookingValues).services || { lunch: 'none', refreshment: 'none' },
-        notes: (form.getValues() as FacilityBookingValues).notes || "",
+        phone: user.phone || "", // Prefer user's phone if available
+        // Preserve form state for these if they were already touched by user
+        dateRange: form.getValues('dateRange') || undefined,
+        numberOfAttendees: form.getValues('numberOfAttendees') || 1,
+        services: form.getValues('services') || { lunch: 'none', refreshment: 'none' },
+        notes: form.getValues('notes') || "",
+      } as FacilityBookingValues);
+    }
+  }, [user, form, isDormitoryBooking]); // Removed defaultFacilityValues from deps as it causes loop
+
+  const handleUseCamera = async () => {
+    setCameraError(null);
+    setCapturedImage(null);
+    form.setValue('idCardScan', undefined);
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setHasCameraPermission(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setVideoStream(stream);
+    } catch (error: any) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+      setCameraError(t('errorAccessingCamera', { error: error.message || String(error) }));
+      setShowCamera(false);
+      toast({
+        variant: 'destructive',
+        title: t('cameraAccessDeniedTitle'),
+        description: t('cameraAccessDeniedDescription'),
       });
     }
-  }, [user, form, isDormitoryBooking]);
+  };
+
+  const handleCaptureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUri = canvas.toDataURL('image/png');
+      setCapturedImage(dataUri); // For preview
+
+      // Convert data URI to File object
+      fetch(dataUri)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], "id_card_capture.png", { type: "image/png" });
+          form.setValue('idCardScan', file, { shouldValidate: true });
+        });
+
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
+      setVideoStream(null);
+      setShowCamera(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      form.setValue('idCardScan', file, { shouldValidate: true });
+      setCapturedImage(URL.createObjectURL(file)); // For preview
+      setShowCamera(false);
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        setVideoStream(null);
+      }
+    }
+  };
+  
+  useEffect(() => {
+    // Cleanup camera stream on component unmount or when camera is hidden
+    return () => {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [videoStream]);
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
@@ -317,6 +373,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const item = itemsToBook[0];
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
+        let idCardScanUrl: string | undefined = undefined;
+        
+        // Placeholder for actual file upload. In a real app, dormData.idCardScan (File object)
+        // would be uploaded to Firebase Storage here, and idCardScanUrl would be the download URL.
+        if (dormData.idCardScan instanceof File) {
+            console.log("ID Card file selected:", dormData.idCardScan.name, "- Actual upload to Firebase Storage not implemented in this step.");
+            // Example: idCardScanUrl = await uploadFileToFirebaseStorage(dormData.idCardScan);
+        }
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
           bookingCategory: 'dormitory',
@@ -325,6 +389,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           guestEmployer: dormData.employer,
           payerBankName: dormData.bankName,
           payerAccountNumber: dormData.accountNumber,
+          ...(idCardScanUrl && { guestIdScanUrl: idCardScanUrl }),
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
@@ -336,13 +401,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         
         try {
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+          toast({ title: t('bookingSubmittedTitle'), description: t('proceedToPaymentDetails') });
           const queryParams = new URLSearchParams({
               bookingId: docRef.id,
               amount: totalCost.toString(),
               itemName: itemNameForConfirmation,
               category: 'dormitory',
           });
-          router.push(`/submit-payment-proof?${queryParams.toString()}`);
+          router.push(`/payment-details?${queryParams.toString()}`);
         } catch (error) {
             console.error("Error saving dormitory booking:", error);
             toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
@@ -497,7 +563,64 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               <>
                 <h3 className="text-lg font-medium pt-4 border-t">{t('personalInformation')}</h3>
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="idCardScan" render={({ field: { onChange, value, ...rest } }) => ( <FormItem><FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel><FormControl><Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} /></FormControl><FormDescription>{t('uploadScannedIdDescription')}</FormDescription><FormMessage /></FormItem> )} />
+                
+                <FormField
+                  control={form.control}
+                  name="idCardScan"
+                  render={() => ( // field is not directly used here, manual updates via setValue
+                    <FormItem>
+                      <FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                           <Button type="button" variant="outline" onClick={handleUseCamera} disabled={showCamera && !!videoStream}>
+                            <Camera className="mr-2 h-4 w-4" /> {t('useCamera')}
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" /> {t('uploadIdFile')}
+                          </Button>
+                          <Input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*,.pdf" 
+                            onChange={handleFileSelect} 
+                          />
+                        </div>
+                        {hasCameraPermission === false && cameraError && (
+                           <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>{t('cameraAccessDeniedTitle')}</AlertTitle>
+                            <AlertDescription>{cameraError || t('cameraAccessDeniedDescription')}</AlertDescription>
+                          </Alert>
+                        )}
+                         {hasCameraPermission === true && showCamera && !videoStream && !capturedImage && (
+                            <Alert variant="default">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>{t('cameraAccessRequiredTitle')}</AlertTitle>
+                                <AlertDescription>{t('cameraAccessRequiredDescription')}</AlertDescription>
+                            </Alert>
+                        )}
+                        {showCamera && videoStream && (
+                          <div className="space-y-2">
+                            <video ref={videoRef} className="w-full aspect-video rounded-md border bg-muted" autoPlay playsInline muted />
+                            <Button type="button" onClick={handleCaptureImage} className="w-full">
+                              <Camera className="mr-2 h-4 w-4" /> {t('captureImage')}
+                            </Button>
+                          </div>
+                        )}
+                        {capturedImage && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-sm font-medium">{t('imagePreview')}:</p>
+                            <img src={capturedImage} alt={t('imagePreview')} className="max-w-full h-auto rounded-md border" style={{ maxHeight: '200px' }} />
+                          </div>
+                        )}
+                      </div>
+                       <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      <FormDescription>{t('idCardOptionalNote')}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 
                 <h3 className="text-lg font-medium pt-4 border-t">{t('paymentTransferDetails')}</h3>
@@ -554,7 +677,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             )}
             <Button type="submit" className="w-full" disabled={authLoading || isSubmitting || isCheckingAvailability || !!availabilityError}>
                 {(authLoading || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isDormitoryBooking ? t('submitAndProceedToPaymentInfo') : t('submitBookingRequest')}
+                {isDormitoryBooking ? t('submitAndProceedToPayment') : t('submitBookingRequest')}
             </Button>
           </form>
         </Form>
@@ -562,3 +685,5 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
+    
