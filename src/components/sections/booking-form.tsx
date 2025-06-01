@@ -43,7 +43,7 @@ interface BookingFormProps {
 
 const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(),
+  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(), // Optional for now
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
@@ -79,7 +79,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
-
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
   const defaultFacilityValues = {
@@ -104,9 +103,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   const checkFacilityAvailability = useCallback(async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
     if (!selectedRange.from || !selectedRange.to) return null;
-    if (selectedRange.to < selectedRange.from) {
-        return t('invalidDateRange');
-    }
+    if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
@@ -149,18 +146,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   }, [t, toast]);
 
   const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
-    // console.log("Checking DORM availability for:", itemToCheck.name, "Capacity:", itemToCheck.capacity, "Range:", selectedRange);
-    if (!selectedRange.from || !selectedRange.to) {
-      // console.log("DORM CHECK: Invalid range, returning null");
-      return null;
-    }
-    if (selectedRange.to < selectedRange.from) {
-        // console.log("DORM CHECK: End date before start date");
-        return t('invalidDateRange');
-    }
+    console.log(`DORM CHECK INIT (${itemToCheck.name}): Capacity: ${itemToCheck.capacity}, Range: ${selectedRange.from?.toLocaleDateString()} - ${selectedRange.to?.toLocaleDateString()}`);
+    if (!selectedRange.from || !selectedRange.to) return null;
+    if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
+    
     if (!itemToCheck.capacity || itemToCheck.capacity <= 0) {
-        console.warn(`Dormitory ${itemToCheck.name} has invalid capacity: ${itemToCheck.capacity}. Availability check cannot be performed accurately.`);
-        return t('dormitoryCapacityNotConfigured'); // Provide a specific error message
+      console.warn(`Dormitory ${itemToCheck.name} has invalid capacity: ${itemToCheck.capacity}.`);
+      return t('dormitoryCapacityNotConfigured');
     }
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
@@ -169,24 +161,25 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"),
-        where("startDate", "<=", toTimestamp)
+        where("approvalStatus", "==", "approved"), // Only consider approved (paid or awaiting verification after payment)
+        where("startDate", "<=", toTimestamp) 
     );
 
     try {
         const querySnapshot = await getDocs(q);
         let bookedBedsDuringPeriod = 0;
-        // console.log(`DORM CHECK (${itemToCheck.name}): Found ${querySnapshot.docs.length} potentially conflicting approved dorm bookings starting before or on ${selectedRange.to.toLocaleDateString()}`);
+        console.log(`DORM CHECK (${itemToCheck.name}): Found ${querySnapshot.docs.length} potentially conflicting approved dorm bookings starting before or on ${selectedRange.to.toLocaleDateString()}`);
 
         querySnapshot.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
             const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
             const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            
+            console.log(` DORM CHECK - Evaluating existing booking ${docSnap.id} for room ${itemToCheck.id} (${itemToCheck.name}): Dates ${bookingStartDate.toLocaleDateString()} to ${bookingEndDate.toLocaleDateString()}`);
 
-            // console.log(` DORM CHECK - Evaluating existing booking ${docSnap.id}: ${bookingStartDate.toLocaleDateString()} to ${bookingEndDate.toLocaleDateString()}`);
-
-            if (bookingEndDate >= selectedRange.from!) { // Check for overlap
-                // console.log(`  Overlap detected with booking ${docSnap.id}. Checking items...`);
+            // Check for date overlap
+            if (bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
+                console.log(`  Overlap detected with booking ${docSnap.id}. Checking items...`);
                 const isForThisRoom = booking.items.some(bookedItem =>
                     bookedItem.id === itemToCheck.id &&
                     bookedItem.itemType === "dormitory"
@@ -194,22 +187,22 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
                 if (isForThisRoom) {
                     bookedBedsDuringPeriod++;
-                    // console.log(`   Booking ${docSnap.id} is for room ${itemToCheck.name}. Booked beds for period now: ${bookedBedsDuringPeriod}`);
+                    console.log(`   Booking ${docSnap.id} IS for room ${itemToCheck.name}. Booked beds for period now: ${bookedBedsDuringPeriod}`);
                 } else {
-                    // console.log(`   Booking ${docSnap.id} is NOT for room ${itemToCheck.name}. Items:`, booking.items);
+                    console.log(`   Booking ${docSnap.id} is NOT for room ${itemToCheck.name}. Items:`, booking.items);
                 }
             } else {
-                // console.log(`  No overlap with booking ${docSnap.id} (ends too early).`);
+                 console.log(`  No date overlap with booking ${docSnap.id}.`);
             }
         });
-
-        // console.log(`DORM CHECK FINAL (${itemToCheck.name}): Total booked beds in period: ${bookedBedsDuringPeriod}. Capacity: ${itemToCheck.capacity}`);
+        
+        console.log(`DORM CHECK FINAL (${itemToCheck.name}): Total booked beds in period: ${bookedBedsDuringPeriod}. Capacity: ${itemToCheck.capacity}`);
         if (bookedBedsDuringPeriod >= itemToCheck.capacity) {
-            // console.log(`   RESULT: Beds unavailable.`);
+            console.log(`   RESULT: Beds unavailable.`);
             return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
         }
-        // console.log(`   RESULT: Beds available.`);
-        return null; // Beds available
+        console.log(`   RESULT: Beds available.`);
+        return null; 
     } catch (error: any) {
         console.error("Error checking dormitory bed availability:", error);
         toast({ variant: "destructive", title: t('error'), description: error.message || t('errorCheckingAvailability')});
@@ -220,61 +213,44 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   useEffect(() => {
     let isActive = true;
-
-    const doTheCheck = async (currentRange: DateRange) => {
-        if (!isActive) return;
-        // console.log("BookingForm: Initiating availability check for dates:", currentRange);
+    const performCheck = async () => {
+      if (!watchedDateRange?.from || !watchedDateRange?.to || !itemsToBook || itemsToBook.length === 0) {
+        if (isActive) setAvailabilityError(null);
+        return;
+      }
+      if (isActive) {
         setIsCheckingAvailability(true);
         setAvailabilityError(null);
+      }
 
-        let errorMsg: string | null = null;
-        try {
-            if (bookingCategory === 'facility' && itemsToBook.length > 0) {
-                errorMsg = await checkFacilityAvailability(itemsToBook, currentRange);
-            } else if (bookingCategory === 'dormitory' && itemsToBook.length === 1 && itemsToBook[0].capacity && itemsToBook[0].capacity > 0) {
-                errorMsg = await checkDormitoryBedAvailability(itemsToBook[0], currentRange);
-            }
-        } catch (e: any) {
-            console.error("BookingForm: Exception during availability check:", e);
-            if (isActive) {
-                errorMsg = e.message || t('errorCheckingAvailability');
-            }
-        } finally {
-            if (isActive) {
-                setAvailabilityError(errorMsg);
-                setIsCheckingAvailability(false);
-                // console.log("BookingForm: Availability check finished. Error:", errorMsg);
-            }
+      let errorMsg: string | null = null;
+      try {
+        if (bookingCategory === 'facility') {
+          errorMsg = await checkFacilityAvailability(itemsToBook, watchedDateRange);
+        } else if (bookingCategory === 'dormitory' && itemsToBook.length === 1) {
+          errorMsg = await checkDormitoryBedAvailability(itemsToBook[0], watchedDateRange);
         }
-    };
-
-    if (watchedDateRange?.from && watchedDateRange?.to) {
-        doTheCheck(watchedDateRange);
-    } else {
-        // If date range is cleared or incomplete, reset availability status
+      } catch (e: any) {
+        console.error("Error in availability check effect:", e);
+        if (isActive) errorMsg = e.message || t('errorCheckingAvailability');
+      } finally {
         if (isActive) {
-            setAvailabilityError(null);
-            setIsCheckingAvailability(false);
-            // console.log("BookingForm: Date range incomplete, availability status reset.");
+          setAvailabilityError(errorMsg);
+          setIsCheckingAvailability(false);
         }
-    }
-
-    return () => {
-        isActive = false;
-        // console.log("BookingForm: useEffect cleanup for availability check.");
+      }
     };
-// eslint-disable-next-line react-hooks/exhaustive-deps
-}, [
-    // Using JSON.stringify for itemsToBook for stable dependency, might be slightly inefficient for very large arrays but ensures correctness.
-    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))), // Depend on key identifiers from items
-    watchedDateRange?.from?.toISOString(), // Depend on specific date values
-    watchedDateRange?.to?.toISOString(),   // to avoid issues with Date object identity
+
+    performCheck();
+    return () => { isActive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))), 
+    watchedDateRange?.from?.toISOString(), 
+    watchedDateRange?.to?.toISOString(),   
     bookingCategory,
-    // checkFacilityAvailability and checkDormitoryBedAvailability are useCallback wrapped,
-    // their identity is stable if their own dependencies (t, toast) are stable.
-    // t is stable from useLanguage hook due to its own useCallback.
-    t
-]);
+    t 
+  ]);
 
 
   React.useEffect(() => {
@@ -295,7 +271,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
     setIsSubmitting(true);
-    const bookingIdForPayment = `bk_temp_${Date.now()}`;
     let totalCost = 0;
     const itemNameForConfirmation = itemsToBook.map(item => item.name).join(', ');
 
@@ -322,29 +297,42 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
 
-        const queryParams = new URLSearchParams({
-            bookingId: bookingIdForPayment,
-            amount: totalCost.toString(),
-            itemName: itemNameForConfirmation, // Use the joined names
-            bookingCategory: 'dormitory',
-            guestName: dormData.fullName,
-            guestEmployer: dormData.employer,
-            startDate: format(startDateObject, "yyyy-MM-dd"),
-            endDate: format(endDateObject, "yyyy-MM-dd"),
-            userId: user?.id || "",
-            itemIds: itemsToBook.map(i => i.id).join(','),
-            itemNames: itemsToBook.map(i => i.name).join(','), // Send the display names
-            itemTypes: itemsToBook.map(i => i.itemType).join(','),
-        });
-        router.push(`/payment/chapa?${queryParams.toString()}`);
-
+        const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+          bookingCategory: 'dormitory',
+          items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
+          guestName: dormData.fullName,
+          guestEmployer: dormData.employer,
+          startDate: Timestamp.fromDate(startDateObject),
+          endDate: Timestamp.fromDate(endDateObject),
+          totalCost,
+          paymentStatus: 'pending_transfer' as const,
+          approvalStatus: 'approved' as const, // Dorms auto-approved, payment pending
+          bookedAt: serverTimestamp(),
+          ...(user?.id && { userId: user.id }),
+        };
+        
+        try {
+          const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+          const queryParams = new URLSearchParams({
+              bookingId: docRef.id,
+              amount: totalCost.toString(),
+              itemName: itemNameForConfirmation,
+              category: 'dormitory',
+          });
+          router.push(`/submit-payment-proof?${queryParams.toString()}`);
+        } catch (error) {
+            console.error("Error saving dormitory booking:", error);
+            toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
+            setIsSubmitting(false);
+            return;
+        }
       } else {
         toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
 
-    } else {
+    } else { // Facility Booking
       const facilityData = data as FacilityBookingValues;
       let rentalCostComponent = 0;
       itemsToBook.forEach(item => {
@@ -373,9 +361,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt' | 'transactionProofDetails'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
-        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType })), // Store clean item info
+        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType, rentalCost: item.rentalCost })), 
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -386,7 +374,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         ...(Object.keys(serviceDetails).length > 0 && { serviceDetails }),
         notes: facilityData.notes,
         totalCost,
-        paymentStatus: 'pending' as const,
+        paymentStatus: 'pending' as const, // Facility bookings need admin approval first
         approvalStatus: 'pending' as const,
         bookedAt: serverTimestamp(),
         userId: user?.id,
@@ -394,9 +382,18 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       };
 
       try {
-        await addDoc(collection(db, "bookings"), bookingDataToSave);
+        const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        router.push('/company/dashboard');
+        
+        const queryParams = new URLSearchParams({
+            status: 'booking_pending_approval', // New status for confirmation page
+            bookingId: docRef.id,
+            itemName: itemNameForConfirmation,
+            amount: totalCost.toString(),
+            category: 'facility'
+        });
+        router.push(`/booking-confirmation?${queryParams.toString()}`);
+
       } catch (error) {
         console.error("Error submitting facility booking: ", error);
         toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
@@ -477,7 +474,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               <>
                 <h3 className="text-lg font-medium pt-4 border-t">{t('personalInformation')}</h3>
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="idCardScan" render={({ field: { onChange, value, ...rest } }) => ( <FormItem><FormLabel>{t('idCardScan')}</FormLabel><FormControl><Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} /></FormControl><FormDescription>{t('uploadScannedIdDescription')}</FormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="idCardScan" render={({ field: { onChange, value, ...rest } }) => ( <FormItem><FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel><FormControl><Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} /></FormControl><FormDescription>{t('uploadScannedIdDescription')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               </>
             )}
@@ -497,7 +494,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             )}
             <Button type="submit" className="w-full" disabled={authLoading || isSubmitting || isCheckingAvailability || !!availabilityError}>
                 {(authLoading || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isDormitoryBooking ? t('proceedToPayment') : t('submitBooking')}
+                {isDormitoryBooking ? t('submitAndProceedToPaymentInfo') : t('submitBookingRequest')}
             </Button>
           </form>
         </Form>

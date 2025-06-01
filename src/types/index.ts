@@ -21,9 +21,9 @@ export interface Hall {
   name: string;
   capacity: number;
   isAvailable: boolean;
-  rentalCost: number; // This is treated as a per-day cost in calculations
-  lunchServiceCost?: number | null; // Allow null for Firestore
-  refreshmentServiceCost?: number | null; // Allow null for Firestore
+  rentalCost: number; 
+  lunchServiceCost?: number | null; 
+  refreshmentServiceCost?: number | null; 
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -39,26 +39,26 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number; // For dormitories
+  pricePerDay?: number; 
   rentalCost?: number; // For facilities, treated as a per-day cost in booking form calculations
-  capacity?: number; // For dormitory bed availability check
+  capacity?: number; 
 };
 
 export type AgreementStatus = 
-  | 'pending_admin_action' // Admin needs to prepare/send
-  | 'sent_to_client'       // Admin has sent, awaiting client signature
-  | 'signed_by_client'     // Client has signed and returned
-  | 'completed';           // Agreement process finalized
+  | 'pending_admin_action' 
+  | 'sent_to_client'       
+  | 'signed_by_client'     
+  | 'completed';           
 
 export interface Booking {
   id: string;
   bookingCategory: 'dormitory' | 'facility';
   items: BookingItem[];
   userId?: string;
-  companyId?: string; // For facility bookings by companies
+  companyId?: string; 
   // Dormitory specific
   guestName?: string;
-  guestIdScanUrl?: string; // Placeholder, not implemented
+  guestIdScanUrl?: string; 
   guestEmployer?: string;
   // Facility specific
   companyName?: string;
@@ -68,12 +68,13 @@ export interface Booking {
   numberOfAttendees?: number;
   serviceDetails?: BookingServiceDetails;
   notes?: string;
-  customAgreementTerms?: string; // For admin-edited terms
+  customAgreementTerms?: string; 
   // Common
   startDate: string | import('firebase/firestore').Timestamp; 
   endDate: string | import('firebase/firestore').Timestamp;   
   totalCost: number;
-  paymentStatus: 'pending' | 'paid' | 'failed';
+  paymentStatus: 'pending' | 'pending_transfer' | 'awaiting_verification' | 'paid' | 'failed';
+  transactionProofDetails?: string; // For transaction ID / mock URL
   approvalStatus: 'pending' | 'approved' | 'rejected';
   bookedAt: string | import('firebase/firestore').Timestamp;
   // Agreement specific for facilities
@@ -89,12 +90,12 @@ export interface User {
   name?: string;
   companyId?: string;
   companyName?: string;
-  approvalStatus?: 'pending' | 'approved' | 'rejected'; // For company users
+  approvalStatus?: 'pending' | 'approved' | 'rejected'; 
   phone?: string;
-  createdAt?: string; // ISO string representation
+  createdAt?: string; 
 }
 
-export interface CompanyProfile { // This might be merged or related to User type for companies
+export interface CompanyProfile { 
   id: string;
   name: string;
   contactPerson: string;
@@ -108,6 +109,6 @@ export interface NavItem {
   href: string;
   adminOnly?: boolean;
   authRequired?: boolean;
-  roles?: User['role'][]; // Specify which roles can see this nav item
+  roles?: User['role'][]; 
 }
 
