@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +32,7 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { ETHIOPIAN_BANKS } from '@/constants';
 
 const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
 const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
@@ -48,6 +50,8 @@ const dormitoryBookingSchema = z.object({
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
+  bankName: z.string().min(1, { message: "Bank name is required." }),
+  accountNumber: z.string().min(1, { message: "Account number is required." }),
 });
 
 const facilityBookingSchema = z.object({
@@ -81,6 +85,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
+  const defaultDormitoryValues = { 
+    fullName: "", 
+    employer: "", 
+    dateRange: undefined,
+    bankName: "",
+    accountNumber: "",
+  };
+
   const defaultFacilityValues = {
     companyName: user?.role === 'company_representative' ? user.companyName || "" : "",
     contactPerson: user?.role === 'company_representative' ? user.name || "" : "",
@@ -95,7 +107,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const form = useForm<DormitoryBookingValues | FacilityBookingValues>({
     resolver: zodResolver(formSchema),
     defaultValues: isDormitoryBooking
-      ? { fullName: "", employer: "", dateRange: undefined }
+      ? defaultDormitoryValues
       : defaultFacilityValues,
   });
 
@@ -148,10 +160,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
     console.log(`DORM CHECK INIT (${itemToCheck.name}): Capacity: ${itemToCheck.capacity}, Range: ${selectedRange.from?.toLocaleDateString()} - ${selectedRange.to?.toLocaleDateString()}`);
     if (!selectedRange.from || !selectedRange.to) return null;
-    if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
+    if (selectedRange.to < selectedRange.from) {
+      console.log("DORM CHECK: Invalid date range (to < from)");
+      return t('invalidDateRange');
+    }
     
     if (!itemToCheck.capacity || itemToCheck.capacity <= 0) {
-      console.warn(`Dormitory ${itemToCheck.name} has invalid capacity: ${itemToCheck.capacity}.`);
+      console.warn(`DORM CHECK WARN (${itemToCheck.name}): Invalid capacity: ${itemToCheck.capacity}.`);
       return t('dormitoryCapacityNotConfigured');
     }
 
@@ -161,7 +176,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), // Only consider approved (paid or awaiting verification after payment)
+        where("approvalStatus", "==", "approved"), 
         where("startDate", "<=", toTimestamp) 
     );
 
@@ -177,7 +192,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             
             console.log(` DORM CHECK - Evaluating existing booking ${docSnap.id} for room ${itemToCheck.id} (${itemToCheck.name}): Dates ${bookingStartDate.toLocaleDateString()} to ${bookingEndDate.toLocaleDateString()}`);
 
-            // Check for date overlap
             if (bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
                 console.log(`  Overlap detected with booking ${docSnap.id}. Checking items...`);
                 const isForThisRoom = booking.items.some(bookedItem =>
@@ -211,7 +225,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   }, [t, toast]);
 
 
-  useEffect(() => {
+ useEffect(() => {
     let isActive = true;
     const performCheck = async () => {
       if (!watchedDateRange?.from || !watchedDateRange?.to || !itemsToBook || itemsToBook.length === 0) {
@@ -241,15 +255,22 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       }
     };
 
-    performCheck();
-    return () => { isActive = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const debounceTimer = setTimeout(() => {
+      performCheck();
+    }, 500); // Debounce for 500ms
+
+    return () => { 
+      isActive = false; 
+      clearTimeout(debounceTimer);
+    };
   }, [
     JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))), 
     watchedDateRange?.from?.toISOString(), 
     watchedDateRange?.to?.toISOString(),   
     bookingCategory,
-    t 
+    t,
+    checkFacilityAvailability, // Added as dependency
+    checkDormitoryBedAvailability // Added as dependency
   ]);
 
 
@@ -302,11 +323,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
           guestName: dormData.fullName,
           guestEmployer: dormData.employer,
+          payerBankName: dormData.bankName,
+          payerAccountNumber: dormData.accountNumber,
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
           paymentStatus: 'pending_transfer' as const,
-          approvalStatus: 'approved' as const, // Dorms auto-approved, payment pending
+          approvalStatus: 'approved' as const, 
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
         };
@@ -374,7 +397,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         ...(Object.keys(serviceDetails).length > 0 && { serviceDetails }),
         notes: facilityData.notes,
         totalCost,
-        paymentStatus: 'pending' as const, // Facility bookings need admin approval first
+        paymentStatus: 'pending' as const, 
         approvalStatus: 'pending' as const,
         bookedAt: serverTimestamp(),
         userId: user?.id,
@@ -386,7 +409,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
         
         const queryParams = new URLSearchParams({
-            status: 'booking_pending_approval', // New status for confirmation page
+            status: 'booking_pending_approval', 
             bookingId: docRef.id,
             itemName: itemNameForConfirmation,
             amount: totalCost.toString(),
@@ -476,6 +499,43 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="idCardScan" render={({ field: { onChange, value, ...rest } }) => ( <FormItem><FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel><FormControl><Input type="file" onChange={(e) => onChange(e.target.files?.[0])} {...rest} /></FormControl><FormDescription>{t('uploadScannedIdDescription')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                
+                <h3 className="text-lg font-medium pt-4 border-t">{t('paymentTransferDetails')}</h3>
+                <FormField
+                  control={form.control}
+                  name="bankName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('bankName')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectBankPlaceholder')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {ETHIOPIAN_BANKS.map(bank => (
+                            <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="accountNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('accountNumber')}</FormLabel>
+                      <FormControl>
+                        <Input placeholder={t('enterAccountNumber')} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </>
             )}
 
@@ -502,4 +562,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-

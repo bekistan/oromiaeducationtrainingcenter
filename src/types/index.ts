@@ -40,7 +40,7 @@ export type BookingItem = {
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
   pricePerDay?: number; 
-  rentalCost?: number; // For facilities, treated as a per-day cost in booking form calculations
+  rentalCost?: number; // For facilities, rental cost.
   capacity?: number; 
 };
 
@@ -60,6 +60,8 @@ export interface Booking {
   guestName?: string;
   guestIdScanUrl?: string; 
   guestEmployer?: string;
+  payerBankName?: string;
+  payerAccountNumber?: string;
   // Facility specific
   companyName?: string;
   contactPerson?: string;
@@ -74,7 +76,7 @@ export interface Booking {
   endDate: string | import('firebase/firestore').Timestamp;   
   totalCost: number;
   paymentStatus: 'pending' | 'pending_transfer' | 'awaiting_verification' | 'paid' | 'failed';
-  transactionProofDetails?: string; // For transaction ID / mock URL
+  transactionProofDetails?: string; 
   approvalStatus: 'pending' | 'approved' | 'rejected';
   bookedAt: string | import('firebase/firestore').Timestamp;
   // Agreement specific for facilities
@@ -111,4 +113,3 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][]; 
 }
-

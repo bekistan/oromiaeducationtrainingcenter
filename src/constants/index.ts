@@ -38,3 +38,29 @@ export const FOOTER_LINKS = [
 export const PLACEHOLDER_IMAGE_SIZE = "600x400";
 export const PLACEHOLDER_THUMBNAIL_SIZE = "300x200";
 
+export const ETHIOPIAN_BANKS = [
+  "Awash Bank",
+  "Bank of Abyssinia",
+  "Commercial Bank of Ethiopia",
+  "Dashen Bank",
+  "Nib International Bank",
+  "United Bank",
+  "Wegagen Bank",
+  "Zemen Bank",
+  "Lion International Bank",
+  "Oromia International Bank",
+  "Cooperative Bank of Oromia",
+  "Buna International Bank",
+  "Berhan Bank",
+  "Abay Bank",
+  "Addis International Bank",
+  "Debub Global Bank",
+  "Enat Bank",
+  "Amhara Bank",
+  "Tsehay Bank",
+  "Hijra Bank",
+  "ZamZam Bank",
+  "Siinqee Bank",
+  "Ahadu Bank",
+  "Other",
+];
