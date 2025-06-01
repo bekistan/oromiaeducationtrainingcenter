@@ -40,7 +40,7 @@ export type BookingItem = {
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
   pricePerDay?: number; 
-  rentalCost?: number; // For facilities, rental cost.
+  rentalCost?: number; // For facilities, this is the per-day rental cost for the item.
   capacity?: number; 
 };
 
@@ -113,3 +113,4 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][]; 
 }
+

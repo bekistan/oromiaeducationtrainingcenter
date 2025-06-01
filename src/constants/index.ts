@@ -64,3 +64,4 @@ export const ETHIOPIAN_BANKS = [
   "Ahadu Bank",
   "Other",
 ];
+
