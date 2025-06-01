@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Booking } from '@/types';
+import { SITE_NAME } from '@/constants'; // Added import for SITE_NAME
 
 function SubmitPaymentProofContent() {
   const { t } = useLanguage();
