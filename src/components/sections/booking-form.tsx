@@ -269,7 +269,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         notes: form.getValues('notes') || "",
       } as FacilityBookingValues);
     }
-  }, [user, form, isDormitoryBooking]); // Removed defaultFacilityValues from deps as it causes loop
+  }, [user, form, isDormitoryBooking]); 
 
   const handleUseCamera = async () => {
     setCameraError(null);
@@ -305,9 +305,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUri = canvas.toDataURL('image/png');
-      setCapturedImage(dataUri); // For preview
+      setCapturedImage(dataUri); 
 
-      // Convert data URI to File object
       fetch(dataUri)
         .then(res => res.blob())
         .then(blob => {
@@ -327,7 +326,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const file = event.target.files?.[0];
     if (file) {
       form.setValue('idCardScan', file, { shouldValidate: true });
-      setCapturedImage(URL.createObjectURL(file)); // For preview
+      setCapturedImage(URL.createObjectURL(file)); 
       setShowCamera(false);
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
@@ -337,7 +336,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   };
   
   useEffect(() => {
-    // Cleanup camera stream on component unmount or when camera is hidden
     return () => {
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
@@ -373,13 +371,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const item = itemsToBook[0];
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
-        let guestIdScanFileUrl: string | undefined = undefined;
         
-        // Placeholder for actual file upload. In a real app, dormData.idCardScan (File object)
-        // would be uploaded to Firebase Storage here, and guestIdScanFileUrl would be the download URL.
+        let guestIdScanFileUrlPlaceholder: string | undefined = undefined;
         if (dormData.idCardScan instanceof File) {
-            console.log("ID Card file selected:", dormData.idCardScan.name, "- Actual upload to Firebase Storage not implemented in this step. URL would be stored in guestIdScanFileUrl.");
-            // Example: guestIdScanFileUrl = await uploadFileToFirebaseStorage(dormData.idCardScan);
+            console.log("ID Card file selected:", dormData.idCardScan.name, "- Placeholder URL will be saved.");
+            // In a real app, upload dormData.idCardScan to Firebase Storage here and get the URL.
+            // guestIdScanFileUrlPlaceholder = await uploadFileToFirebaseStorage(dormData.idCardScan);
+            guestIdScanFileUrlPlaceholder = `https://placehold.co/600x400.png?text=ID_Scan_${dormData.fullName.replace(/\s/g, '_')}`;
         }
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
@@ -389,7 +387,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           guestEmployer: dormData.employer,
           payerBankName: dormData.bankName,
           payerAccountNumber: dormData.accountNumber,
-          ...(guestIdScanFileUrl && { guestIdScanFileUrl: guestIdScanFileUrl }),
+          ...(guestIdScanFileUrlPlaceholder && { guestIdScanFileUrl: guestIdScanFileUrlPlaceholder }),
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
@@ -450,7 +448,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt' | 'transactionProofDetails'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt' | 'transactionProofFileUrl' | 'guestIdScanFileUrl'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
         items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType, rentalCost: item.rentalCost })), 
         companyName: facilityData.companyName,
@@ -567,7 +565,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField
                   control={form.control}
                   name="idCardScan"
-                  render={() => ( // field is not directly used here, manual updates via setValue
+                  render={() => ( 
                     <FormItem>
                       <FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel>
                       <div className="space-y-2">
@@ -685,5 +683,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
-    

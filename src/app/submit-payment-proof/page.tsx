@@ -53,7 +53,7 @@ function SubmitPaymentProofContent() {
 
   const submitPaymentProofSchema = z.object({
     paymentProofFile: z.custom<File>((v) => v instanceof File, { 
-      message: t('paymentProofFileRequired') // Use a more specific message
+      message: t('paymentProofFileRequired') 
     }),
   });
   type SubmitPaymentProofValues = z.infer<typeof submitPaymentProofSchema>;
@@ -120,16 +120,14 @@ function SubmitPaymentProofContent() {
     setIsSubmittingProof(true);
 
     const fileToUpload = data.paymentProofFile;
-    let transactionProofFileUrl: string | undefined = undefined;
+    let transactionProofFileUrlPlaceholder: string | undefined = undefined;
 
     if (fileToUpload) {
       console.log(`Payment proof file selected: ${fileToUpload.name} (${fileToUpload.type}). Size: ${fileToUpload.size} bytes.`);
       console.log("In a real application, this file would be uploaded to Firebase Storage, and its URL would be stored in transactionProofFileUrl.");
-      // Example: transactionProofFileUrl = await uploadFileToFirebaseStorage(fileToUpload);
-      // For now, let's simulate a URL if a file is present to test admin viewing logic
-      // transactionProofFileUrl = `https://placehold.co/600x400.png?text=ProofFor_${bookingId.substring(0,4)}`;
+      // Example: transactionProofFileUrlPlaceholder = await uploadFileToFirebaseStorage(fileToUpload);
+      transactionProofFileUrlPlaceholder = `https://placehold.co/600x400.png?text=Proof_For_${bookingId.substring(0,4)}`;
     } else {
-        // This case should ideally not be reached if validation works
         toast({ variant: "destructive", title: t('error'), description: t('paymentProofFileRequired') });
         setIsSubmittingProof(false);
         return;
@@ -139,7 +137,7 @@ function SubmitPaymentProofContent() {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, {
         paymentStatus: 'awaiting_verification',
-        transactionProofFileUrl: transactionProofFileUrl, // Save the URL (even if placeholder for now)
+        transactionProofFileUrl: transactionProofFileUrlPlaceholder, 
       });
       toast({ title: t('success'), description: t('paymentProofSubmittedSuccessfully') }); 
 
@@ -278,4 +276,3 @@ export default function SubmitPaymentProofPage() {
     </PublicLayout>
   );
 }
-
