@@ -30,7 +30,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2, Camera, Upload } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
+import { db, uploadFileToFirebaseStorage } from '@/lib/firebase'; // Import uploadFileToFirebaseStorage
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ETHIOPIAN_BANKS } from '@/constants';
 
@@ -372,12 +372,18 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
         
-        let guestIdScanFileUrlPlaceholder: string | undefined = undefined;
+        let guestIdScanFileUrl: string | undefined = undefined;
         if (dormData.idCardScan instanceof File) {
-            console.log("ID Card file selected:", dormData.idCardScan.name, "- Placeholder URL will be saved.");
-            // In a real app, upload dormData.idCardScan to Firebase Storage here and get the URL.
-            // guestIdScanFileUrlPlaceholder = await uploadFileToFirebaseStorage(dormData.idCardScan);
-            guestIdScanFileUrlPlaceholder = `https://placehold.co/600x400.png?text=ID_Scan_${dormData.fullName.replace(/\s/g, '_')}`;
+          try {
+            const idScanPath = `id_scans/${user?.id || 'anonymous'}/`;
+            guestIdScanFileUrl = await uploadFileToFirebaseStorage(dormData.idCardScan, idScanPath);
+            console.log("ID Card uploaded, URL:", guestIdScanFileUrl);
+          } catch (uploadError) {
+            console.error("Error uploading ID card:", uploadError);
+            toast({ variant: "destructive", title: t('error'), description: t('errorUploadingIdScan') });
+            setIsSubmitting(false);
+            return;
+          }
         }
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
@@ -387,7 +393,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           guestEmployer: dormData.employer,
           payerBankName: dormData.bankName,
           payerAccountNumber: dormData.accountNumber,
-          ...(guestIdScanFileUrlPlaceholder && { guestIdScanFileUrl: guestIdScanFileUrlPlaceholder }),
+          ...(guestIdScanFileUrl && { guestIdScanFileUrl }),
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,

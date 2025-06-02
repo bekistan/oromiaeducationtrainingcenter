@@ -26,7 +26,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { Banknote, Loader2, AlertCircle, FileCheck } from "lucide-react";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import { db } from '@/lib/firebase';
+import { db, uploadFileToFirebaseStorage } from '@/lib/firebase'; // Import uploadFileToFirebaseStorage
 import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Booking } from '@/types';
 import { SITE_NAME } from '@/constants';
@@ -120,13 +120,19 @@ function SubmitPaymentProofContent() {
     setIsSubmittingProof(true);
 
     const fileToUpload = data.paymentProofFile;
-    let transactionProofFileUrlPlaceholder: string | undefined = undefined;
+    let transactionProofFileUrl: string | undefined = undefined;
 
     if (fileToUpload) {
-      console.log(`Payment proof file selected: ${fileToUpload.name} (${fileToUpload.type}). Size: ${fileToUpload.size} bytes.`);
-      console.log("In a real application, this file would be uploaded to Firebase Storage, and its URL would be stored in transactionProofFileUrl.");
-      // Example: transactionProofFileUrlPlaceholder = await uploadFileToFirebaseStorage(fileToUpload);
-      transactionProofFileUrlPlaceholder = `https://placehold.co/600x400.png?text=Proof_For_${bookingId.substring(0,4)}`;
+      try {
+        const proofPath = `payment_proofs/${bookingId}/`;
+        transactionProofFileUrl = await uploadFileToFirebaseStorage(fileToUpload, proofPath);
+        console.log("Payment proof uploaded, URL:", transactionProofFileUrl);
+      } catch (uploadError) {
+        console.error("Error uploading payment proof:", uploadError);
+        toast({ variant: "destructive", title: t('error'), description: t('errorUploadingPaymentProof') });
+        setIsSubmittingProof(false);
+        return;
+      }
     } else {
         toast({ variant: "destructive", title: t('error'), description: t('paymentProofFileRequired') });
         setIsSubmittingProof(false);
@@ -137,7 +143,7 @@ function SubmitPaymentProofContent() {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, {
         paymentStatus: 'awaiting_verification',
-        transactionProofFileUrl: transactionProofFileUrlPlaceholder, 
+        transactionProofFileUrl: transactionProofFileUrl, 
       });
       toast({ title: t('success'), description: t('paymentProofSubmittedSuccessfully') }); 
 
@@ -221,7 +227,7 @@ function SubmitPaymentProofContent() {
                     <Input 
                       id="payment-proof-file" 
                       type="file" 
-                      accept=".pdf,.jpg,.jpeg,.png" 
+                      accept="image/*,.pdf" // Accept images and PDF
                       className="file:text-primary file:font-medium"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
