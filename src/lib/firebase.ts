@@ -10,7 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQg",
   authDomain: "oroedu-4a86c.firebaseapp.com",
   projectId: "oroedu-4a86c",
-  storageBucket: "oroedu-4a86c.appspot.com", // Corrected to .appspot.com for default bucket
+  storageBucket: "oroedu-4a86c.appspot.com", // Ensured correct .appspot.com format
   messagingSenderId: "337131238082",
   appId: "1:337131238082:web:fc94369715fbdfff96015b",
   measurementId: "G-B31H6HWF15"
@@ -36,21 +36,33 @@ const storage = getStorage(app); // Initialize Firebase Storage
  * @returns A promise that resolves with the download URL of the uploaded file.
  */
 export const uploadFileToFirebaseStorage = async (file: File, path: string): Promise<string> => {
-  if (!file) throw new Error("No file provided for upload.");
+  console.log("[uploadFileToFirebaseStorage] Attempting to upload file:", file.name, "to path:", path);
+  if (!file) {
+    console.error("[uploadFileToFirebaseStorage] No file provided for upload.");
+    throw new Error("No file provided for upload.");
+  }
   if (!path.endsWith('/')) {
-    console.warn(`Storage path "${path}" does not end with a slash. Appending one.`);
+    console.warn(`[uploadFileToFirebaseStorage] Storage path "${path}" does not end with a slash. Appending one.`);
     path += '/';
   }
   
   const uniqueFileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`; // Make filename URL-friendly
-  const fileStorageRef = storageRef(storage, `${path}${uniqueFileName}`);
+  const fullStoragePath = `${path}${uniqueFileName}`;
+  const fileStorageRef = storageRef(storage, fullStoragePath);
+  console.log("[uploadFileToFirebaseStorage] Full storage reference path:", fileStorageRef.fullPath);
 
   try {
+    console.log("[uploadFileToFirebaseStorage] Starting upload for:", file.name);
     const snapshot = await uploadBytes(fileStorageRef, file);
+    console.log("[uploadFileToFirebaseStorage] Upload successful for:", file.name, "Snapshot:", snapshot);
     const downloadURL = await getDownloadURL(snapshot.ref);
+    console.log("[uploadFileToFirebaseStorage] Got download URL:", downloadURL);
     return downloadURL;
-  } catch (error) {
-    console.error("Error uploading file to Firebase Storage:", error);
+  } catch (error: any) {
+    console.error("[uploadFileToFirebaseStorage] Error uploading file:", file.name, "to path:", fullStoragePath, "Error object:", error);
+    // Log more details if available, e.g., error.code or error.message from Firebase
+    if (error.code) console.error("[uploadFileToFirebaseStorage] Firebase error code:", error.code);
+    if (error.message) console.error("[uploadFileToFirebaseStorage] Firebase error message:", error.message);
     throw error; // Re-throw to be handled by the caller
   }
 };
