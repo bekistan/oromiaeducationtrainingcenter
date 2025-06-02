@@ -47,7 +47,7 @@ export default function HomePage() {
       descriptionKey: "chapaGateway",
     },
     {
-      icon: <Languages className="h-10 w-10 text-accent" />, 
+      icon: <Languages className="h-10 w-10 text-accent" />,
       titleKey: "multilingualSupport",
       descriptionKey: "languagesSupported",
     },
@@ -96,12 +96,13 @@ export default function HomePage() {
                   <CardTitle className="text-2xl">{t(service.titleKey)}</CardTitle>
                 </CardHeader>
                 <div className="relative h-48 w-full">
-                  <Image 
-                    src={service.image} 
-                    alt={t(service.titleKey)} 
-                    layout="fill" 
-                    objectFit="cover"
+                  <Image
+                    src={service.image}
+                    alt={t(service.titleKey)}
+                    fill
+                    style={{ objectFit: 'cover' }}
                     data-ai-hint={service.imageHint}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Added sizes for responsiveness
                   />
                 </div>
                 <CardContent className="p-6 text-center">
