@@ -17,6 +17,7 @@ import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import type { Booking } from '@/types';
 import { SITE_NAME } from '@/constants';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { FormDescription } from "@/components/ui/form"; // Added missing import
 
 function SubmitPaymentProofContent() {
   const { t } = useLanguage();
@@ -57,7 +58,16 @@ function SubmitPaymentProofContent() {
         const docSnap = await getDoc(bookingRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as Booking;
-          if (data.paymentStatus !== 'pending_transfer') {
+          // Check if payment is expected or already processed for this booking type
+          let paymentExpected = false;
+          if (data.bookingCategory === 'dormitory' && data.paymentStatus === 'pending_transfer') {
+            paymentExpected = true;
+          } else if (data.bookingCategory === 'facility' && data.approvalStatus === 'approved' && (data.paymentStatus === 'pending' || data.paymentStatus === 'pending_transfer')) {
+            // For facility, proof can be submitted after admin approval if payment is pending/pending_transfer
+            paymentExpected = true;
+          }
+          
+          if (!paymentExpected) {
             setError(t('paymentProofNotExpected')); 
             setBookingDetails(null);
           } else {
@@ -97,9 +107,8 @@ function SubmitPaymentProofContent() {
     if (paymentProofFile) {
       console.log(`File selected: ${paymentProofFile.name} (${paymentProofFile.type}). Size: ${paymentProofFile.size} bytes.`);
       console.log("In a real application, this file would be uploaded to Firebase Storage, and its URL would be stored.");
-      // For now, we can append a note about the file to the transaction details if needed,
-      // or store it separately if the Firestore model is updated.
-      // proofReference += ` (File: ${paymentProofFile.name})`; // Example if you want to include file name in text details
+      // Placeholder for actual upload logic. For now, we might append file info or store a mock reference.
+      // Example: proofReference += ` (File: ${paymentProofFile.name})`;
     }
 
 
@@ -108,9 +117,9 @@ function SubmitPaymentProofContent() {
       await updateDoc(bookingRef, {
         paymentStatus: 'awaiting_verification',
         transactionProofDetails: proofReference, 
-        // paymentProofSubmittedAt: Timestamp.now(), // Optional: timestamp for proof submission
-        // In a full implementation, you'd store the storage URL here:
-        // paymentProofDocumentUrl: fileURL || null, 
+        // paymentProofSubmittedAt: Timestamp.now(), // Optional
+        // If file upload was implemented, store its URL:
+        // paymentProofDocumentUrl: uploadedFileUrl || null,
       });
       toast({ title: t('success'), description: t('paymentProofSubmittedSuccessfully') }); 
 
@@ -140,7 +149,7 @@ function SubmitPaymentProofContent() {
     );
   }
 
-  if (error) {
+  if (error || !bookingDetails) { // Check bookingDetails as well
     return (
       <Card className="w-full max-w-lg text-center shadow-xl">
         <CardHeader>
@@ -148,7 +157,7 @@ function SubmitPaymentProofContent() {
           <CardTitle className="text-2xl text-destructive">{t('error')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p>{error}</p>
+          <p>{error || t('bookingOrPaymentNotReady')}</p>
           <Button onClick={() => router.push('/')} className="mt-4">{t('goToHomepage')}</Button>
         </CardContent>
       </Card>
