@@ -63,7 +63,6 @@ export function Header() {
               <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('dashboard')}
             </Link>
           )}
-          {/* Admin Dashboard link removed from here */}
         </nav>
 
         <div className="flex items-center space-x-2">
@@ -164,7 +163,6 @@ export function Header() {
                       <LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}
                   </Link>
                 )}
-                {/* Admin Dashboard link removed from mobile sheet nav as well, will be in dropdown */}
                  {!user && !loading && (
                    <>
                     <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
@@ -175,8 +173,6 @@ export function Header() {
                     </Link>
                    </>
                 )}
-                {/* User dropdown details are not typically replicated in mobile sheet if there's a separate user icon/menu */}
-                {/* However, if no dropdown for mobile, logout could be here */}
                 {user && !loading && (
                    <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-lg p-0">
                     <LogOutIcon className="mr-2 h-5 w-5" />{t('logout')}
@@ -190,3 +186,5 @@ export function Header() {
     </header>
   );
 }
+
+    

@@ -21,6 +21,7 @@ export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },
   { labelKey: 'dormitories', href: '/dormitories' },
   { labelKey: 'halls', href: '/halls' },
+  { labelKey: 'checkMyBookingNav', href: '/check-my-booking' },
 ];
 
 export const ADMIN_NAVS: NavItem[] = [
@@ -70,3 +71,5 @@ export const ETHIOPIAN_BANKS = [
   "Other",
 ];
 
+
+    
