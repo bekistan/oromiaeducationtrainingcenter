@@ -58,7 +58,7 @@ export interface Booking {
   companyId?: string; 
   // Dormitory specific
   guestName?: string;
-  guestIdScanFileUrl?: string; // Renamed from guestIdScanUrl
+  guestIdScanFileUrl?: string; 
   guestEmployer?: string;
   payerBankName?: string;
   payerAccountNumber?: string;
@@ -76,8 +76,7 @@ export interface Booking {
   endDate: string | import('firebase/firestore').Timestamp;   
   totalCost: number;
   paymentStatus: 'pending' | 'pending_transfer' | 'awaiting_verification' | 'paid' | 'failed';
-  transactionProofDetails?: string; 
-  transactionProofFileUrl?: string; // New field for transaction proof file URL
+  transactionProofFileUrl?: string; 
   approvalStatus: 'pending' | 'approved' | 'rejected';
   bookedAt: string | import('firebase/firestore').Timestamp;
   // Agreement specific for facilities

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, ReceiptText, FileQuestion, Paperclip } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, Paperclip, FileQuestion } from "lucide-react"; // Removed ReceiptText
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -49,10 +49,6 @@ export default function AdminManageDormitoryBookingsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
-
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
-  const [currentReceiptDetails, setCurrentReceiptDetails] = useState<string | undefined>(undefined);
-  const [currentBookingIdForModal, setCurrentBookingIdForModal] = useState<string>('');
 
   const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
   const [currentFileUrlForPreview, setCurrentFileUrlForPreview] = useState<string | undefined>(undefined);
@@ -166,12 +162,6 @@ export default function AdminManageDormitoryBookingsPage() {
     setCurrentFileUrlForPreview(url);
     setCurrentFilePreviewTitle(t(titleKey || 'filePreviewTitle'));
     setIsFilePreviewModalOpen(true);
-  };
-
-  const openReceiptModal = (details?: string, bookingId?: string) => {
-    setCurrentReceiptDetails(details);
-    setCurrentBookingIdForModal(bookingId || '');
-    setIsReceiptModalOpen(true);
   };
 
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
@@ -303,12 +293,6 @@ export default function AdminManageDormitoryBookingsPage() {
                               <span className="sr-only">{t('viewIdScan')}</span>
                             </Button>
                           )}
-                          {booking.paymentStatus === 'awaiting_verification' && booking.transactionProofDetails && (
-                            <Button variant="ghost" size="icon" title={t('viewReceipt')} onClick={() => openReceiptModal(booking.transactionProofDetails, booking.id)}>
-                              <ReceiptText className="h-4 w-4" />
-                              <span className="sr-only">{t('viewReceipt')}</span>
-                            </Button>
-                          )}
                           {booking.paymentStatus === 'awaiting_verification' && booking.transactionProofFileUrl && (
                             <Button variant="ghost" size="icon" title={t('viewProofDocument')} onClick={() => openFilePreviewModal(booking.transactionProofFileUrl, 'transactionProofDocumentTitle')}>
                                 <Paperclip className="h-4 w-4" />
@@ -411,7 +395,6 @@ export default function AdminManageDormitoryBookingsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* File Preview Modal (for ID Scan & Transaction Proof File) */}
       <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -440,36 +423,6 @@ export default function AdminManageDormitoryBookingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsFilePreviewModalOpen(false)}>{t('closeButton')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Receipt Details Modal (for Text Proof) */}
-      <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('transactionProofDetailsTitle', { bookingId: currentBookingIdForModal.substring(0,8) + '...' })}</DialogTitle>
-          </DialogHeader>
-          <div className="my-4 prose prose-sm max-w-none">
-            {currentReceiptDetails ? (
-              <>
-                <p className="font-semibold">{t('proofDetails')}:</p>
-                <pre className="whitespace-pre-wrap bg-muted p-2 rounded-md text-xs">{currentReceiptDetails}</pre>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                <FileQuestion className="w-12 h-12 mb-2" />
-                <p>{t('noReceiptAvailable')}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="sm:justify-between">
-             {currentReceiptDetails && (
-              <div className="flex-grow text-xs text-muted-foreground">
-                {t('adminNoteVerifyManually')}
-              </div>
-            )}
-            <Button variant="outline" onClick={() => setIsReceiptModalOpen(false)}>{t('closeButton')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
