@@ -7,7 +7,7 @@ import { DormitoryList } from "@/components/sections/dormitory-list";
 import type { Dormitory } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore'; // Added query and where
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from "lucide-react";
 
@@ -20,11 +20,13 @@ export default function DormitoriesPage() {
   const fetchDormitories = useCallback(async () => {
     setIsLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "dormitories"));
+      // Query only for dormitories where isAvailable is true
+      const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
+      const querySnapshot = await getDocs(q);
       const dormsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dormitory));
       setDormitories(dormsData);
     } catch (error) {
-      console.error("Error fetching dormitories: ", error);
+      console.error("Error fetching available dormitories: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
     } finally {
       setIsLoading(false);
