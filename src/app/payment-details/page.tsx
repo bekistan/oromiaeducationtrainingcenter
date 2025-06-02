@@ -2,12 +2,11 @@
 "use client";
 
 import React, { Suspense, useState, useEffect } from 'react';
-import Link from 'next/link'; // Keep for other links if any, or remove if not used
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
-import { Banknote, Loader2, AlertCircle, MessageSquare, Send } from "lucide-react"; // Send icon for Telegram button
+import { Banknote, Loader2, AlertCircle, MessageSquare, Send } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -142,16 +141,14 @@ function PaymentDetailsContent() {
           </AlertDescription>
         </Alert>
       </CardContent>
-      <CardFooter className="flex-col space-y-3">
+      <CardFooter className="flex flex-col items-center pt-4">
         <Button asChild className="w-full">
           <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
             <Send className="mr-2 h-4 w-4" />
-            {t('openTelegramToSendProof')} {/* Add to JSON */}
+            {t('openTelegramToSendProof')}
           </a>
         </Button>
-        <Button variant="outline" onClick={() => router.push('/')} className="w-full">
-            {t('goToHomepage')}
-        </Button>
+        <p className="text-xs text-muted-foreground mt-3">{t('afterSendingProofAdminWillVerify')}</p>
       </CardFooter>
     </Card>
   );
@@ -170,3 +167,4 @@ export default function PaymentDetailsPage() {
   );
 }
 
+    
