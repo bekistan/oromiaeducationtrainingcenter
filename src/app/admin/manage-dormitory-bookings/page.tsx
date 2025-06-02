@@ -2,14 +2,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, ReceiptText, FileQuestion } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -47,6 +48,13 @@ export default function AdminManageDormitoryBookingsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
+
+  const [isIdScanModalOpen, setIsIdScanModalOpen] = useState(false);
+  const [currentIdScanUrl, setCurrentIdScanUrl] = useState<string | undefined>(undefined);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [currentReceiptDetails, setCurrentReceiptDetails] = useState<string | undefined>(undefined);
+  const [currentBookingIdForModal, setCurrentBookingIdForModal] = useState<string>('');
+
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
@@ -99,7 +107,7 @@ export default function AdminManageDormitoryBookingsPage() {
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
-      searchKeys: ['id', 'guestName', 'email', 'phone'],
+      searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'],
   });
 
   useEffect(() => {
@@ -118,6 +126,19 @@ export default function AdminManageDormitoryBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
     }
   };
+  
+  const handlePaymentVerification = async (bookingId: string, newStatus: 'paid' | 'failed') => {
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, { paymentStatus: newStatus });
+      toast({ title: t('success'), description: t('paymentStatusUpdated') });
+      fetchBookings();
+    } catch (error) {
+      console.error("Error updating payment status: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+    }
+  };
+
 
   const confirmDeleteBooking = async () => {
     if (!bookingToDeleteId) return;
@@ -139,11 +160,26 @@ export default function AdminManageDormitoryBookingsPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  const openIdScanModal = (url?: string) => {
+    setCurrentIdScanUrl(url);
+    setIsIdScanModalOpen(true);
+  };
+
+  const openReceiptModal = (details?: string, bookingId?: string) => {
+    setCurrentReceiptDetails(details);
+    setCurrentBookingIdForModal(bookingId || '');
+    setIsReceiptModalOpen(true);
+  };
+
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
     switch (status) {
       case 'paid':
         return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t(status)}</Badge>;
-      case 'pending':
+      case 'pending_transfer':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
+      case 'awaiting_verification':
+        return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
+      case 'pending': // General pending (might be used for facility initially)
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -194,7 +230,7 @@ export default function AdminManageDormitoryBookingsPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{t('paymentStatus')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(['all', 'pending', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
+                {(['all', 'pending_transfer', 'awaiting_verification', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
                   <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
                     {t(status)}
                   </DropdownMenuCheckboxItem>
@@ -229,6 +265,8 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableHead>{t('guestName')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
                       <TableHead>{t('dates')}</TableHead>
+                      <TableHead>{t('payerBankName')}</TableHead>
+                      <TableHead>{t('payerAccountNumber')}</TableHead>
                       <TableHead>{t('totalCost')}</TableHead>
                       <TableHead>{t('paymentStatus')}</TableHead>
                       <TableHead>{t('approvalStatus')}</TableHead>
@@ -242,6 +280,8 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                         <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
+                        <TableCell className="whitespace-nowrap">{booking.payerBankName || t('notProvided')}</TableCell>
+                        <TableCell className="whitespace-nowrap">{booking.payerAccountNumber || t('notProvided')}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
@@ -250,6 +290,18 @@ export default function AdminManageDormitoryBookingsPage() {
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">{t('viewDetails')}</span>
                           </Button>
+                           {booking.guestIdScanUrl && (
+                            <Button variant="ghost" size="icon" title={t('viewIdScan')} onClick={() => openIdScanModal(booking.guestIdScanUrl)}>
+                              <ScanEye className="h-4 w-4" />
+                              <span className="sr-only">{t('viewIdScan')}</span>
+                            </Button>
+                          )}
+                          {booking.paymentStatus === 'awaiting_verification' && booking.transactionProofDetails && (
+                            <Button variant="ghost" size="icon" title={t('viewReceipt')} onClick={() => openReceiptModal(booking.transactionProofDetails, booking.id)}>
+                              <ReceiptText className="h-4 w-4" />
+                              <span className="sr-only">{t('viewReceipt')}</span>
+                            </Button>
+                          )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -269,6 +321,20 @@ export default function AdminManageDormitoryBookingsPage() {
                                   <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                       {t('rejectBooking')}
                                   </DropdownMenuItem>
+                                  
+                                  {booking.paymentStatus === 'awaiting_verification' && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
+                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                        <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
                                       <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
@@ -331,6 +397,60 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ID Scan Preview Modal */}
+      <Dialog open={isIdScanModalOpen} onOpenChange={setIsIdScanModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('idScanPreviewTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="my-4">
+            {currentIdScanUrl ? (
+              <Image src={currentIdScanUrl} alt={t('idScanPreviewTitle')} width={400} height={300} objectFit="contain" data-ai-hint="ID document" />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <FileQuestion className="w-12 h-12 mb-2" />
+                <p>{t('noIdScanAvailable')}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsIdScanModalOpen(false)}>{t('closeButton')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Receipt Details Modal */}
+      <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('transactionProofDetailsTitle', { bookingId: currentBookingIdForModal.substring(0,8) + '...' })}</DialogTitle>
+          </DialogHeader>
+          <div className="my-4 prose prose-sm max-w-none">
+            {currentReceiptDetails ? (
+              <>
+                <p className="font-semibold">{t('proofDetails')}:</p>
+                <pre className="whitespace-pre-wrap bg-muted p-2 rounded-md text-xs">{currentReceiptDetails}</pre>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+                <FileQuestion className="w-12 h-12 mb-2" />
+                <p>{t('noReceiptAvailable')}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="sm:justify-between">
+             {currentReceiptDetails && (
+              <div className="flex-grow text-xs text-muted-foreground">
+                {t('adminNoteVerifyManually')}
+              </div>
+            )}
+            <Button variant="outline" onClick={() => setIsReceiptModalOpen(false)}>{t('closeButton')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+    
