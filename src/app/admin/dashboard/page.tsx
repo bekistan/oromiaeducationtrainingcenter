@@ -249,8 +249,7 @@ export default function AdminDashboardPage() {
                       <TableRow>
                         <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
                         <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
-                        <TableHead>{t('item')}</TableHead> {/* Not easily sortable by displayed name, could sort by item count or first item name if needed */}
-                        <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
+                        <TableHead>{t('item')}</TableHead><TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
                         <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('status')}{getSortIndicator('paymentStatus')}</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -326,5 +325,7 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
