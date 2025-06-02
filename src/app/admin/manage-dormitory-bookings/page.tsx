@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, ReceiptText, FileQuestion } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, ReceiptText, FileQuestion, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import Link from 'next/link';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -49,11 +50,13 @@ export default function AdminManageDormitoryBookingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const [isIdScanModalOpen, setIsIdScanModalOpen] = useState(false);
-  const [currentIdScanUrl, setCurrentIdScanUrl] = useState<string | undefined>(undefined);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [currentReceiptDetails, setCurrentReceiptDetails] = useState<string | undefined>(undefined);
   const [currentBookingIdForModal, setCurrentBookingIdForModal] = useState<string>('');
+
+  const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
+  const [currentFileUrlForPreview, setCurrentFileUrlForPreview] = useState<string | undefined>(undefined);
+  const [currentFilePreviewTitle, setCurrentFilePreviewTitle] = useState<string>('');
 
 
   const fetchBookings = useCallback(async () => {
@@ -139,7 +142,6 @@ export default function AdminManageDormitoryBookingsPage() {
     }
   };
 
-
   const confirmDeleteBooking = async () => {
     if (!bookingToDeleteId) return;
     try {
@@ -160,9 +162,10 @@ export default function AdminManageDormitoryBookingsPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const openIdScanModal = (url?: string) => {
-    setCurrentIdScanUrl(url);
-    setIsIdScanModalOpen(true);
+  const openFilePreviewModal = (url?: string, titleKey?: string) => {
+    setCurrentFileUrlForPreview(url);
+    setCurrentFilePreviewTitle(t(titleKey || 'filePreviewTitle'));
+    setIsFilePreviewModalOpen(true);
   };
 
   const openReceiptModal = (details?: string, bookingId?: string) => {
@@ -200,6 +203,10 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
+
+  const isImageUrl = (url: string) => {
+    return /\.(jpeg|jpg|gif|png)$/i.test(url);
+  }
 
   return (
     <>
@@ -290,8 +297,8 @@ export default function AdminManageDormitoryBookingsPage() {
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">{t('viewDetails')}</span>
                           </Button>
-                           {booking.guestIdScanUrl && (
-                            <Button variant="ghost" size="icon" title={t('viewIdScan')} onClick={() => openIdScanModal(booking.guestIdScanUrl)}>
+                           {booking.guestIdScanFileUrl && (
+                            <Button variant="ghost" size="icon" title={t('viewIdScan')} onClick={() => openFilePreviewModal(booking.guestIdScanFileUrl, 'idScanPreviewTitle')}>
                               <ScanEye className="h-4 w-4" />
                               <span className="sr-only">{t('viewIdScan')}</span>
                             </Button>
@@ -300,6 +307,12 @@ export default function AdminManageDormitoryBookingsPage() {
                             <Button variant="ghost" size="icon" title={t('viewReceipt')} onClick={() => openReceiptModal(booking.transactionProofDetails, booking.id)}>
                               <ReceiptText className="h-4 w-4" />
                               <span className="sr-only">{t('viewReceipt')}</span>
+                            </Button>
+                          )}
+                          {booking.paymentStatus === 'awaiting_verification' && booking.transactionProofFileUrl && (
+                            <Button variant="ghost" size="icon" title={t('viewProofDocument')} onClick={() => openFilePreviewModal(booking.transactionProofFileUrl, 'transactionProofDocumentTitle')}>
+                                <Paperclip className="h-4 w-4" />
+                                <span className="sr-only">{t('viewProofDocument')}</span>
                             </Button>
                           )}
                           <DropdownMenu>
@@ -398,29 +411,40 @@ export default function AdminManageDormitoryBookingsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ID Scan Preview Modal */}
-      <Dialog open={isIdScanModalOpen} onOpenChange={setIsIdScanModalOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* File Preview Modal (for ID Scan & Transaction Proof File) */}
+      <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t('idScanPreviewTitle')}</DialogTitle>
+            <DialogTitle>{currentFilePreviewTitle}</DialogTitle>
           </DialogHeader>
-          <div className="my-4">
-            {currentIdScanUrl ? (
-              <Image src={currentIdScanUrl} alt={t('idScanPreviewTitle')} width={400} height={300} style={{objectFit: 'contain'}} data-ai-hint="ID document" />
+          <div className="my-4 flex justify-center items-center max-h-[70vh] overflow-auto">
+            {currentFileUrlForPreview ? (
+              isImageUrl(currentFileUrlForPreview) ? (
+                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle} width={500} height={700} style={{objectFit: 'contain', maxWidth: '100%', maxHeight: '100%'}} data-ai-hint="document scan" />
+              ) : (
+                <div className="text-center">
+                    <p className="mb-2">{t('nonImageFilePreviewNotAvailable')}</p>
+                    <Button asChild>
+                        <Link href={currentFileUrlForPreview} target="_blank" rel="noopener noreferrer">
+                            {t('openFileInNewTab')}
+                        </Link>
+                    </Button>
+                </div>
+              )
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
                 <FileQuestion className="w-12 h-12 mb-2" />
-                <p>{t('noIdScanAvailable')}</p>
+                <p>{t('noFileAvailable')}</p>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsIdScanModalOpen(false)}>{t('closeButton')}</Button>
+            <Button variant="outline" onClick={() => setIsFilePreviewModalOpen(false)}>{t('closeButton')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Receipt Details Modal */}
+      {/* Receipt Details Modal (for Text Proof) */}
       <Dialog open={isReceiptModalOpen} onOpenChange={setIsReceiptModalOpen}>
         <DialogContent>
           <DialogHeader>

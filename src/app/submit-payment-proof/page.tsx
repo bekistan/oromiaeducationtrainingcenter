@@ -46,18 +46,17 @@ function SubmitPaymentProofContent() {
   const [bookingDetails, setBookingDetails] = useState<Booking | null>(null);
   const [isLoadingBooking, setIsLoadingBooking] = useState(true);
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
-  const [paymentProofFilePreview, setPaymentProofFilePreview] = useState<File | null>(null); // For UI preview of selected file
+  const [paymentProofFilePreview, setPaymentProofFilePreview] = useState<File | null>(null); 
   const [error, setError] = useState<string | null>(null);
 
   const itemName = searchParams.get('itemName');
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
 
-  // Define Zod schema inside the component to use t() for messages
   const submitPaymentProofSchema = z.object({
     transactionDetails: z.string().min(1, { message: t('transactionDetailsRequired') }),
     paymentProofFile: z.custom<File | undefined>((v) => v === undefined || v instanceof File, { 
-      message: t('invalidFileType') // Add to JSON: "Invalid file type."
+      message: t('invalidFileType') 
     }).optional(),
   });
   type SubmitPaymentProofValues = z.infer<typeof submitPaymentProofSchema>;
@@ -126,12 +125,13 @@ function SubmitPaymentProofContent() {
 
     let proofReferenceText = data.transactionDetails.trim();
     const fileToUpload = data.paymentProofFile;
+    let transactionProofFileUrl: string | undefined = undefined;
+
 
     if (fileToUpload) {
       console.log(`File selected: ${fileToUpload.name} (${fileToUpload.type}). Size: ${fileToUpload.size} bytes.`);
-      console.log("In a real application, this file would be uploaded to Firebase Storage, and its URL would be stored.");
-      // For now, we might append file info or store a mock reference if needed
-      // Example: proofReferenceText += ` (File: ${fileToUpload.name})`; // Don't do this if file upload is separate
+      console.log("In a real application, this file would be uploaded to Firebase Storage, and its URL would be stored in transactionProofFileUrl.");
+      // Example: transactionProofFileUrl = await uploadFileToFirebaseStorage(fileToUpload);
     }
 
     try {
@@ -139,8 +139,7 @@ function SubmitPaymentProofContent() {
       await updateDoc(bookingRef, {
         paymentStatus: 'awaiting_verification',
         transactionProofDetails: proofReferenceText, 
-        // In a real app, after uploading `fileToUpload` to Firebase Storage:
-        // paymentProofDocumentUrl: uploadedFileUrlFromServer, 
+        ...(transactionProofFileUrl && { transactionProofFileUrl: transactionProofFileUrl }),
       });
       toast({ title: t('success'), description: t('paymentProofSubmittedSuccessfully') }); 
 
@@ -238,7 +237,7 @@ function SubmitPaymentProofContent() {
             <FormField
               control={form.control}
               name="paymentProofFile"
-              render={({ field: { onChange, value, ref, ...rest }}) => ( // Destructure field correctly
+              render={({ field: { onChange, value, ref, ...rest }}) => ( 
                 <FormItem>
                   <FormLabel htmlFor="payment-proof-file" className="text-sm font-medium">{t('uploadScannedDocument')}</FormLabel>
                   <FormControl>
@@ -249,11 +248,11 @@ function SubmitPaymentProofContent() {
                       className="file:text-primary file:font-medium"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        onChange(file || undefined); // RHF's onChange for the File object
-                        setPaymentProofFilePreview(file || null); // For UI preview
+                        onChange(file || undefined); 
+                        setPaymentProofFilePreview(file || null); 
                       }}
-                      ref={ref} // Pass ref to the input
-                      {...rest} // Pass other field props like name, onBlur
+                      ref={ref} 
+                      {...rest} 
                     />
                   </FormControl>
                   {paymentProofFilePreview && (

@@ -373,13 +373,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const item = itemsToBook[0];
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
-        let idCardScanUrl: string | undefined = undefined;
+        let guestIdScanFileUrl: string | undefined = undefined;
         
         // Placeholder for actual file upload. In a real app, dormData.idCardScan (File object)
-        // would be uploaded to Firebase Storage here, and idCardScanUrl would be the download URL.
+        // would be uploaded to Firebase Storage here, and guestIdScanFileUrl would be the download URL.
         if (dormData.idCardScan instanceof File) {
-            console.log("ID Card file selected:", dormData.idCardScan.name, "- Actual upload to Firebase Storage not implemented in this step.");
-            // Example: idCardScanUrl = await uploadFileToFirebaseStorage(dormData.idCardScan);
+            console.log("ID Card file selected:", dormData.idCardScan.name, "- Actual upload to Firebase Storage not implemented in this step. URL would be stored in guestIdScanFileUrl.");
+            // Example: guestIdScanFileUrl = await uploadFileToFirebaseStorage(dormData.idCardScan);
         }
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
@@ -389,7 +389,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           guestEmployer: dormData.employer,
           payerBankName: dormData.bankName,
           payerAccountNumber: dormData.accountNumber,
-          ...(idCardScanUrl && { guestIdScanUrl: idCardScanUrl }),
+          ...(guestIdScanFileUrl && { guestIdScanFileUrl: guestIdScanFileUrl }),
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
