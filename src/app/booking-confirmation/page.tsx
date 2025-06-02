@@ -7,15 +7,15 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, Loader2, Hourglass, MessageSquare } from 'lucide-react'; // Added MessageSquare
+import { CheckCircle, Home, Loader2, Hourglass, MessageSquare } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
-import { useAuth } from '@/hooks/use-auth'; // Import useAuth
+import { useAuth } from '@/hooks/use-auth';
 
 function BookingConfirmationContent() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth(); // Get user for conditional redirect
+  const { user } = useAuth();
 
   const bookingId = searchParams.get('bookingId');
   const status = searchParams.get('status');
@@ -41,15 +41,20 @@ function BookingConfirmationContent() {
   let descriptionText = '';
   let icon = <CheckCircle className="w-16 h-16 text-green-600" />;
 
-  if (status === 'telegram_pending') { // Updated status check
-    titleText = t('paymentAwaitingTelegramVerificationTitle'); // Add to JSON
-    descriptionText = t('paymentAwaitingTelegramVerificationDesc'); // Add to JSON
-    icon = <MessageSquare className="w-16 h-16 text-sky-500" />; // Sky color for pending Telegram
-  } else if (status === 'booking_pending_approval' && category === 'facility') {
-    titleText = t('facilityBookingReceived');
-    descriptionText = t('thankYouFacilityBookingWillBeReviewed');
+  if (status === 'telegram_pending') {
+    titleText = t('paymentAwaitingTelegramVerificationTitle');
+    descriptionText = t('paymentAwaitingTelegramVerificationDesc');
+    icon = <MessageSquare className="w-16 h-16 text-sky-500" />;
+  } else if (status === 'booking_pending_approval') {
+    if (category === 'facility') {
+      titleText = t('facilityBookingReceived');
+      descriptionText = t('thankYouFacilityBookingWillBeReviewed');
+    } else { // Dormitory
+      titleText = t('dormitoryBookingRequestReceived'); // New lang key
+      descriptionText = t('dormitoryBookingPendingApproval'); // New lang key
+    }
     icon = <Hourglass className="w-16 h-16 text-amber-500" />;
-  } else { // Default or unknown status (previously proof_submitted)
+  } else { 
     titleText = t('bookingProcessedTitle');
     descriptionText = t('yourBookingRequestHasBeenProcessed');
   }
@@ -115,3 +120,4 @@ export default function BookingConfirmationPage() {
     </PublicLayout>
   );
 }
+

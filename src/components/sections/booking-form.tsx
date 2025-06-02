@@ -50,8 +50,8 @@ const dormitoryBookingSchema = z.object({
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
-  bankName: z.string().min(1, { message: "Bank name is required." }),
-  accountNumber: z.string().min(1, { message: "Account number is required." }),
+  bankName: z.string().min(1, { message: "Bank name is required." }), // Still collect for when payment is due
+  accountNumber: z.string().min(1, { message: "Account number is required." }), // Still collect
 });
 
 const facilityBookingSchema = z.object({
@@ -170,7 +170,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"),
+        where("approvalStatus", "==", "approved"), // Only check against approved bookings for capacity
         where("startDate", "<=", toTimestamp)
     );
 
@@ -299,23 +299,24 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
-          paymentStatus: 'pending_transfer' as const,
-          approvalStatus: 'approved' as const,
+          paymentStatus: 'pending' as const, // Payment pending until admin approval
+          approvalStatus: 'pending' as const, // Requires admin approval
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
         };
 
         try {
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
-          toast({ title: t('bookingSubmittedTitle'), description: t('proceedToPaymentDetails') });
+          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') }); // New lang key
           const queryParams = new URLSearchParams({
+              status: 'booking_pending_approval', // New status for confirmation page
               bookingId: docRef.id,
-              amount: totalCost.toString(),
               itemName: itemNameForConfirmation,
+              amount: totalCost.toString(),
               category: 'dormitory',
-              phone: dormData.phone, // Pass phone to payment details
+              phone: dormData.phone,
           });
-          router.push(`/payment-details?${queryParams.toString()}`);
+          router.push(`/booking-confirmation?${queryParams.toString()}`);
         } catch (error) {
             console.error("Error saving dormitory booking:", error);
             toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
@@ -528,7 +529,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             )}
             <Button type="submit" className="w-full" disabled={authLoading || isSubmitting || isCheckingAvailability || !!availabilityError}>
                 {(authLoading || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isDormitoryBooking ? t('submitAndProceedToPayment') : t('submitBookingRequest')}
+                {t('submitBookingRequest')}
             </Button>
           </form>
         </Form>
@@ -536,6 +537,5 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
 
     

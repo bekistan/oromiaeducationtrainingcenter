@@ -8,10 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, Paperclip } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import Image from 'next/image';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,12 +46,6 @@ export default function AdminManageDormitoryBookingsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
-
-  const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
-  const [currentFileUrlForPreview, setCurrentFileUrlForPreview] = useState<string | null>(null);
-  const [currentFilePreviewTitle, setCurrentFilePreviewTitle] = useState<string>('');
-  const [currentBookingIdForModal, setCurrentBookingIdForModal] = useState<string | null>(null);
-
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
@@ -126,7 +118,18 @@ export default function AdminManageDormitoryBookingsPage() {
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
+      const currentBooking = allBookings.find(b => b.id === bookingId);
+      if (!currentBooking) {
+        toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
+        return;
+      }
+
       const updateData: Partial<Booking> = { approvalStatus: newStatus };
+      
+      if (newStatus === 'approved' && currentBooking.bookingCategory === 'dormitory' && currentBooking.paymentStatus === 'pending') {
+        updateData.paymentStatus = 'pending_transfer';
+      }
+      
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('bookingStatusUpdated') });
       fetchBookings();
@@ -168,13 +171,6 @@ export default function AdminManageDormitoryBookingsPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const openFilePreviewModal = (url: string, title: string, bookingId?: string) => {
-    setCurrentFileUrlForPreview(url);
-    setCurrentFilePreviewTitle(title);
-    setCurrentBookingIdForModal(bookingId || null);
-    setIsFilePreviewModalOpen(true);
-  };
-
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
     switch (status) {
       case 'paid':
@@ -183,7 +179,7 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
       case 'awaiting_verification':
         return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'pending': // Should not happen for dorms as per new flow, but kept for robustness
+      case 'pending': 
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -234,7 +230,7 @@ export default function AdminManageDormitoryBookingsPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{t('paymentStatus')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(['all', 'pending_transfer', 'awaiting_verification', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
+                {(['all', 'pending', 'pending_transfer', 'awaiting_verification', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
                   <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
                     {t(status)}
                   </DropdownMenuCheckboxItem>
@@ -268,7 +264,7 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
                       <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
                       <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead> {/* Sort by items.length or first item name? */}
+                      <TableHead>{t('itemsBooked')}</TableHead>
                       <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
                       <TableHead onClick={() => requestSort('payerBankName')} className="cursor-pointer group">{t('payerBankName')}{getSortIndicator('payerBankName')}</TableHead>
                       <TableHead onClick={() => requestSort('payerAccountNumber')} className="cursor-pointer group">{t('payerAccountNumber')}{getSortIndicator('payerAccountNumber')}</TableHead>
@@ -292,7 +288,6 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {/* Eye button removed */}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -313,7 +308,7 @@ export default function AdminManageDormitoryBookingsPage() {
                                       {t('rejectBooking')}
                                   </DropdownMenuItem>
 
-                                  {booking.paymentStatus === 'awaiting_verification' && (
+                                  {booking.approvalStatus === 'approved' && (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
@@ -393,36 +388,6 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* File Preview Modal (remains for future use if direct file uploads are re-introduced for other purposes) */}
-      <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{currentFilePreviewTitle || t('filePreviewTitle')}</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4 max-h-[60vh] overflow-y-auto">
-            {currentFileUrlForPreview ? (
-              (currentFileUrlForPreview.match(/\.(jpeg|jpg|gif|png)$/) != null) ? (
-                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle || 'Preview'} width={500} height={500} className="max-w-full h-auto rounded-md" data-ai-hint="document scan" />
-              ) : (
-                <div className="text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">{t('nonImageFilePreviewNotAvailable')}</p>
-                  <Button asChild variant="outline">
-                    <a href={currentFileUrlForPreview} target="_blank" rel="noopener noreferrer">
-                      <Paperclip className="mr-2 h-4 w-4" /> {t('openFileInNewTab')}
-                    </a>
-                  </Button>
-                </div>
-              )
-            ) : (
-              <p className="text-center text-muted-foreground">{t('noFileAvailable')}</p>
-            )}
-          </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsFilePreviewModalOpen(false)}>{t('closeButton')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
