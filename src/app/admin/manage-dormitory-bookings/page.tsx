@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, Paperclip, ScanEye, ReceiptText } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import Image from 'next/image';
@@ -292,10 +292,7 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" title={t('viewDetails')}>
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">{t('viewDetails')}</span>
-                          </Button>
+                          {/* Eye button removed */}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -397,7 +394,7 @@ export default function AdminManageDormitoryBookingsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* File Preview Modal */}
+      {/* File Preview Modal (remains for future use if direct file uploads are re-introduced for other purposes) */}
       <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -406,7 +403,7 @@ export default function AdminManageDormitoryBookingsPage() {
           <div className="mt-4 max-h-[60vh] overflow-y-auto">
             {currentFileUrlForPreview ? (
               (currentFileUrlForPreview.match(/\.(jpeg|jpg|gif|png)$/) != null) ? (
-                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle || 'Preview'} width={500} height={500} className="max-w-full h-auto rounded-md" />
+                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle || 'Preview'} width={500} height={500} className="max-w-full h-auto rounded-md" data-ai-hint="document scan" />
               ) : (
                 <div className="text-center space-y-2">
                   <p className="text-sm text-muted-foreground">{t('nonImageFilePreviewNotAvailable')}</p>
@@ -429,5 +426,7 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
+
+    
 
     

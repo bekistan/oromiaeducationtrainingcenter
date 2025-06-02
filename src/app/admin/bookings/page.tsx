@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -300,10 +300,7 @@ export default function AdminBookingsPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          <Button variant="ghost" size="icon" title={t('viewDetails')}>
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">{t('viewDetails')}</span>
-                          </Button>
+                          {/* Eye button removed */}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -413,5 +410,7 @@ export default function AdminBookingsPage() {
     </>
   );
 }
+
+    
 
     

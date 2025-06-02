@@ -257,7 +257,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         notes: form.getValues('notes') || "",
       } as FacilityBookingValues);
     }
-  }, [user, form, isDormitoryBooking]);
+  }, [user, form, isDormitoryBooking, defaultFacilityValues]);
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
@@ -313,7 +313,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               amount: totalCost.toString(),
               itemName: itemNameForConfirmation,
               category: 'dormitory',
-              phone: dormData.phone,
+              phone: dormData.phone, // Pass phone to payment details
           });
           router.push(`/payment-details?${queryParams.toString()}`);
         } catch (error) {
@@ -536,3 +536,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
+
+    
