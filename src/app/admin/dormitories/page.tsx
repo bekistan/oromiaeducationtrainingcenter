@@ -112,12 +112,15 @@ export default function AdminDormitoriesPage() {
 
   async function onSubmit(values: DormitoryFormValues) {
     setIsSubmitting(true);
+    console.log("Dormitory Add - Form values:", values);
+    console.log("Dormitory Add - isAvailable from form values:", values.isAvailable);
     try {
       const dormData = {
         ...values,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
+      console.log("Dormitory Add - Data being sent to Firestore:", dormData);
       await addDoc(collection(db, "dormitories"), dormData);
       toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       fetchDormitories();
@@ -152,6 +155,8 @@ export default function AdminDormitoriesPage() {
   async function onEditSubmit(values: DormitoryFormValues) {
     if (!currentDormitory) return;
     setIsSubmitting(true);
+    console.log("Dormitory Edit - Form values:", values);
+    console.log("Dormitory Edit - isAvailable from form values:", values.isAvailable);
     try {
       const dormRef = doc(db, "dormitories", currentDormitory.id);
       const updatedData = {
@@ -159,6 +164,7 @@ export default function AdminDormitoriesPage() {
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
+      console.log("Dormitory Edit - Data being sent to Firestore:", updatedData);
       await updateDoc(dormRef, updatedData);
       toast({ title: t('success'), description: t('dormitoryUpdatedSuccessfully') });
       fetchDormitories();

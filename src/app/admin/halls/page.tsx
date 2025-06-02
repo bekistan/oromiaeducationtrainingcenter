@@ -107,6 +107,8 @@ export default function AdminHallsAndSectionsPage() {
 
   async function onSubmit(values: HallFormValues) {
     setIsSubmitting(true);
+    console.log("Hall/Section Add - Form values:", values);
+    console.log("Hall/Section Add - isAvailable from form values:", values.isAvailable);
     try {
       const itemData = {
         ...values,
@@ -115,6 +117,7 @@ export default function AdminHallsAndSectionsPage() {
         lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
         refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
       };
+      console.log("Hall/Section Add - Data being sent to Firestore:", itemData);
       await addDoc(collection(db, "halls"), itemData);
       toast({ title: t('success'), description: t('itemAddedSuccessfully') });
       fetchItems();
@@ -155,6 +158,8 @@ export default function AdminHallsAndSectionsPage() {
   async function onEditSubmit(values: HallFormValues) {
     if (!currentItem) return;
     setIsSubmitting(true);
+    console.log("Hall/Section Edit - Form values:", values);
+    console.log("Hall/Section Edit - isAvailable from form values:", values.isAvailable);
     try {
       const itemRef = doc(db, "halls", currentItem.id);
       const updatedData = {
@@ -164,6 +169,7 @@ export default function AdminHallsAndSectionsPage() {
           lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
           refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
       };
+      console.log("Hall/Section Edit - Data being sent to Firestore:", updatedData);
       await updateDoc(itemRef, updatedData);
       toast({ title: t('success'), description: t('itemUpdatedSuccessfully') });
       fetchItems();
@@ -370,5 +376,3 @@ export default function AdminHallsAndSectionsPage() {
     </div>
   );
 }
-
-    
