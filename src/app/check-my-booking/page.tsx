@@ -24,7 +24,7 @@ export default function CheckMyBookingPage() {
 
   const handleSearch = useCallback(async () => {
     if (!phoneNumber.trim()) {
-      setError(t('pleaseEnterPhoneNumber')); // Add to JSON
+      setError(t('pleaseEnterPhoneNumber')); 
       return;
     }
     setIsLoading(true);
@@ -95,10 +95,10 @@ export default function CheckMyBookingPage() {
         <Card className="max-w-lg mx-auto shadow-xl">
           <CardHeader className="text-center">
             <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
-                <Phone className="w-8 h-8 text-primary" />
+                <BedDouble className="w-8 h-8 text-primary" />
             </div>
-            <CardTitle className="text-2xl sm:text-3xl">{t('checkMyBookingTitle')}</CardTitle>
-            <CardDescription>{t('checkMyBookingDescription')}</CardDescription>
+            <CardTitle className="text-2xl sm:text-3xl">{t('myDormitoryTitle')}</CardTitle>
+            <CardDescription>{t('myDormitoryDescription')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex space-x-2">
