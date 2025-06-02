@@ -7,7 +7,7 @@ import { DormitoryList } from "@/components/sections/dormitory-list";
 import type { Dormitory } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore'; // Added query and where
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from "lucide-react";
 
@@ -23,8 +23,21 @@ export default function DormitoriesPage() {
       // Query only for dormitories where isAvailable is true
       const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
       const querySnapshot = await getDocs(q);
-      const dormsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dormitory));
-      setDormitories(dormsData);
+      const dormsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Ensure isAvailable is explicitly a boolean, defaulting to false if undefined
+        const isAvailable = typeof data.isAvailable === 'boolean' ? data.isAvailable : false;
+        return { 
+          id: doc.id, 
+          ...data,
+          isAvailable: isAvailable // Explicitly set to ensure boolean type
+        } as Dormitory;
+      });
+      
+      // Further client-side filter, just in case, though the query should handle it
+      const strictlyAvailableDorms = dormsData.filter(d => d.isAvailable === true);
+      setDormitories(strictlyAvailableDorms);
+
     } catch (error) {
       console.error("Error fetching available dormitories: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
