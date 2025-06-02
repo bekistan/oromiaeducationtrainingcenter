@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -65,7 +65,7 @@ export default function AdminManageFacilityBookingsPage() {
           agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
         } as Booking;
       });
-      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime()));
+      setAllBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching facility bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
@@ -98,21 +98,31 @@ export default function AdminManageFacilityBookingsPage() {
     canPreviousPage,
     totalItems,
     setDataSource,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
       searchKeys: ['id', 'companyName', 'email', 'phone'],
+      initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
   useEffect(() => {
     setDataSource(filteredBookings);
   }, [filteredBookings, setDataSource]);
 
+  const getSortIndicator = (columnKey: keyof Booking) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
+
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
       const updateData: Partial<Booking> = { approvalStatus: newStatus };
-      if (newStatus === 'approved') { // Agreement status is relevant for facility bookings on approval
+      if (newStatus === 'approved') { 
         updateData.agreementStatus = 'pending_admin_action';
       }
       await updateDoc(bookingRef, updateData);
@@ -264,14 +274,14 @@ export default function AdminManageFacilityBookingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('bookingId')}</TableHead>
-                      <TableHead>{t('customer')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead>{t('dates')}</TableHead>
-                      <TableHead>{t('totalCost')}</TableHead>
-                      <TableHead>{t('paymentStatus')}</TableHead>
-                      <TableHead>{t('approvalStatus')}</TableHead>
-                      <TableHead>{t('agreementStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                      <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('companyName')}</TableHead>
+                      <TableHead>{t('itemsBooked')}</TableHead> {/* Sort by items.length or first item name? */}
+                      <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
+                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
+                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('agreementStatus')} className="cursor-pointer group">{t('agreementStatus')}{getSortIndicator('agreementStatus')}</TableHead>
                       <TableHead className="text-right">{t('actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -394,3 +404,5 @@ export default function AdminManageFacilityBookingsPage() {
     </>
   );
 }
+
+    

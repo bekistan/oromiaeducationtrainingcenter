@@ -10,7 +10,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall } from '@/types';
-import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark } from "lucide-react";
+import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
@@ -64,9 +64,7 @@ export default function AdminDashboardPage() {
       dormsSnapshot.forEach(docSnap => {
         const dormData = docSnap.data() as DocumentData as Dormitory; 
         totalBedCount += dormData.capacity || 0;
-        // For available beds, sum capacity only if room is available AND there are beds
         if (dormData.isAvailable && dormData.capacity > 0) {
-          // This logic might need refinement if 'availableBeds' field is different from 'capacity' when 'isAvailable'
           availableBedCount += dormData.capacity || 0; 
         }
       });
@@ -101,7 +99,7 @@ export default function AdminDashboardPage() {
   const fetchRecentBookings = useCallback(async () => {
     setIsLoadingRecentBookings(true);
     try {
-      const bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"), limit(25)); // Fetch more for pagination
+      const bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"), limit(25));
       const querySnapshot = await getDocs(bookingsQuery);
       const bookingsData = querySnapshot.docs.map(docSnap => {
         const data = docSnap.data();
@@ -151,10 +149,13 @@ export default function AdminDashboardPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Booking>({
     initialData: allRecentBookings,
     rowsPerPage: 5,
-    searchKeys: ['id', 'guestName', 'companyName'], // Add more if needed
+    searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory'],
+    initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
   const statCards = [
@@ -165,12 +166,21 @@ export default function AdminDashboardPage() {
     { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats },
   ];
 
+  const getSortIndicator = (columnKey: keyof Booking) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
+
   const getStatusBadge = (status: string, type: 'payment' | 'approval') => {
     const baseClasses = "text-xs font-semibold px-2 py-0.5 rounded-full";
     if (type === 'payment') {
       switch (status) {
         case 'paid': return <Badge className={`${baseClasses} bg-green-100 text-green-700 border-green-300`}>{t(status)}</Badge>;
         case 'pending': return <Badge className={`${baseClasses} bg-yellow-100 text-yellow-700 border-yellow-300`}>{t(status)}</Badge>;
+        case 'awaiting_verification': return <Badge className={`${baseClasses} bg-sky-100 text-sky-700 border-sky-300`}>{t(status)}</Badge>;
+        case 'pending_transfer': return <Badge className={`${baseClasses} bg-amber-100 text-amber-700 border-amber-300`}>{t(status)}</Badge>;
         case 'failed': return <Badge className={`${baseClasses} bg-red-100 text-red-700 border-red-300`}>{t(status)}</Badge>;
         default: return <Badge variant="secondary" className={baseClasses}>{t(status)}</Badge>;
       }
@@ -209,8 +219,8 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3"> {/* Adjusted grid for 3 columns */}
-        <Card className="lg:col-span-2"> {/* Recent bookings take 2 columns */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
@@ -237,11 +247,11 @@ export default function AdminDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('bookingId')}</TableHead>
-                        <TableHead>{t('customer')}</TableHead>
-                        <TableHead>{t('item')}</TableHead>
-                        <TableHead>{t('cost')}</TableHead>
-                        <TableHead>{t('status')}</TableHead>
+                        <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                        <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
+                        <TableHead>{t('item')}</TableHead> {/* Not easily sortable by displayed name, could sort by item count or first item name if needed */}
+                        <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
+                        <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('status')}{getSortIndicator('paymentStatus')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -288,7 +298,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
         
-        {/* Bank Account Information Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -313,8 +322,9 @@ export default function AdminDashboardPage() {
              <p className="text-xs text-muted-foreground pt-2">{t('adminPaymentReferenceNote')}</p>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );
 }
+
+    

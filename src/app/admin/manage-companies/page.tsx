@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; 
 import type { User } from "@/types";
-import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
@@ -31,7 +31,7 @@ export default function ManageCompaniesPage() {
       const q = query(collection(db, "users"), where("role", "==", "company_representative"));
       const querySnapshot = await getDocs(q);
       const companiesData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
-      setAllCompanies(companiesData.sort((a,b) => (a.companyName || "").localeCompare(b.companyName || "")));
+      setAllCompanies(companiesData);
     } catch (error) {
       console.error("Error fetching companies: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingCompanies') });
@@ -59,11 +59,21 @@ export default function ManageCompaniesPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<User>({
       initialData: allCompanies,
       rowsPerPage: 10,
       searchKeys: ['companyName', 'name', 'email'], 
+      initialSort: { key: 'companyName', direction: 'ascending'},
   });
+
+  const getSortIndicator = (columnKey: keyof User) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
 
   const handleApproval = async (companyId: string, newStatus: 'approved' | 'rejected') => {
     try {
@@ -92,7 +102,7 @@ export default function ManageCompaniesPage() {
     }
   };
 
-  if (authLoading || (isLoading && !allCompanies.length)) { // Show loading if auth is loading OR if data is loading and no companies yet
+  if (authLoading || (isLoading && !allCompanies.length)) { 
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
@@ -140,10 +150,10 @@ export default function ManageCompaniesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('companyName')}</TableHead>
-                    <TableHead>{t('contactPerson')}</TableHead>
-                    <TableHead>{t('email')}</TableHead>
-                    <TableHead>{t('approvalStatus')}</TableHead>
+                    <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('companyName')}{getSortIndicator('companyName')}</TableHead>
+                    <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('contactPerson')}{getSortIndicator('name')}</TableHead>
+                    <TableHead onClick={() => requestSort('email')} className="cursor-pointer group">{t('email')}{getSortIndicator('email')}</TableHead>
+                    <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -203,3 +213,5 @@ export default function ManageCompaniesPage() {
     </div>
   );
 }
+
+    

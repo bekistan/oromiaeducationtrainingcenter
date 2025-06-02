@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import type { Hall } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -75,7 +75,7 @@ export default function AdminHallsAndSectionsPage() {
     try {
       const querySnapshot = await getDocs(collection(db, "halls"));
       const itemsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
-      setAllItems(itemsData.sort((a,b) => a.name.localeCompare(b.name)));
+      setAllItems(itemsData);
     } catch (error) {
       console.error("Error fetching halls/sections: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHalls') });
@@ -99,11 +99,22 @@ export default function AdminHallsAndSectionsPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Hall>({
       initialData: allItems,
       rowsPerPage: 10,
       searchKeys: ['name', 'itemType', 'description'],
+      initialSort: { key: 'name', direction: 'ascending' },
   });
+
+  const getSortIndicator = (columnKey: keyof Hall) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
+
 
   async function onSubmit(values: HallFormValues) {
     setIsSubmitting(true);
@@ -278,11 +289,11 @@ export default function AdminHallsAndSectionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('name')}</TableHead>
-                    <TableHead>{t('type')}</TableHead>
-                    <TableHead>{t('capacity')}</TableHead>
-                    <TableHead>{t('rentalCost')}</TableHead>
-                    <TableHead>{t('availability')}</TableHead>
+                    <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('name')}{getSortIndicator('name')}</TableHead>
+                    <TableHead onClick={() => requestSort('itemType')} className="cursor-pointer group">{t('type')}{getSortIndicator('itemType')}</TableHead>
+                    <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
+                    <TableHead onClick={() => requestSort('rentalCost')} className="cursor-pointer group">{t('rentalCost')}{getSortIndicator('rentalCost')}</TableHead>
+                    <TableHead onClick={() => requestSort('isAvailable')} className="cursor-pointer group">{t('availability')}{getSortIndicator('isAvailable')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -376,3 +387,5 @@ export default function AdminHallsAndSectionsPage() {
     </div>
   );
 }
+
+    

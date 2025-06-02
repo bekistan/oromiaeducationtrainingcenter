@@ -8,8 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, Paperclip, ScanEye, ReceiptText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import Image from 'next/image';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +49,12 @@ export default function AdminManageDormitoryBookingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
+  const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
+  const [currentFileUrlForPreview, setCurrentFileUrlForPreview] = useState<string | null>(null);
+  const [currentFilePreviewTitle, setCurrentFilePreviewTitle] = useState<string>('');
+  const [currentBookingIdForModal, setCurrentBookingIdForModal] = useState<string | null>(null);
+
+
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -62,7 +70,7 @@ export default function AdminManageDormitoryBookingsPage() {
           endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
         } as Booking;
       });
-      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime()));
+      setAllBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching dormitory bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
@@ -95,15 +103,25 @@ export default function AdminManageDormitoryBookingsPage() {
     canPreviousPage,
     totalItems,
     setDataSource,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
       searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'],
+      initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
   useEffect(() => {
     setDataSource(filteredBookings);
   }, [filteredBookings, setDataSource]);
+
+  const getSortIndicator = (columnKey: keyof Booking) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
 
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     try {
@@ -150,6 +168,13 @@ export default function AdminManageDormitoryBookingsPage() {
     setIsDeleteDialogOpen(true);
   };
 
+  const openFilePreviewModal = (url: string, title: string, bookingId?: string) => {
+    setCurrentFileUrlForPreview(url);
+    setCurrentFilePreviewTitle(title);
+    setCurrentBookingIdForModal(bookingId || null);
+    setIsFilePreviewModalOpen(true);
+  };
+
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
     switch (status) {
       case 'paid':
@@ -158,7 +183,7 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
       case 'awaiting_verification':
         return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'pending':
+      case 'pending': // Should not happen for dorms as per new flow, but kept for robustness
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -240,16 +265,16 @@ export default function AdminManageDormitoryBookingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('bookingId')}</TableHead>
-                      <TableHead>{t('guestName')}</TableHead>
-                      <TableHead>{t('phone')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead>{t('dates')}</TableHead>
-                      <TableHead>{t('payerBankName')}</TableHead>
-                      <TableHead>{t('payerAccountNumber')}</TableHead>
-                      <TableHead>{t('totalCost')}</TableHead>
-                      <TableHead>{t('paymentStatus')}</TableHead>
-                      <TableHead>{t('approvalStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
+                      <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
+                      <TableHead>{t('itemsBooked')}</TableHead> {/* Sort by items.length or first item name? */}
+                      <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
+                      <TableHead onClick={() => requestSort('payerBankName')} className="cursor-pointer group">{t('payerBankName')}{getSortIndicator('payerBankName')}</TableHead>
+                      <TableHead onClick={() => requestSort('payerAccountNumber')} className="cursor-pointer group">{t('payerAccountNumber')}{getSortIndicator('payerAccountNumber')}</TableHead>
+                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
+                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
                       <TableHead className="text-right">{t('actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -295,7 +320,6 @@ export default function AdminManageDormitoryBookingsPage() {
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
-                                      <DropdownMenuSeparator />
                                       <DropdownMenuItem>
                                         <div className='flex items-center text-xs text-muted-foreground'>
                                             <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
@@ -372,6 +396,38 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* File Preview Modal */}
+      <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{currentFilePreviewTitle || t('filePreviewTitle')}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4 max-h-[60vh] overflow-y-auto">
+            {currentFileUrlForPreview ? (
+              (currentFileUrlForPreview.match(/\.(jpeg|jpg|gif|png)$/) != null) ? (
+                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle || 'Preview'} width={500} height={500} className="max-w-full h-auto rounded-md" />
+              ) : (
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground">{t('nonImageFilePreviewNotAvailable')}</p>
+                  <Button asChild variant="outline">
+                    <a href={currentFileUrlForPreview} target="_blank" rel="noopener noreferrer">
+                      <Paperclip className="mr-2 h-4 w-4" /> {t('openFileInNewTab')}
+                    </a>
+                  </Button>
+                </div>
+              )
+            ) : (
+              <p className="text-center text-muted-foreground">{t('noFileAvailable')}</p>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsFilePreviewModalOpen(false)}>{t('closeButton')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+    

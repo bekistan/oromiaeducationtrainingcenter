@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/use-language";
 import type { Dormitory } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -80,7 +80,8 @@ export default function AdminDormitoriesPage() {
     try {
       const querySnapshot = await getDocs(collection(db, "dormitories"));
       const dormsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
-      setAllDormitories(dormsData.sort((a,b) => (a.floor - b.floor) || a.roomNumber.localeCompare(b.roomNumber)));
+      // Initial sort by floor then roomNumber, will be overridden by user sort
+      setAllDormitories(dormsData);
     } catch (error) {
       console.error("Error fetching dormitories: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
@@ -104,11 +105,21 @@ export default function AdminDormitoriesPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Dormitory>({
       initialData: allDormitories,
       rowsPerPage: 10,
       searchKeys: ['roomNumber', 'floor'],
+      initialSort: { key: 'floor', direction: 'ascending' },
   });
+
+  const getSortIndicator = (columnKey: keyof Dormitory) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
 
   async function onSubmit(values: DormitoryFormValues) {
     setIsSubmitting(true);
@@ -276,11 +287,11 @@ export default function AdminDormitoriesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('roomNumber')}</TableHead>
-                    <TableHead>{t('floor')}</TableHead>
-                    <TableHead>{t('capacity')}</TableHead>
-                    <TableHead>{t('pricePerDay')}</TableHead>
-                    <TableHead>{t('availability')}</TableHead>
+                    <TableHead onClick={() => requestSort('roomNumber')} className="cursor-pointer group">{t('roomNumber')}{getSortIndicator('roomNumber')}</TableHead>
+                    <TableHead onClick={() => requestSort('floor')} className="cursor-pointer group">{t('floor')}{getSortIndicator('floor')}</TableHead>
+                    <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
+                    <TableHead onClick={() => requestSort('pricePerDay')} className="cursor-pointer group">{t('pricePerDay')}{getSortIndicator('pricePerDay')}</TableHead>
+                    <TableHead onClick={() => requestSort('isAvailable')} className="cursor-pointer group">{t('availability')}{getSortIndicator('isAvailable')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -395,3 +406,5 @@ export default function AdminDormitoriesPage() {
     </>
   );
 }
+
+    

@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle } from "lucide-react";
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -64,7 +64,7 @@ export default function AdminBookingsPage() {
           agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
         } as Booking;
       });
-      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime()));
+      setAllBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
@@ -97,16 +97,25 @@ export default function AdminBookingsPage() {
     canPreviousPage,
     totalItems,
     setDataSource,
+    requestSort,
+    sortConfig,
   } = useSimpleTable<Booking>({
       initialData: filteredBookings,
       rowsPerPage: 10,
       searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory', 'email', 'phone'],
+      initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
   useEffect(() => {
     setDataSource(filteredBookings);
   }, [filteredBookings, setDataSource]);
 
+  const getSortIndicator = (columnKey: keyof Booking) => {
+    if (sortConfig?.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+    }
+    return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
+  };
 
   const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     try {
@@ -132,7 +141,7 @@ export default function AdminBookingsPage() {
       if (newStatus === 'sent_to_client') {
         updateData.agreementSentAt = Timestamp.now();
       } else if (newStatus === 'signed_by_client') {
-        updateData.agreementSignedAt = Timestamp.now(); // Admin confirms receipt
+        updateData.agreementSignedAt = Timestamp.now(); 
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('agreementStatusUpdated') });
@@ -265,12 +274,32 @@ export default function AdminBookingsPage() {
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('category')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('customer')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('paymentStatus')}</TableHead><TableHead>{t('approvalStatus')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
+                    <TableRow>
+                      <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                      <TableHead onClick={() => requestSort('bookingCategory')} className="cursor-pointer group">{t('category')}{getSortIndicator('bookingCategory')}</TableHead>
+                      <TableHead>{t('itemsBooked')}</TableHead>
+                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead> {/* Sorting by guestName, companyName would be similar */}
+                      <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
+                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
+                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('agreementStatus')} className="cursor-pointer group">{t('agreementStatus')}{getSortIndicator('agreementStatus')}</TableHead>
+                      <TableHead className="text-right">{t('actions')}</TableHead>
+                    </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell><TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell><TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell><TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell><TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell><TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell><TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell><TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell><TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell><TableCell className="text-right space-x-1">
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell>
+                        <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
+                        <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
+                        <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
+                        <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
+                        <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
+                        <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
+                        <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                        <TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell>
+                        <TableCell className="text-right space-x-1">
                           <Button variant="ghost" size="icon" title={t('viewDetails')}>
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">{t('viewDetails')}</span>
@@ -384,3 +413,5 @@ export default function AdminBookingsPage() {
     </>
   );
 }
+
+    
