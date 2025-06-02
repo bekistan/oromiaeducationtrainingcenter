@@ -179,7 +179,7 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
       case 'awaiting_verification':
         return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'pending': // General pending (might be used for facility initially)
+      case 'pending': 
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -406,7 +406,7 @@ export default function AdminManageDormitoryBookingsPage() {
           </DialogHeader>
           <div className="my-4">
             {currentIdScanUrl ? (
-              <Image src={currentIdScanUrl} alt={t('idScanPreviewTitle')} width={400} height={300} objectFit="contain" data-ai-hint="ID document" />
+              <Image src={currentIdScanUrl} alt={t('idScanPreviewTitle')} width={400} height={300} style={{objectFit: 'contain'}} data-ai-hint="ID document" />
             ) : (
               <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
                 <FileQuestion className="w-12 h-12 mb-2" />
@@ -452,5 +452,4 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
-
     
