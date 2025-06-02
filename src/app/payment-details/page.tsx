@@ -7,37 +7,43 @@ import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
-import { Banknote, Loader2, AlertCircle, FileText, ArrowRight } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert imports
+import { Banknote, Loader2, AlertCircle, MessageSquare, ArrowRight, Send } from "lucide-react"; // Added MessageSquare, Send
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp } from 'firebase/firestore'; // Added updateDoc
 import type { Booking } from '@/types';
 import { SITE_NAME } from '@/constants';
+import { useToast } from '@/hooks/use-toast'; // Added useToast
 
 function PaymentDetailsContent() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+  const { toast } = useToast(); // Initialize toast
+
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookingDetails, setBookingDetails] = useState<Booking | null>(null);
   const [isLoadingBooking, setIsLoadingBooking] = useState(true);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userPhoneNumber, setUserPhoneNumber] = useState<string | undefined>(undefined);
 
   const itemNameQuery = searchParams.get('itemName');
   const amountQuery = searchParams.get('amount');
   const categoryQuery = searchParams.get('category');
+  const phoneQuery = searchParams.get('phone'); // Get phone from query params
 
   useEffect(() => {
     const id = searchParams.get('bookingId');
     if (id) {
       setBookingId(id);
+      if (phoneQuery) setUserPhoneNumber(phoneQuery); // Set phone from query params if available
     } else {
       setError(t('missingBookingId'));
       setIsLoadingBooking(false);
     }
-  }, [searchParams, t]);
+  }, [searchParams, t, phoneQuery]);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -50,14 +56,19 @@ function PaymentDetailsContent() {
         const docSnap = await getDoc(bookingRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as Booking;
-          // For dormitory, status should be 'pending_transfer' to show this page.
-          // For facility, this page might be reached if admin directs them here after approval AND payment is pending.
-          // This check might need refinement based on facility payment flow.
+          // Only proceed if payment is expected for this booking's current state
           if (data.bookingCategory === 'dormitory' && data.paymentStatus !== 'pending_transfer') {
             setError(t('paymentNotExpectedOrAlreadyProcessed'));
             setBookingDetails(null);
-          } else {
+          } else if (data.bookingCategory === 'facility' && data.approvalStatus !== 'approved' && data.paymentStatus !== 'pending') {
+            // For facilities, ensure it's approved and payment is pending for this specific flow
+            setError(t('paymentNotExpectedOrAlreadyProcessed'));
+            setBookingDetails(null);
+          }
+           else {
             setBookingDetails(data);
+            // If phone wasn't in query params, try to get it from booking details
+            if (!userPhoneNumber && data.phone) setUserPhoneNumber(data.phone);
           }
         } else {
           setError(t('bookingNotFound'));
@@ -70,7 +81,34 @@ function PaymentDetailsContent() {
       }
     };
     fetchBooking();
-  }, [bookingId, t]);
+  }, [bookingId, t, userPhoneNumber]); // Add userPhoneNumber to dependencies
+
+  const handleConfirmPaymentSent = async () => {
+    if (!bookingId || !bookingDetails) return;
+    setIsConfirming(true);
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        paymentStatus: 'awaiting_verification',
+      });
+      toast({ title: t('success'), description: t('paymentMarkedAsAwaitingVerification') }); // Add to JSON
+
+      const confirmationParams = new URLSearchParams({
+        status: 'telegram_pending', // New status
+        bookingId: bookingId,
+        itemName: bookingDetails.items.map(i => i.name).join(', ') || itemNameQuery || '',
+        amount: (bookingDetails.totalCost ?? amountQuery)?.toString() || '',
+        category: bookingDetails.bookingCategory || categoryQuery || '',
+      });
+      router.push(`/booking-confirmation?${confirmationParams.toString()}`);
+
+    } catch (err) {
+      console.error("Error confirming payment sent:", err);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') }); // Add to JSON
+      setIsConfirming(false);
+    }
+  };
+
 
   if (isLoadingBooking) {
     return (
@@ -95,17 +133,11 @@ function PaymentDetailsContent() {
       </Card>
     );
   }
-  
+
   const displayItemName = bookingDetails.items.map(i => i.name).join(', ') || itemNameQuery;
   const displayAmount = (bookingDetails.totalCost ?? amountQuery)?.toString();
   const displayCategory = bookingDetails.bookingCategory || categoryQuery;
-
-  const proofSubmissionQueryParams = new URLSearchParams({
-    bookingId: bookingId!,
-    amount: displayAmount || '',
-    itemName: displayItemName || '',
-    category: displayCategory || ''
-  });
+  const displayPhoneNumber = userPhoneNumber || bookingDetails.phone || t('yourRegisteredPhoneNumber'); // Provide fallback
 
   return (
     <Card className="w-full max-w-lg shadow-xl">
@@ -129,23 +161,23 @@ function PaymentDetailsContent() {
             <div className="flex justify-between"><span className="text-muted-foreground">{t('bookingId')}:</span> <span>{bookingId}</span></div>
             {displayItemName && <div className="flex justify-between"><span className="text-muted-foreground">{t('item')}:</span> <span>{displayItemName}</span></div>}
             {displayCategory && <div className="flex justify-between"><span className="text-muted-foreground">{t('category')}:</span> <span className="capitalize">{t(displayCategory)}</span></div>}
+             {displayPhoneNumber && <div className="flex justify-between"><span className="text-muted-foreground">{t('phone')}:</span> <span>{displayPhoneNumber}</span></div>}
         </div>
 
-        <Alert>
-          <FileText className="h-4 w-4" />
-          <AlertTitle>{t('nextStepTitle')}</AlertTitle>
-          <AlertDescription>
-            {t('afterPaymentProceedToSubmitProof')}
+        <Alert variant="default" className="bg-sky-50 border-sky-200 dark:bg-sky-900/30 dark:border-sky-700">
+          <MessageSquare className="h-5 w-5 text-sky-600 dark:text-sky-400" />
+          <AlertTitle className="text-sky-700 dark:text-sky-300">{t('telegramProofSubmissionTitle')}</AlertTitle>
+          <AlertDescription className="text-sky-600 dark:text-sky-400">
+            {t('telegramProofSubmissionInstruction', { botUsername: "@OROTRAIN", phoneNumber: displayPhoneNumber })}
           </AlertDescription>
         </Alert>
       </CardContent>
       <CardFooter>
-        <Link href={`/submit-payment-proof?${proofSubmissionQueryParams.toString()}`} className="w-full">
-          <Button className="w-full">
-            {t('proceedToSubmitProofButton')}
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        </Link>
+        <Button onClick={handleConfirmPaymentSent} className="w-full" disabled={isConfirming}>
+          {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Send className="mr-2 h-4 w-4" />
+          {t('confirmPaymentSentViaTelegramButton')}
+        </Button>
       </CardFooter>
     </Card>
   );
@@ -163,5 +195,3 @@ export default function PaymentDetailsPage() {
     </PublicLayout>
   );
 }
-
-    

@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
-import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, ScanEye, Paperclip, FileQuestion } from "lucide-react"; // Removed ReceiptText
+import { Eye, Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -35,7 +33,6 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import Link from 'next/link';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -49,11 +46,6 @@ export default function AdminManageDormitoryBookingsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
-
-  const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
-  const [currentFileUrlForPreview, setCurrentFileUrlForPreview] = useState<string | undefined>(undefined);
-  const [currentFilePreviewTitle, setCurrentFilePreviewTitle] = useState<string>('');
-
 
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
@@ -125,7 +117,7 @@ export default function AdminManageDormitoryBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
     }
   };
-  
+
   const handlePaymentVerification = async (bookingId: string, newStatus: 'paid' | 'failed') => {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
@@ -158,12 +150,6 @@ export default function AdminManageDormitoryBookingsPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const openFilePreviewModal = (url?: string, titleKey?: string) => {
-    setCurrentFileUrlForPreview(url);
-    setCurrentFilePreviewTitle(t(titleKey || 'filePreviewTitle'));
-    setIsFilePreviewModalOpen(true);
-  };
-
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
     switch (status) {
       case 'paid':
@@ -172,7 +158,7 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
       case 'awaiting_verification':
         return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'pending': 
+      case 'pending':
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -193,10 +179,6 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
-
-  const isImageUrl = (url: string) => {
-    return /\.(jpeg|jpg|gif|png)$/i.test(url);
-  }
 
   return (
     <>
@@ -260,6 +242,7 @@ export default function AdminManageDormitoryBookingsPage() {
                     <TableRow>
                       <TableHead>{t('bookingId')}</TableHead>
                       <TableHead>{t('guestName')}</TableHead>
+                      <TableHead>{t('phone')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
                       <TableHead>{t('dates')}</TableHead>
                       <TableHead>{t('payerBankName')}</TableHead>
@@ -275,6 +258,7 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell>
                         <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
+                        <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                         <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.payerBankName || t('notProvided')}</TableCell>
@@ -287,18 +271,6 @@ export default function AdminManageDormitoryBookingsPage() {
                             <Eye className="h-4 w-4" />
                             <span className="sr-only">{t('viewDetails')}</span>
                           </Button>
-                           {booking.guestIdScanFileUrl && (
-                            <Button variant="ghost" size="icon" title={t('viewIdScan')} onClick={() => openFilePreviewModal(booking.guestIdScanFileUrl, 'idScanPreviewTitle')}>
-                              <ScanEye className="h-4 w-4" />
-                              <span className="sr-only">{t('viewIdScan')}</span>
-                            </Button>
-                          )}
-                          {booking.paymentStatus === 'awaiting_verification' && booking.transactionProofFileUrl && (
-                            <Button variant="ghost" size="icon" title={t('viewProofDocument')} onClick={() => openFilePreviewModal(booking.transactionProofFileUrl, 'transactionProofDocumentTitle')}>
-                                <Paperclip className="h-4 w-4" />
-                                <span className="sr-only">{t('viewProofDocument')}</span>
-                            </Button>
-                          )}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -318,11 +290,17 @@ export default function AdminManageDormitoryBookingsPage() {
                                   <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                       {t('rejectBooking')}
                                   </DropdownMenuItem>
-                                  
+
                                   {booking.paymentStatus === 'awaiting_verification' && (
                                     <>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem>
+                                        <div className='flex items-center text-xs text-muted-foreground'>
+                                            <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
+                                        </div>
+                                      </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
                                         <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
                                       </DropdownMenuItem>
@@ -394,39 +372,6 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={isFilePreviewModalOpen} onOpenChange={setIsFilePreviewModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{currentFilePreviewTitle}</DialogTitle>
-          </DialogHeader>
-          <div className="my-4 flex justify-center items-center max-h-[70vh] overflow-auto">
-            {currentFileUrlForPreview ? (
-              isImageUrl(currentFileUrlForPreview) ? (
-                <Image src={currentFileUrlForPreview} alt={currentFilePreviewTitle} width={500} height={700} style={{objectFit: 'contain', maxWidth: '100%', maxHeight: '100%'}} data-ai-hint="document scan" />
-              ) : (
-                <div className="text-center">
-                    <p className="mb-2">{t('nonImageFilePreviewNotAvailable')}</p>
-                    <Button asChild>
-                        <Link href={currentFileUrlForPreview} target="_blank" rel="noopener noreferrer">
-                            {t('openFileInNewTab')}
-                        </Link>
-                    </Button>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-                <FileQuestion className="w-12 h-12 mb-2" />
-                <p>{t('noFileAvailable')}</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsFilePreviewModalOpen(false)}>{t('closeButton')}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
-    

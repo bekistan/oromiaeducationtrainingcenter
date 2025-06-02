@@ -27,10 +27,10 @@ import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem, Booking } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, List, Loader2, Camera, Upload } from 'lucide-react';
+import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { db, uploadFileToFirebaseStorage } from '@/lib/firebase'; // Import uploadFileToFirebaseStorage
+import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ETHIOPIAN_BANKS } from '@/constants';
 
@@ -45,7 +45,7 @@ interface BookingFormProps {
 
 const dormitoryBookingSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
-  idCardScan: z.custom<File>((v) => v instanceof File, { message: "ID card scan is required." }).optional(),
+  phone: z.string().min(7, { message: "Valid phone number is required."}).regex(/^(09|\+2519)\d{8}$/, { message: "Please enter a valid Ethiopian mobile number (e.g., 09... or +2519...)."}),
   employer: z.string().min(2, { message: "Employer name must be at least 2 characters." }),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
@@ -58,7 +58,7 @@ const facilityBookingSchema = z.object({
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
   contactPerson: z.string().min(2, { message: "Contact person must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
-  phone: z.string().min(7, { message: "Phone number seems too short." }),
+  phone: z.string().min(7, { message: "Valid phone number is required."}).regex(/^(09|\+2519)\d{8}$/, { message: "Please enter a valid Ethiopian mobile number (e.g., 09... or +2519...)."}),
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
@@ -79,31 +79,20 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const { toast } = useToast();
   const router = useRouter();
   const isDormitoryBooking = bookingCategory === 'dormitory';
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
-  // Camera and ID Scan state
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showCamera, setShowCamera] = useState(false);
-  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null); // For preview
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-
-
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
-  const defaultDormitoryValues: DormitoryBookingValues = { 
-    fullName: "", 
-    employer: "", 
+  const defaultDormitoryValues: DormitoryBookingValues = {
+    fullName: "",
+    phone: "",
+    employer: "",
     dateRange: undefined,
     bankName: "",
     accountNumber: "",
-    idCardScan: undefined,
   };
 
   const defaultFacilityValues: FacilityBookingValues = {
@@ -181,8 +170,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), 
-        where("startDate", "<=", toTimestamp) 
+        where("approvalStatus", "==", "approved"),
+        where("startDate", "<=", toTimestamp)
     );
 
     try {
@@ -198,7 +187,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             }
         });
         if (bookedBedsDuringPeriod >= itemToCheck.capacity) return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
-        return null; 
+        return null;
     } catch (error: any) {
         console.error("Error checking dormitory bed availability:", error);
         toast({ variant: "destructive", title: t('error'), description: error.message || t('errorCheckingAvailability')});
@@ -240,14 +229,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       performCheck();
     }, 500);
 
-    return () => { 
-      isActive = false; 
+    return () => {
+      isActive = false;
       clearTimeout(debounceTimer);
     };
   }, [
-    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))), 
-    watchedDateRange?.from?.toISOString(), 
-    watchedDateRange?.to?.toISOString(),   
+    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))),
+    watchedDateRange?.from?.toISOString(),
+    watchedDateRange?.to?.toISOString(),
     bookingCategory,
     t,
     checkFacilityAvailability,
@@ -262,86 +251,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         contactPerson: user.name || "",
         email: user.email || "",
         phone: user.phone || "", // Prefer user's phone if available
-        // Preserve form state for these if they were already touched by user
         dateRange: form.getValues('dateRange') || undefined,
         numberOfAttendees: form.getValues('numberOfAttendees') || 1,
         services: form.getValues('services') || { lunch: 'none', refreshment: 'none' },
         notes: form.getValues('notes') || "",
       } as FacilityBookingValues);
     }
-  }, [user, form, isDormitoryBooking]); 
-
-  const handleUseCamera = async () => {
-    setCameraError(null);
-    setCapturedImage(null);
-    form.setValue('idCardScan', undefined);
-    setShowCamera(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setHasCameraPermission(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-      setVideoStream(stream);
-    } catch (error: any) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-      setCameraError(t('errorAccessingCamera', { error: error.message || String(error) }));
-      setShowCamera(false);
-      toast({
-        variant: 'destructive',
-        title: t('cameraAccessDeniedTitle'),
-        description: t('cameraAccessDeniedDescription'),
-      });
-    }
-  };
-
-  const handleCaptureImage = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const context = canvas.getContext('2d');
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUri = canvas.toDataURL('image/png');
-      setCapturedImage(dataUri); 
-
-      fetch(dataUri)
-        .then(res => res.blob())
-        .then(blob => {
-          const file = new File([blob], "id_card_capture.png", { type: "image/png" });
-          form.setValue('idCardScan', file, { shouldValidate: true });
-        });
-
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-      }
-      setVideoStream(null);
-      setShowCamera(false);
-    }
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      form.setValue('idCardScan', file, { shouldValidate: true });
-      setCapturedImage(URL.createObjectURL(file)); 
-      setShowCamera(false);
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-        setVideoStream(null);
-      }
-    }
-  };
-  
-  useEffect(() => {
-    return () => {
-      if (videoStream) {
-        videoStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [videoStream]);
+  }, [user, form, isDormitoryBooking]);
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
@@ -371,38 +287,24 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const item = itemsToBook[0];
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
-        
-        let guestIdScanFileUrl: string | undefined = undefined;
-        if (dormData.idCardScan instanceof File) {
-          try {
-            const idScanPath = `id_scans/${user?.id || 'anonymous'}/`;
-            guestIdScanFileUrl = await uploadFileToFirebaseStorage(dormData.idCardScan, idScanPath);
-            console.log("ID Card uploaded, URL:", guestIdScanFileUrl);
-          } catch (uploadError) {
-            console.error("Error uploading ID card:", uploadError);
-            toast({ variant: "destructive", title: t('error'), description: t('errorUploadingIdScan') });
-            setIsSubmitting(false);
-            return;
-          }
-        }
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
           bookingCategory: 'dormitory',
           items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
           guestName: dormData.fullName,
+          phone: dormData.phone,
           guestEmployer: dormData.employer,
           payerBankName: dormData.bankName,
           payerAccountNumber: dormData.accountNumber,
-          ...(guestIdScanFileUrl && { guestIdScanFileUrl }),
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
           paymentStatus: 'pending_transfer' as const,
-          approvalStatus: 'approved' as const, 
+          approvalStatus: 'approved' as const,
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
         };
-        
+
         try {
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
           toast({ title: t('bookingSubmittedTitle'), description: t('proceedToPaymentDetails') });
@@ -411,6 +313,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               amount: totalCost.toString(),
               itemName: itemNameForConfirmation,
               category: 'dormitory',
+              phone: dormData.phone,
           });
           router.push(`/payment-details?${queryParams.toString()}`);
         } catch (error) {
@@ -454,9 +357,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt' | 'transactionProofFileUrl' | 'guestIdScanFileUrl'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
-        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType, rentalCost: item.rentalCost })), 
+        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType, rentalCost: item.rentalCost })),
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -467,7 +370,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         ...(Object.keys(serviceDetails).length > 0 && { serviceDetails }),
         notes: facilityData.notes,
         totalCost,
-        paymentStatus: 'pending' as const, 
+        paymentStatus: 'pending' as const,
         approvalStatus: 'pending' as const,
         bookedAt: serverTimestamp(),
         userId: user?.id,
@@ -477,13 +380,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
-        
+
         const queryParams = new URLSearchParams({
-            status: 'booking_pending_approval', 
+            status: 'booking_pending_approval',
             bookingId: docRef.id,
             itemName: itemNameForConfirmation,
             amount: totalCost.toString(),
-            category: 'facility'
+            category: 'facility',
+            phone: facilityData.phone,
         });
         router.push(`/booking-confirmation?${queryParams.toString()}`);
 
@@ -567,66 +471,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               <>
                 <h3 className="text-lg font-medium pt-4 border-t">{t('personalInformation')}</h3>
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                
-                <FormField
-                  control={form.control}
-                  name="idCardScan"
-                  render={() => ( 
-                    <FormItem>
-                      <FormLabel>{t('idCardScan')} ({t('optional')})</FormLabel>
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                           <Button type="button" variant="outline" onClick={handleUseCamera} disabled={showCamera && !!videoStream}>
-                            <Camera className="mr-2 h-4 w-4" /> {t('useCamera')}
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                            <Upload className="mr-2 h-4 w-4" /> {t('uploadIdFile')}
-                          </Button>
-                          <Input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            accept="image/*,.pdf" 
-                            onChange={handleFileSelect} 
-                          />
-                        </div>
-                        {hasCameraPermission === false && cameraError && (
-                           <Alert variant="destructive">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertTitle>{t('cameraAccessDeniedTitle')}</AlertTitle>
-                            <AlertDescription>{cameraError || t('cameraAccessDeniedDescription')}</AlertDescription>
-                          </Alert>
-                        )}
-                         {hasCameraPermission === true && showCamera && !videoStream && !capturedImage && (
-                            <Alert variant="default">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>{t('cameraAccessRequiredTitle')}</AlertTitle>
-                                <AlertDescription>{t('cameraAccessRequiredDescription')}</AlertDescription>
-                            </Alert>
-                        )}
-                        {showCamera && videoStream && (
-                          <div className="space-y-2">
-                            <video ref={videoRef} className="w-full aspect-video rounded-md border bg-muted" autoPlay playsInline muted />
-                            <Button type="button" onClick={handleCaptureImage} className="w-full">
-                              <Camera className="mr-2 h-4 w-4" /> {t('captureImage')}
-                            </Button>
-                          </div>
-                        )}
-                        {capturedImage && (
-                          <div className="mt-2 space-y-1">
-                            <p className="text-sm font-medium">{t('imagePreview')}:</p>
-                            <img src={capturedImage} alt={t('imagePreview')} className="max-w-full h-auto rounded-md border" style={{ maxHeight: '200px' }} />
-                          </div>
-                        )}
-                      </div>
-                       <canvas ref={canvasRef} style={{ display: 'none' }} />
-                      <FormDescription>{t('idCardOptionalNote')}</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneEthiopian')} {...field} /></FormControl><FormDescription>{t('phoneForTelegramIdentification')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                
+
                 <h3 className="text-lg font-medium pt-4 border-t">{t('paymentTransferDetails')}</h3>
                 <FormField
                   control={form.control}
@@ -672,7 +519,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="companyName" render={({ field }) => ( <FormItem><FormLabel>{t('companyName')}</FormLabel><FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="contactPerson" render={({ field }) => ( <FormItem><FormLabel>{t('contactPerson')}</FormLabel><FormControl><Input placeholder={t('enterContactPerson')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneEthiopian')} {...field} /></FormControl><FormDescription>{t('phoneForTelegramIdentificationOptional')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="numberOfAttendees" render={({ field }) => ( <FormItem><FormLabel>{t('numberOfAttendees')}</FormLabel><FormControl><Input type="number" min="1" placeholder={t('exampleAttendees')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="services.lunch" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('lunchLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('lunch')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('lunch')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="services.refreshment" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('refreshmentLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('refreshment')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('refreshment')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
