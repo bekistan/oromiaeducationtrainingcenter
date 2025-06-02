@@ -10,10 +10,11 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall } from '@/types';
-import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
+import { BANK_ACCOUNT_NAME_VALUE, BANK_NAME_VALUE, BANK_ACCOUNT_NUMBER_VALUE, SITE_NAME } from '@/constants';
 
 
 interface DashboardStats {
@@ -158,7 +159,7 @@ export default function AdminDashboardPage() {
 
   const statCards = [
     { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats },
-    { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `ETB ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats },
+    { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `${t('currencySymbol')} ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats },
     { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats },
     { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats },
     { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats },
@@ -208,8 +209,8 @@ export default function AdminDashboardPage() {
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-6 lg:grid-cols-3"> {/* Adjusted grid for 3 columns */}
+        <Card className="lg:col-span-2"> {/* Recent bookings take 2 columns */}
           <CardHeader>
             <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
@@ -249,7 +250,7 @@ export default function AdminDashboardPage() {
                           <TableCell className="font-mono text-xs">{booking.id.substring(0, 8)}...</TableCell>
                           <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                           <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
-                          <TableCell>ETB {booking.totalCost.toLocaleString()}</TableCell>
+                          <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>
                           <TableCell className="space-x-1">
                             {getStatusBadge(booking.paymentStatus, 'payment')}
                             {getStatusBadge(booking.approvalStatus, 'approval')}
@@ -286,14 +287,33 @@ export default function AdminDashboardPage() {
             )}
           </CardContent>
         </Card>
+        
+        {/* Bank Account Information Card */}
         <Card>
           <CardHeader>
-            <CardTitle>{t('systemNotifications')}</CardTitle>
+            <CardTitle className="flex items-center">
+              <Landmark className="mr-2 h-5 w-5 text-primary" />
+              {t('bankAccountInformation')}
+            </CardTitle>
+            <CardDescription>{t('bankDetailsForPaymentVerification')}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">{t('placeholderNotifications')}</p>
+          <CardContent className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t('accountName')}</p>
+              <p className="text-lg font-semibold text-foreground">{BANK_ACCOUNT_NAME_VALUE}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t('bankName')}</p>
+              <p className="text-lg font-semibold text-foreground">{BANK_NAME_VALUE}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">{t('accountNumber')}</p>
+              <p className="text-lg font-semibold text-foreground">{BANK_ACCOUNT_NUMBER_VALUE}</p>
+            </div>
+             <p className="text-xs text-muted-foreground pt-2">{t('adminPaymentReferenceNote')}</p>
           </CardContent>
         </Card>
+
       </div>
     </div>
   );
