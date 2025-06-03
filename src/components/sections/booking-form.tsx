@@ -286,129 +286,118 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
 
-      // const startOfDay = new Date(startDateObject);
-      // startOfDay.setHours(0, 0, 0, 0);
-      // const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
-
-      // const endOfDay = new Date(startDateObject);
-      // endOfDay.setHours(23, 59, 59, 999);
-      // const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
-
+      // Check for existing bookings for the same phone number and start date
       let proceedWithBooking = true; 
 
-      // console.log("Attempting to query for existing bookings with parameters:");
-      // console.log("Phone:", dormData.phone);
-      // console.log("Start Date (ISO):", startDateObject.toISOString());
-      // console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
-      // console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
-      // console.log("Booking Category:", "dormitory");
-      // console.log("Approval Statuses:", ["pending", "approved"]);
+      const startOfDay = new Date(startDateObject);
+      startOfDay.setHours(0, 0, 0, 0);
+      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-      // const existingBookingQuery = query(
-      //   collection(db, "bookings"),
-      //   where("approvalStatus", "in", ["pending", "approved"]),
-      //   where("bookingCategory", "==", "dormitory"),
-      //   where("phone", "==", dormData.phone),
-      //   where("startDate", ">=", startOfDayTimestamp),
-      //   where("startDate", "<=", endOfDayTimestamp)
-      // );
+      const endOfDay = new Date(startDateObject);
+      endOfDay.setHours(23, 59, 59, 999);
+      const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
-      // try {
-      //   const existingBookingSnapshot = await getDocs(existingBookingQuery);
-      //   if (!existingBookingSnapshot.empty) {
-      //     toast({
-      //       variant: "destructive",
-      //       title: t('bookingErrorTitle'),
-      //       description: t('duplicateBookingForPhoneOnDateError'),
-      //     });
-      //     setIsSubmitting(false);
-      //     proceedWithBooking = false;
-      //     return; 
-      //   }
-      // } catch (queryError: any) {
-      //   console.error("Firestore query error during existing booking check. Full error object:", queryError);
-      //   if (queryError.code) {
-      //       console.error("Firebase error code:", queryError.code);
-      //   }
-      //   let indexCreationLink = "";
-      //   if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-      //       const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
-      //       if (match && match[0]) {
-      //           indexCreationLink = match[0];
-      //           console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
-      //       } else {
-      //            console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
-      //       }
-      //   }
+      console.log("Attempting to query for existing bookings with parameters:");
+      console.log("Phone:", dormData.phone);
+      console.log("Start Date (ISO):", startDateObject.toISOString());
+      console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
+      console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
+      console.log("Booking Category:", "dormitory");
+      console.log("Approval Statuses:", ["pending", "approved"]);
 
-      //   if (queryError.code === 'failed-precondition' && indexCreationLink) {
-      //       toast({
-      //           variant: "destructive", 
-      //           title: t('warningDatabaseConfigNeeded'), 
-      //           description: t('duplicateCheckSkippedBookingProceeds'),
-      //           duration: 10000, 
-      //       });
-      //       // proceedWithBooking remains true, allowing the booking to go through but with a warning
-      //   } else {
-      //       let userFacingErrorMessage = t('errorCheckingExistingBookings');
-      //       if (queryError.code === 'failed-precondition') { 
-      //         userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
-      //       } else if (queryError.code === 'permission-denied') {
-      //          userFacingErrorMessage = t('firestorePermissionError');
-      //       }
-      //       toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-      //       setIsSubmitting(false);
-      //       proceedWithBooking = false;
-      //       return; 
-      //   }
-      // }
+      const existingBookingQuery = query(
+        collection(db, "bookings"),
+        where("approvalStatus", "in", ["pending", "approved"]),
+        where("bookingCategory", "==", "dormitory"),
+        where("phone", "==", dormData.phone),
+        where("startDate", ">=", startOfDayTimestamp),
+        where("startDate", "<=", endOfDayTimestamp)
+      );
 
-
-      if (proceedWithBooking) {
-        if (item && typeof item.pricePerDay === 'number') {
-          totalCost = numberOfDays * item.pricePerDay;
-
-          const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
-            bookingCategory: 'dormitory',
-            items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
-            guestName: dormData.fullName,
-            phone: dormData.phone,
-            guestEmployer: dormData.employer,
-            payerBankName: dormData.bankName,
-            payerAccountNumber: dormData.accountNumber,
-            startDate: Timestamp.fromDate(startDateObject),
-            endDate: Timestamp.fromDate(endDateObject),
-            totalCost,
-            paymentStatus: 'pending' as const,
-            approvalStatus: 'pending' as const,
-            bookedAt: serverTimestamp(),
-            ...(user?.id && { userId: user.id }),
-          };
-
-          try {
-            const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
-            toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
-            const queryParams = new URLSearchParams({
-                status: 'booking_pending_approval',
-                bookingId: docRef.id,
-                itemName: itemNameForConfirmation,
-                amount: totalCost.toString(),
-                category: 'dormitory',
-                phone: dormData.phone,
-            });
-            router.push(`/booking-confirmation?${queryParams.toString()}`);
-          } catch (error) {
-              console.error("Error saving dormitory booking:", error);
-              toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
-              setIsSubmitting(false);
-              return;
-          }
-        } else {
-          toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
+      try {
+        const existingBookingSnapshot = await getDocs(existingBookingQuery);
+        if (!existingBookingSnapshot.empty) {
+          toast({
+            variant: "destructive",
+            title: t('bookingErrorTitle'),
+            description: t('duplicateBookingForPhoneOnDateError'),
+          });
           setIsSubmitting(false);
-          return;
+          proceedWithBooking = false; 
+        }
+      } catch (queryError: any) {
+        console.error("Firestore query error during existing booking check. Full error object:", queryError);
+        if (queryError.code) {
+            console.error("Firebase error code:", queryError.code);
+        }
+        let indexCreationLink = "";
+        if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
+             const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
+            if (match && match[0]) {
+                indexCreationLink = match[0];
+                console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
+            } else {
+                 console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+            }
+        }
+
+        let userFacingErrorMessage = t('errorCheckingExistingBookings');
+        if (queryError.code === 'failed-precondition' && indexCreationLink) {
+            userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed'); 
+        } else if (queryError.code === 'permission-denied') {
+           userFacingErrorMessage = t('firestorePermissionError');
+        }
+        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+        setIsSubmitting(false);
+        proceedWithBooking = false; 
+      }
+      
+      if (!proceedWithBooking) {
+        setIsSubmitting(false);
+        return; 
+      }
+
+
+      if (item && typeof item.pricePerDay === 'number') {
+        totalCost = numberOfDays * item.pricePerDay;
+
+        const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+          bookingCategory: 'dormitory',
+          items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
+          guestName: dormData.fullName,
+          phone: dormData.phone,
+          guestEmployer: dormData.employer,
+          payerBankName: dormData.bankName,
+          payerAccountNumber: dormData.accountNumber,
+          startDate: Timestamp.fromDate(startDateObject),
+          endDate: Timestamp.fromDate(endDateObject),
+          totalCost,
+          paymentStatus: 'pending' as const,
+          approvalStatus: 'pending' as const,
+          bookedAt: serverTimestamp(),
+          ...(user?.id && { userId: user.id }),
+        };
+
+        try {
+          const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
+          const queryParams = new URLSearchParams({
+              status: 'booking_pending_approval',
+              bookingId: docRef.id,
+              itemName: itemNameForConfirmation,
+              amount: totalCost.toString(),
+              category: 'dormitory',
+              phone: dormData.phone,
+          });
+          router.push(`/booking-confirmation?${queryParams.toString()}`);
+        } catch (error) {
+            console.error("Error saving dormitory booking:", error);
+            toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
+            setIsSubmitting(false);
+            return;
         }
       } else {
+        toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
