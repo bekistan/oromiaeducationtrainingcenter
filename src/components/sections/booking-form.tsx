@@ -31,7 +31,7 @@ import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { ETHIOPIAN_BANKS } from '@/constants';
 
 const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
@@ -293,22 +293,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const endOfDay = new Date(startDateObject);
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
-
-      console.log("Attempting to query for existing bookings with parameters:");
+      
+      console.log("Querying Firestore for existing bookings with parameters:");
       console.log("Phone:", dormData.phone);
-      console.log("Start Date (for day check):", startDateObject.toISOString());
+      console.log("Start Date (ISO):", startDateObject.toISOString());
       console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
       console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
       console.log("Booking Category:", "dormitory");
       console.log("Approval Statuses:", ["pending", "approved"]);
-      
+
       const existingBookingQuery = query(
         collection(db, "bookings"),
         where("approvalStatus", "in", ["pending", "approved"]),
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp)
+        where("startDate", "<=", endOfDayTimestamp),
+        orderBy("startDate") // Added orderBy
       );
 
       try {
