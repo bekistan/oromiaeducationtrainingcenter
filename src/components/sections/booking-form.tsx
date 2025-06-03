@@ -50,8 +50,8 @@ const dormitoryBookingSchema = z.object({
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
-  bankName: z.string().min(1, { message: "Bank name is required." }), // Still collect for when payment is due
-  accountNumber: z.string().min(1, { message: "Account number is required." }), // Still collect
+  bankName: z.string().min(1, { message: "Bank name is required." }),
+  accountNumber: z.string().min(1, { message: "Account number is required." }),
 });
 
 const facilityBookingSchema = z.object({
@@ -170,7 +170,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), // Only check against approved bookings for capacity
+        where("approvalStatus", "==", "approved"), 
         where("startDate", "<=", toTimestamp)
     );
 
@@ -246,11 +246,11 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
-        ...defaultFacilityValues, // Start with defaults
+        ...defaultFacilityValues, 
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: user.phone || "", // Prefer user's phone if available
+        phone: user.phone || "", 
         dateRange: form.getValues('dateRange') || undefined,
         numberOfAttendees: form.getValues('numberOfAttendees') || 1,
         services: form.getValues('services') || { lunch: 'none', refreshment: 'none' },
@@ -285,6 +285,44 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
+
+      // Check for existing booking with the same phone number on the same start date
+      const startOfDay = new Date(startDateObject);
+      startOfDay.setHours(0, 0, 0, 0);
+      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
+
+      const endOfDay = new Date(startDateObject);
+      endOfDay.setHours(23, 59, 59, 999);
+      const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
+
+      const existingBookingQuery = query(
+        collection(db, "bookings"),
+        where("bookingCategory", "==", "dormitory"),
+        where("phone", "==", dormData.phone),
+        where("approvalStatus", "in", ["pending", "approved"]),
+        where("startDate", ">=", startOfDayTimestamp),
+        where("startDate", "<=", endOfDayTimestamp)
+      );
+
+      try {
+        const existingBookingSnapshot = await getDocs(existingBookingQuery);
+        if (!existingBookingSnapshot.empty) {
+          toast({
+            variant: "destructive",
+            title: t('bookingErrorTitle'),
+            description: t('duplicateBookingForPhoneOnDateError'), // Add this new translation key
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (queryError) {
+        console.error("Error checking for existing bookings:", queryError);
+        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingExistingBookings') }); // Add this new translation key
+        setIsSubmitting(false);
+        return;
+      }
+
+
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
 
@@ -299,17 +337,17 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
-          paymentStatus: 'pending' as const, // Payment pending until admin approval
-          approvalStatus: 'pending' as const, // Requires admin approval
+          paymentStatus: 'pending' as const,
+          approvalStatus: 'pending' as const, 
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
         };
 
         try {
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
-          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') }); // New lang key
+          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
           const queryParams = new URLSearchParams({
-              status: 'booking_pending_approval', // New status for confirmation page
+              status: 'booking_pending_approval',
               bookingId: docRef.id,
               itemName: itemNameForConfirmation,
               amount: totalCost.toString(),
@@ -428,7 +466,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl text-center text-primary">
-          {isDormitoryBooking ? t('dormitoryBooking') : t('facilityBooking')}
+          {t('submitBookingRequest')}
         </CardTitle>
         <p className="text-sm text-muted-foreground text-center flex items-center justify-center">
             <List className="mr-2 h-4 w-4"/> {t('bookingForItems')}: {itemsDisplayList}
@@ -537,5 +575,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
-    
