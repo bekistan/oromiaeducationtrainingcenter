@@ -295,14 +295,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
-      console.log("Attempting to query for existing bookings with parameters:");
-      console.log("Phone:", dormData.phone);
-      console.log("Start Date (ISO):", startDateObject.toISOString());
-      console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
-      console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
-      console.log("Booking Category:", "dormitory");
-      console.log("Approval Statuses:", ["pending", "approved"]);
-
       const existingBookingQuery = query(
         collection(db, "bookings"),
         where("approvalStatus", "in", ["pending", "approved"]),
@@ -310,7 +302,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
         where("startDate", "<=", endOfDayTimestamp),
-        orderBy("startDate") // Re-added orderBy
+        orderBy("startDate")
       );
 
       try {
@@ -318,7 +310,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         if (!existingBookingSnapshot.empty) {
           toast({
             variant: "destructive",
-            title: t('bookingErrorTitle'),
+            title: t('duplicateBookingTitle'),
             description: t('duplicateBookingForPhoneOnDateError'),
           });
           proceedWithBooking = false;
@@ -341,21 +333,20 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
         let userFacingErrorMessage = t('errorCheckingExistingBookings');
         if (queryError.code === 'failed-precondition' && indexCreationLink) {
-          // Display specific toast for index issue, and allow booking to proceed with warning
           toast({
             variant: "destructive",
             title: t('warningDatabaseConfigNeeded'),
-            description: t('duplicateCheckSkippedBookingProceeds'), // New lang key needed
-            duration: 10000, // Longer duration for this warning
+            description: t('duplicateCheckSkippedBookingProceeds'),
+            duration: 10000, 
           });
           console.warn("DUPLICATE CHECK SKIPPED due to missing Firestore index. Booking will proceed. Index link: " + indexCreationLink);
-          // proceedWithBooking remains true to allow submission
+          // proceedWithBooking remains true to allow submission in this specific scenario with warning
         } else if (queryError.code === 'permission-denied') {
            userFacingErrorMessage = t('firestorePermissionError');
            toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
            proceedWithBooking = false;
         } else {
-           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('firestoreIndexRequiredErrorDetailed') }); // Using the detailed key
            proceedWithBooking = false;
         }
       }
@@ -364,7 +355,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         setIsSubmitting(false);
         return; 
       }
-
 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
