@@ -294,6 +294,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
+      console.log("Attempting to query for existing bookings with parameters:");
+      console.log("Phone:", dormData.phone);
+      console.log("Start Date (for day check):", startDateObject.toISOString());
+      console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
+      console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
+      console.log("Booking Category:", "dormitory");
+      console.log("Approval Statuses:", ["pending", "approved"]);
+      
       const existingBookingQuery = query(
         collection(db, "bookings"),
         where("approvalStatus", "in", ["pending", "approved"]),
@@ -324,7 +332,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         }
 
         let userFacingErrorMessage = t('errorCheckingExistingBookings');
-        if (queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
+        if (queryError.code === 'failed-precondition' && queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
           userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
         } else if (queryError.code === 'permission-denied') {
            userFacingErrorMessage = t('firestorePermissionError');
@@ -588,4 +596,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
