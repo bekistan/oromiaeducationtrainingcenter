@@ -31,7 +31,7 @@ import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { ETHIOPIAN_BANKS } from '@/constants';
 
 const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
@@ -285,9 +285,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
-
-      // Check for existing bookings for the same phone number and start date
-      let proceedWithBooking = true; 
+      let proceedWithBooking = true;
 
       const startOfDay = new Date(startDateObject);
       startOfDay.setHours(0, 0, 0, 0);
@@ -311,7 +309,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp)
+        where("startDate", "<=", endOfDayTimestamp),
+        orderBy("startDate") // Re-added orderBy
       );
 
       try {
@@ -323,7 +322,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             description: t('duplicateBookingForPhoneOnDateError'),
           });
           setIsSubmitting(false);
-          proceedWithBooking = false; 
+          proceedWithBooking = false;
         }
       } catch (queryError: any) {
         console.error("Firestore query error during existing booking check. Full error object:", queryError);
@@ -343,13 +342,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
         let userFacingErrorMessage = t('errorCheckingExistingBookings');
         if (queryError.code === 'failed-precondition' && indexCreationLink) {
-            userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed'); 
+            userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
         } else if (queryError.code === 'permission-denied') {
            userFacingErrorMessage = t('firestorePermissionError');
         }
         toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
         setIsSubmitting(false);
-        proceedWithBooking = false; 
+        proceedWithBooking = false;
       }
       
       if (!proceedWithBooking) {
