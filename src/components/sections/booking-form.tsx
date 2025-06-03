@@ -296,9 +296,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       const existingBookingQuery = query(
         collection(db, "bookings"),
+        where("approvalStatus", "in", ["pending", "approved"]),
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
-        where("approvalStatus", "in", ["pending", "approved"]),
         where("startDate", ">=", startOfDayTimestamp),
         where("startDate", "<=", endOfDayTimestamp)
       );
