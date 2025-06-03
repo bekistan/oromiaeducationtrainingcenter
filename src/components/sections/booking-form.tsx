@@ -31,7 +31,7 @@ import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { ETHIOPIAN_BANKS } from '@/constants';
 
 const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
@@ -294,6 +294,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
+      let proceedWithBooking = true; // Flag to control if booking should proceed
+
       console.log("Attempting to query for existing bookings with parameters:");
       console.log("Phone:", dormData.phone);
       console.log("Start Date (ISO):", startDateObject.toISOString());
@@ -309,7 +311,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
         where("startDate", "<=", endOfDayTimestamp)
-        // orderBy("startDate") // Removed based on previous attempts; Firestore may still require it for the index
+        // No orderBy("startDate") here, as it was removed.
       );
 
       try {
@@ -321,69 +323,94 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             description: t('duplicateBookingForPhoneOnDateError'),
           });
           setIsSubmitting(false);
-          return;
+          return; // Stop submission
         }
       } catch (queryError: any) {
         console.error("Firestore query error during existing booking check. Full error object:", queryError);
         if (queryError.code) {
             console.error("Firebase error code:", queryError.code);
         }
+        let indexCreationLink = "";
         if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-             console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+            const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
+            if (match && match[0]) {
+                indexCreationLink = match[0];
+                console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
+            } else {
+                 console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+            }
         }
 
-        let userFacingErrorMessage = t('errorCheckingExistingBookings');
-        if (queryError.code === 'failed-precondition' && queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
-          userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
-        } else if (queryError.code === 'permission-denied') {
-           userFacingErrorMessage = t('firestorePermissionError');
+        if (queryError.code === 'failed-precondition' && indexCreationLink) {
+            console.warn("WARNING: Firestore query for existing bookings failed due to a missing index (failed-precondition). Skipping duplicate check. This is not a code bug but a Firestore configuration requirement. Please create the index: " + indexCreationLink);
+            toast({
+                variant: "destructive", // Changed to destructive to be more prominent
+                title: t('warningDatabaseConfigNeeded'), // New lang key
+                description: t('duplicateCheckSkippedBookingProceeds'), // New lang key
+                duration: 10000, // Make it stay longer
+            });
+            // proceedWithBooking remains true, allowing the booking to go through
+        } else {
+            let userFacingErrorMessage = t('errorCheckingExistingBookings');
+            if (queryError.code === 'failed-precondition') { // General failed-precondition without specific index link found
+              userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
+            } else if (queryError.code === 'permission-denied') {
+               userFacingErrorMessage = t('firestorePermissionError');
+            }
+            toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+            setIsSubmitting(false);
+            return; // Stop submission for other errors
         }
-        
-        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-        setIsSubmitting(false);
-        return;
       }
 
-      if (item && typeof item.pricePerDay === 'number') {
-        totalCost = numberOfDays * item.pricePerDay;
+      // Only proceed if no critical error stopped the process and the flag is true
+      if (proceedWithBooking) {
+        if (item && typeof item.pricePerDay === 'number') {
+          totalCost = numberOfDays * item.pricePerDay;
 
-        const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
-          bookingCategory: 'dormitory',
-          items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
-          guestName: dormData.fullName,
-          phone: dormData.phone,
-          guestEmployer: dormData.employer,
-          payerBankName: dormData.bankName,
-          payerAccountNumber: dormData.accountNumber,
-          startDate: Timestamp.fromDate(startDateObject),
-          endDate: Timestamp.fromDate(endDateObject),
-          totalCost,
-          paymentStatus: 'pending' as const,
-          approvalStatus: 'pending' as const,
-          bookedAt: serverTimestamp(),
-          ...(user?.id && { userId: user.id }),
-        };
+          const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+            bookingCategory: 'dormitory',
+            items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
+            guestName: dormData.fullName,
+            phone: dormData.phone,
+            guestEmployer: dormData.employer,
+            payerBankName: dormData.bankName,
+            payerAccountNumber: dormData.accountNumber,
+            startDate: Timestamp.fromDate(startDateObject),
+            endDate: Timestamp.fromDate(endDateObject),
+            totalCost,
+            paymentStatus: 'pending' as const,
+            approvalStatus: 'pending' as const,
+            bookedAt: serverTimestamp(),
+            ...(user?.id && { userId: user.id }),
+          };
 
-        try {
-          const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
-          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
-          const queryParams = new URLSearchParams({
-              status: 'booking_pending_approval',
-              bookingId: docRef.id,
-              itemName: itemNameForConfirmation,
-              amount: totalCost.toString(),
-              category: 'dormitory',
-              phone: dormData.phone,
-          });
-          router.push(`/booking-confirmation?${queryParams.toString()}`);
-        } catch (error) {
-            console.error("Error saving dormitory booking:", error);
-            toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
-            setIsSubmitting(false);
-            return;
+          try {
+            const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+            toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
+            const queryParams = new URLSearchParams({
+                status: 'booking_pending_approval',
+                bookingId: docRef.id,
+                itemName: itemNameForConfirmation,
+                amount: totalCost.toString(),
+                category: 'dormitory',
+                phone: dormData.phone,
+            });
+            router.push(`/booking-confirmation?${queryParams.toString()}`);
+          } catch (error) {
+              console.error("Error saving dormitory booking:", error);
+              toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
+              setIsSubmitting(false);
+              return;
+          }
+        } else {
+          toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
+          setIsSubmitting(false);
+          return;
         }
       } else {
-        toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
+        // This case should ideally not be reached if errors above `return`
+        // but as a safeguard:
         setIsSubmitting(false);
         return;
       }
