@@ -286,7 +286,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
 
-      // Check for existing booking with the same phone number on the same start date
       const startOfDay = new Date(startDateObject);
       startOfDay.setHours(0, 0, 0, 0);
       const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
@@ -310,14 +309,28 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           toast({
             variant: "destructive",
             title: t('bookingErrorTitle'),
-            description: t('duplicateBookingForPhoneOnDateError'), // Add this new translation key
+            description: t('duplicateBookingForPhoneOnDateError'),
           });
           setIsSubmitting(false);
           return;
         }
-      } catch (queryError) {
-        console.error("Error checking for existing bookings:", queryError);
-        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingExistingBookings') }); // Add this new translation key
+      } catch (queryError: any) {
+        console.error("Firestore query error during existing booking check. Full error object:", queryError);
+        if (queryError.code) {
+            console.error("Firebase error code:", queryError.code);
+        }
+        if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
+             console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+        }
+
+        let userFacingErrorMessage = t('errorCheckingExistingBookings');
+        if (queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
+          userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
+        } else if (queryError.code === 'permission-denied') {
+           userFacingErrorMessage = t('firestorePermissionError');
+        }
+        
+        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
         setIsSubmitting(false);
         return;
       }
@@ -575,3 +588,4 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
