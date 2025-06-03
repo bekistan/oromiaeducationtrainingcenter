@@ -286,84 +286,84 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
 
-      const startOfDay = new Date(startDateObject);
-      startOfDay.setHours(0, 0, 0, 0);
-      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
+      // const startOfDay = new Date(startDateObject);
+      // startOfDay.setHours(0, 0, 0, 0);
+      // const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-      const endOfDay = new Date(startDateObject);
-      endOfDay.setHours(23, 59, 59, 999);
-      const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
+      // const endOfDay = new Date(startDateObject);
+      // endOfDay.setHours(23, 59, 59, 999);
+      // const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
-      let proceedWithBooking = true; // Flag to control if booking should proceed
+      let proceedWithBooking = true; 
 
-      console.log("Attempting to query for existing bookings with parameters:");
-      console.log("Phone:", dormData.phone);
-      console.log("Start Date (ISO):", startDateObject.toISOString());
-      console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
-      console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
-      console.log("Booking Category:", "dormitory");
-      console.log("Approval Statuses:", ["pending", "approved"]);
+      // console.log("Attempting to query for existing bookings with parameters:");
+      // console.log("Phone:", dormData.phone);
+      // console.log("Start Date (ISO):", startDateObject.toISOString());
+      // console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
+      // console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
+      // console.log("Booking Category:", "dormitory");
+      // console.log("Approval Statuses:", ["pending", "approved"]);
 
-      const existingBookingQuery = query(
-        collection(db, "bookings"),
-        where("approvalStatus", "in", ["pending", "approved"]),
-        where("bookingCategory", "==", "dormitory"),
-        where("phone", "==", dormData.phone),
-        where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp)
-        // No orderBy("startDate") here, as it was removed.
-      );
+      // const existingBookingQuery = query(
+      //   collection(db, "bookings"),
+      //   where("approvalStatus", "in", ["pending", "approved"]),
+      //   where("bookingCategory", "==", "dormitory"),
+      //   where("phone", "==", dormData.phone),
+      //   where("startDate", ">=", startOfDayTimestamp),
+      //   where("startDate", "<=", endOfDayTimestamp)
+      // );
 
-      try {
-        const existingBookingSnapshot = await getDocs(existingBookingQuery);
-        if (!existingBookingSnapshot.empty) {
-          toast({
-            variant: "destructive",
-            title: t('bookingErrorTitle'),
-            description: t('duplicateBookingForPhoneOnDateError'),
-          });
-          setIsSubmitting(false);
-          return; // Stop submission
-        }
-      } catch (queryError: any) {
-        console.error("Firestore query error during existing booking check. Full error object:", queryError);
-        if (queryError.code) {
-            console.error("Firebase error code:", queryError.code);
-        }
-        let indexCreationLink = "";
-        if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-            const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
-            if (match && match[0]) {
-                indexCreationLink = match[0];
-                console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
-            } else {
-                 console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
-            }
-        }
+      // try {
+      //   const existingBookingSnapshot = await getDocs(existingBookingQuery);
+      //   if (!existingBookingSnapshot.empty) {
+      //     toast({
+      //       variant: "destructive",
+      //       title: t('bookingErrorTitle'),
+      //       description: t('duplicateBookingForPhoneOnDateError'),
+      //     });
+      //     setIsSubmitting(false);
+      //     proceedWithBooking = false;
+      //     return; 
+      //   }
+      // } catch (queryError: any) {
+      //   console.error("Firestore query error during existing booking check. Full error object:", queryError);
+      //   if (queryError.code) {
+      //       console.error("Firebase error code:", queryError.code);
+      //   }
+      //   let indexCreationLink = "";
+      //   if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
+      //       const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
+      //       if (match && match[0]) {
+      //           indexCreationLink = match[0];
+      //           console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
+      //       } else {
+      //            console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+      //       }
+      //   }
 
-        if (queryError.code === 'failed-precondition' && indexCreationLink) {
-            console.warn("WARNING: Firestore query for existing bookings failed due to a missing index (failed-precondition). Skipping duplicate check. This is not a code bug but a Firestore configuration requirement. Please create the index: " + indexCreationLink);
-            toast({
-                variant: "destructive", // Changed to destructive to be more prominent
-                title: t('warningDatabaseConfigNeeded'), // New lang key
-                description: t('duplicateCheckSkippedBookingProceeds'), // New lang key
-                duration: 10000, // Make it stay longer
-            });
-            // proceedWithBooking remains true, allowing the booking to go through
-        } else {
-            let userFacingErrorMessage = t('errorCheckingExistingBookings');
-            if (queryError.code === 'failed-precondition') { // General failed-precondition without specific index link found
-              userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
-            } else if (queryError.code === 'permission-denied') {
-               userFacingErrorMessage = t('firestorePermissionError');
-            }
-            toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-            setIsSubmitting(false);
-            return; // Stop submission for other errors
-        }
-      }
+      //   if (queryError.code === 'failed-precondition' && indexCreationLink) {
+      //       toast({
+      //           variant: "destructive", 
+      //           title: t('warningDatabaseConfigNeeded'), 
+      //           description: t('duplicateCheckSkippedBookingProceeds'),
+      //           duration: 10000, 
+      //       });
+      //       // proceedWithBooking remains true, allowing the booking to go through but with a warning
+      //   } else {
+      //       let userFacingErrorMessage = t('errorCheckingExistingBookings');
+      //       if (queryError.code === 'failed-precondition') { 
+      //         userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
+      //       } else if (queryError.code === 'permission-denied') {
+      //          userFacingErrorMessage = t('firestorePermissionError');
+      //       }
+      //       toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+      //       setIsSubmitting(false);
+      //       proceedWithBooking = false;
+      //       return; 
+      //   }
+      // }
 
-      // Only proceed if no critical error stopped the process and the flag is true
+
       if (proceedWithBooking) {
         if (item && typeof item.pricePerDay === 'number') {
           totalCost = numberOfDays * item.pricePerDay;
@@ -409,8 +409,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           return;
         }
       } else {
-        // This case should ideally not be reached if errors above `return`
-        // but as a safeguard:
         setIsSubmitting(false);
         return;
       }
