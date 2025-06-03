@@ -321,7 +321,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             title: t('bookingErrorTitle'),
             description: t('duplicateBookingForPhoneOnDateError'),
           });
-          setIsSubmitting(false);
           proceedWithBooking = false;
         }
       } catch (queryError: any) {
@@ -342,13 +341,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
         let userFacingErrorMessage = t('errorCheckingExistingBookings');
         if (queryError.code === 'failed-precondition' && indexCreationLink) {
-            userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
+          // Display specific toast for index issue, and allow booking to proceed with warning
+          toast({
+            variant: "destructive",
+            title: t('warningDatabaseConfigNeeded'),
+            description: t('duplicateCheckSkippedBookingProceeds'), // New lang key needed
+            duration: 10000, // Longer duration for this warning
+          });
+          console.warn("DUPLICATE CHECK SKIPPED due to missing Firestore index. Booking will proceed. Index link: " + indexCreationLink);
+          // proceedWithBooking remains true to allow submission
         } else if (queryError.code === 'permission-denied') {
            userFacingErrorMessage = t('firestorePermissionError');
+           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+           proceedWithBooking = false;
+        } else {
+           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+           proceedWithBooking = false;
         }
-        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-        setIsSubmitting(false);
-        proceedWithBooking = false;
       }
       
       if (!proceedWithBooking) {
@@ -609,4 +618,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
