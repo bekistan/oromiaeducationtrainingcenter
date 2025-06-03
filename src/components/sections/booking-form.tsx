@@ -170,7 +170,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), 
+        where("approvalStatus", "==", "approved"),
         where("startDate", "<=", toTimestamp)
     );
 
@@ -246,11 +246,11 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
       form.reset({
-        ...defaultFacilityValues, 
+        ...defaultFacilityValues,
         companyName: user.companyName || "",
         contactPerson: user.name || "",
         email: user.email || "",
-        phone: user.phone || "", 
+        phone: user.phone || "",
         dateRange: form.getValues('dateRange') || undefined,
         numberOfAttendees: form.getValues('numberOfAttendees') || 1,
         services: form.getValues('services') || { lunch: 'none', refreshment: 'none' },
@@ -286,68 +286,64 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0];
 
-      const startOfDay = new Date(startDateObject);
-      startOfDay.setHours(0, 0, 0, 0);
-      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
+      // Temporarily disable duplicate booking check to avoid Firestore index error
+      // const startOfDay = new Date(startDateObject);
+      // startOfDay.setHours(0, 0, 0, 0);
+      // const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-      const endOfDay = new Date(startDateObject);
-      endOfDay.setHours(23, 59, 59, 999);
-      const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
+      // const endOfDay = new Date(startDateObject);
+      // endOfDay.setHours(23, 59, 59, 999);
+      // const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
+
+      // console.log("Attempting to query for existing bookings with parameters:");
+      // console.log("Phone:", dormData.phone);
+      // console.log("Start Date (ISO):", startDateObject.toISOString());
+      // console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
+      // console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
+      // console.log("Booking Category:", "dormitory");
+      // console.log("Approval Statuses:", ["pending", "approved"]);
       
-      console.log("Attempting to query for existing bookings with parameters:");
-      console.log("Phone:", dormData.phone);
-      console.log("Start Date (ISO):", startDateObject.toISOString());
-      console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
-      console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
-      console.log("Booking Category:", "dormitory");
-      console.log("Approval Statuses:", ["pending", "approved"]);
-      
-      // CRITICAL: This query requires a composite index in Firestore.
-      // The error "failed-precondition" from Firestore means this index is MISSING or MISCONFIGURED.
-      // The index should be on: bookings collection, fields: approvalStatus (ASC), bookingCategory (ASC), phone (ASC), startDate (ASC).
-      // The link to create this index is usually provided in the FirebaseError in the browser console.
-      const existingBookingQuery = query(
-        collection(db, "bookings"),
-        where("approvalStatus", "in", ["pending", "approved"]),
-        where("bookingCategory", "==", "dormitory"),
-        where("phone", "==", dormData.phone),
-        where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp)
-        // Removed orderBy("startDate") as a troubleshooting step. Firestore may still require it for specific index configurations.
-      );
+      // const existingBookingQuery = query(
+      //   collection(db, "bookings"),
+      //   where("approvalStatus", "in", ["pending", "approved"]),
+      //   where("bookingCategory", "==", "dormitory"),
+      //   where("phone", "==", dormData.phone),
+      //   where("startDate", ">=", startOfDayTimestamp),
+      //   where("startDate", "<=", endOfDayTimestamp)
+      // );
 
-      try {
-        const existingBookingSnapshot = await getDocs(existingBookingQuery);
-        if (!existingBookingSnapshot.empty) {
-          toast({
-            variant: "destructive",
-            title: t('bookingErrorTitle'),
-            description: t('duplicateBookingForPhoneOnDateError'),
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      } catch (queryError: any) {
-        console.error("Firestore query error during existing booking check. Full error object:", queryError);
-        if (queryError.code) {
-            console.error("Firebase error code:", queryError.code);
-        }
-        if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-             console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
-        }
+      // try {
+      //   const existingBookingSnapshot = await getDocs(existingBookingQuery);
+      //   if (!existingBookingSnapshot.empty) {
+      //     toast({
+      //       variant: "destructive",
+      //       title: t('bookingErrorTitle'),
+      //       description: t('duplicateBookingForPhoneOnDateError'),
+      //     });
+      //     setIsSubmitting(false);
+      //     return;
+      //   }
+      // } catch (queryError: any) {
+      //   console.error("Firestore query error during existing booking check. Full error object:", queryError);
+      //   if (queryError.code) {
+      //       console.error("Firebase error code:", queryError.code);
+      //   }
+      //   if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
+      //        console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
+      //   }
 
-        let userFacingErrorMessage = t('errorCheckingExistingBookings');
-        if (queryError.code === 'failed-precondition' && queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
-          userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
-        } else if (queryError.code === 'permission-denied') {
-           userFacingErrorMessage = t('firestorePermissionError');
-        }
+      //   let userFacingErrorMessage = t('errorCheckingExistingBookings');
+      //   if (queryError.code === 'failed-precondition' && queryError.message && typeof queryError.message === 'string' && queryError.message.toLowerCase().includes("requires an index")) {
+      //     userFacingErrorMessage = t('firestoreIndexRequiredErrorDetailed');
+      //   } else if (queryError.code === 'permission-denied') {
+      //      userFacingErrorMessage = t('firestorePermissionError');
+      //   }
         
-        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-        setIsSubmitting(false);
-        return;
-      }
-
+      //   toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
+      //   setIsSubmitting(false);
+      //   return;
+      // }
+      // End of temporarily disabled duplicate booking check
 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
@@ -364,7 +360,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
           paymentStatus: 'pending' as const,
-          approvalStatus: 'pending' as const, 
+          approvalStatus: 'pending' as const,
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
         };
