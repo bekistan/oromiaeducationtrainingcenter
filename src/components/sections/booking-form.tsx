@@ -294,22 +294,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
       
-      console.log("Querying Firestore for existing bookings with parameters:");
+      console.log("Attempting to query for existing bookings with parameters:");
       console.log("Phone:", dormData.phone);
       console.log("Start Date (ISO):", startDateObject.toISOString());
       console.log("Start of Day Timestamp (seconds):", startOfDayTimestamp.seconds);
       console.log("End of Day Timestamp (seconds):", endOfDayTimestamp.seconds);
       console.log("Booking Category:", "dormitory");
       console.log("Approval Statuses:", ["pending", "approved"]);
-
+      
+      // CRITICAL: This query requires a composite index in Firestore.
+      // The error "failed-precondition" from Firestore means this index is MISSING or MISCONFIGURED.
+      // The index should be on: bookings collection, fields: approvalStatus (ASC), bookingCategory (ASC), phone (ASC), startDate (ASC).
+      // The link to create this index is usually provided in the FirebaseError in the browser console.
       const existingBookingQuery = query(
         collection(db, "bookings"),
         where("approvalStatus", "in", ["pending", "approved"]),
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp),
-        orderBy("startDate") // Added orderBy
+        where("startDate", "<=", endOfDayTimestamp)
+        // Removed orderBy("startDate") as a troubleshooting step. Firestore may still require it for specific index configurations.
       );
 
       try {
