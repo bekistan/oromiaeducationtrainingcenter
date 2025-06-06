@@ -7,9 +7,10 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, Loader2, Hourglass, MessageSquare } from 'lucide-react';
+import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
+import { BANK_NAME_VALUE, SITE_NAME, BANK_ACCOUNT_NUMBER_VALUE } from '@/constants';
 
 function BookingConfirmationContent() {
   const { t } = useLanguage();
@@ -40,6 +41,7 @@ function BookingConfirmationContent() {
   let titleText = '';
   let descriptionText = '';
   let icon = <CheckCircle className="w-16 h-16 text-green-600" />;
+  let showDormitoryPaymentInstructions = false;
 
   if (status === 'telegram_pending') {
     titleText = t('paymentAwaitingTelegramVerificationTitle');
@@ -50,8 +52,9 @@ function BookingConfirmationContent() {
       titleText = t('facilityBookingReceived');
       descriptionText = t('thankYouFacilityBookingWillBeReviewed');
     } else { // Dormitory
-      titleText = t('dormitoryBookingRequestReceived'); // New lang key
-      descriptionText = t('dormitoryBookingPendingApproval'); // New lang key
+      titleText = t('dormitoryBookingRequestReceived');
+      descriptionText = t('dormitoryBookingPendingApproval'); // Updated key
+      showDormitoryPaymentInstructions = true;
     }
     icon = <Hourglass className="w-16 h-16 text-amber-500" />;
   } else { 
@@ -74,7 +77,24 @@ function BookingConfirmationContent() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-left">
-        <div className="border-t pt-4">
+        {showDormitoryPaymentInstructions && amount && (
+          <div className="mb-6 p-4 border border-dashed border-primary/50 rounded-md bg-primary/5">
+            <h3 className="font-semibold text-primary mb-2">{t('paymentInstructionsTitle')}</h3>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('bankNameLabel')}:</strong> {BANK_NAME_VALUE}</p>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {SITE_NAME}</p>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {BANK_ACCOUNT_NUMBER_VALUE}</p>
+            <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
+            <Button asChild className="w-full mt-3">
+              <a href={`https://t.me/oroedubot`} target="_blank" rel="noopener noreferrer">
+                <Send className="mr-2 h-4 w-4" />
+                {t('goToAtOroedubotButton')}
+              </a>
+            </Button>
+             <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
+          </div>
+        )}
+
+        <div className={showDormitoryPaymentInstructions ? "pt-4" : "border-t pt-4"}>
           <h3 className="font-semibold mb-2 text-lg">{t('bookingSummary')}</h3>
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t('bookingId')}:</span>
@@ -88,7 +108,7 @@ function BookingConfirmationContent() {
             <span className="text-muted-foreground">{t('category')}:</span>
             <span className="font-medium capitalize">{t(category)}</span>
           </div>
-          {amount && (
+          {amount && !showDormitoryPaymentInstructions && ( // Hide amount here if shown in payment instructions
             <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('totalAmount')}:</span>
                 <span className="font-medium text-primary">{amount} {t('currencySymbol')}</span>
