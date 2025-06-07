@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarDays, AlertCircle } from "lucide-react";
+import { Loader2, CalendarDays, AlertCircle, BedDouble } from "lucide-react"; // Added BedDouble
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -178,3 +178,4 @@ export default function DormitoriesPage() {
     </PublicLayout>
   );
 }
+
