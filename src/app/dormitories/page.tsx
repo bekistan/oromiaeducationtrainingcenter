@@ -1,66 +1,179 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PublicLayout } from "@/components/layout/public-layout";
 import { DormitoryList } from "@/components/sections/dormitory-list";
-import type { Dormitory } from "@/types";
+import type { Dormitory, Booking } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from "lucide-react";
+import { Loader2, CalendarDays, AlertCircle } from "lucide-react";
+import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
+import type { DateRange } from 'react-day-picker';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { parseISO } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [dormitories, setDormitories] = useState<Dormitory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  const fetchDormitories = useCallback(async () => {
-    setIsLoading(true);
+  const [allAdminEnabledDormitories, setAllAdminEnabledDormitories] = useState<Dormitory[]>([]);
+  const [availableDormitoriesInRange, setAvailableDormitoriesInRange] = useState<Dormitory[]>([]);
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
+  const [isLoadingInitialDorms, setIsLoadingInitialDorms] = useState(true);
+  const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
+  const [activeTab, setActiveTab] = useState<"available" | "all">("all");
+
+  const fetchAllAdminEnabledDormitories = useCallback(async () => {
+    setIsLoadingInitialDorms(true);
     try {
-      // Query only for dormitories where isAvailable is true
       const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
       const querySnapshot = await getDocs(q);
-      const dormsData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        // Ensure isAvailable is explicitly a boolean, defaulting to false if undefined
-        const isAvailable = typeof data.isAvailable === 'boolean' ? data.isAvailable : false;
-        return { 
+      const dormsData = querySnapshot.docs.map(doc => ({ 
           id: doc.id, 
-          ...data,
-          isAvailable: isAvailable // Explicitly set to ensure boolean type
-        } as Dormitory;
-      });
-      
-      // Further client-side filter, just in case, though the query should handle it
-      const strictlyAvailableDorms = dormsData.filter(d => d.isAvailable === true);
-      setDormitories(strictlyAvailableDorms);
-
+          ...doc.data(),
+          isAvailable: true // Explicitly set as query filters this
+        } as Dormitory));
+      setAllAdminEnabledDormitories(dormsData);
     } catch (error) {
-      console.error("Error fetching available dormitories: ", error);
+      console.error("Error fetching all admin-enabled dormitories: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
     } finally {
-      setIsLoading(false);
+      setIsLoadingInitialDorms(false);
     }
   }, [t, toast]);
 
   useEffect(() => {
-    fetchDormitories();
-  }, [fetchDormitories]);
+    fetchAllAdminEnabledDormitories();
+  }, [fetchAllAdminEnabledDormitories]);
+
+  const checkDormitoryAvailabilityForRange = useCallback(async (dorm: Dormitory, range: DateRange): Promise<boolean> => {
+    if (!range.from || !range.to) return true; // No range, assume available from admin perspective
+
+    const fromTimestamp = Timestamp.fromDate(range.from);
+    const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
+
+    const bookingsQuery = query(
+        collection(db, "bookings"),
+        where("bookingCategory", "==", "dormitory"),
+        where("approvalStatus", "in", ["approved", "pending"]),
+        where("startDate", "<=", toTimestamp) // Bookings starting before or on the selected range's end
+    );
+
+    try {
+        const querySnapshot = await getDocs(bookingsQuery);
+        let bookedBedsDuringPeriod = 0;
+
+        querySnapshot.forEach(docSnap => {
+            const booking = docSnap.data() as Booking;
+            const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
+            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+
+            const overlaps = bookingStartDate <= range.to! && bookingEndDate >= range.from!;
+
+            if (overlaps) {
+                const isForThisRoom = booking.items.some(bookedItem => bookedItem.id === dorm.id && bookedItem.itemType === "dormitory");
+                if (isForThisRoom) {
+                    bookedBedsDuringPeriod++;
+                }
+            }
+        });
+        return bookedBedsDuringPeriod < (dorm.capacity || 1);
+    } catch (error) {
+        console.error(`Error checking availability for dorm ${dorm.id}:`, error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
+        return false; // Assume unavailable on error
+    }
+  }, [t, toast]);
+
+  useEffect(() => {
+    if (!selectedDateRange || !selectedDateRange.from || !selectedDateRange.to) {
+      setAvailableDormitoriesInRange([]); // Clear if no valid range
+      return;
+    }
+
+    const updateAvailableDorms = async () => {
+      setIsCheckingRangeAvailability(true);
+      const availableDorms: Dormitory[] = [];
+      for (const dorm of allAdminEnabledDormitories) {
+        const isAvailable = await checkDormitoryAvailabilityForRange(dorm, selectedDateRange);
+        if (isAvailable) {
+          availableDorms.push(dorm);
+        }
+      }
+      setAvailableDormitoriesInRange(availableDorms);
+      setIsCheckingRangeAvailability(false);
+    };
+
+    updateAvailableDorms();
+  }, [selectedDateRange, allAdminEnabledDormitories, checkDormitoryAvailabilityForRange]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "available" | "all");
+  };
 
   return (
     <PublicLayout>
       <div className="container mx-auto py-12 px-4">
-        <h1 className="text-3xl font-bold text-primary mb-8 text-center">
+        <h1 className="text-3xl font-bold text-primary mb-4 text-center">
           {t('viewAvailableDormitories')}
         </h1>
-        {isLoading ? (
-          <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
-        ) : (
-          <DormitoryList dormitories={dormitories} />
-        )}
+        <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
+
+        <div className="mb-8 flex justify-center">
+          <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+        </div>
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 md:w-1/2 mx-auto mb-8">
+            <TabsTrigger value="available">
+              <CalendarDays className="mr-2 h-5 w-5" /> {t('availableDormitoriesTab')}
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              <BedDouble className="mr-2 h-5 w-5" /> {t('allDormitoriesTab')}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="available">
+            {isLoadingInitialDorms || isCheckingRangeAvailability ? (
+              <div className="flex flex-col justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                <p>{isCheckingRangeAvailability ? t('checkingAvailabilityForRange') : t('loading')}</p>
+              </div>
+            ) : !selectedDateRange || !selectedDateRange.from || !selectedDateRange.to ? (
+                 <Alert variant="default" className="max-w-md mx-auto bg-blue-50 border-blue-200">
+                    <CalendarDays className="h-5 w-5 text-blue-600" />
+                    <AlertTitle className="text-blue-700">{t('selectDatesTitle')}</AlertTitle>
+                    <AlertDescription className="text-blue-600">
+                      {t('selectDatesToSeeAvailableDorms')}
+                    </AlertDescription>
+                  </Alert>
+            ) : availableDormitoriesInRange.length === 0 ? (
+                 <Alert variant="destructive" className="max-w-md mx-auto">
+                    <AlertCircle className="h-5 w-5" />
+                    <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
+                    <AlertDescription>
+                      {t('noDormsAvailableInDateRange')}
+                    </AlertDescription>
+                  </Alert>
+            ): (
+              <DormitoryList dormitories={availableDormitoriesInRange} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            {isLoadingInitialDorms ? (
+              <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
+            ) : allAdminEnabledDormitories.length === 0 ? (
+                <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesAvailable')}</p>
+            ) : (
+              <DormitoryList dormitories={allAdminEnabledDormitories} />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </PublicLayout>
   );
