@@ -310,8 +310,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         if (!existingBookingSnapshot.empty) {
           toast({
             variant: "destructive",
-            title: t('duplicateBookingTitle'),
-            description: t('duplicateBookingForPhoneOnDateError'),
+            title: t('duplicateBookingTitleShort'), 
+            description: t('duplicateBookingForPhoneOnDateErrorShort'), 
           });
           proceedWithBooking = false;
         }
@@ -331,23 +331,17 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             }
         }
 
-        let userFacingErrorMessage = t('errorCheckingExistingBookings');
         if (queryError.code === 'failed-precondition' && indexCreationLink) {
           toast({
             variant: "destructive",
             title: t('warningDatabaseConfigNeeded'),
             description: t('duplicateCheckSkippedBookingProceeds'),
-            duration: 10000, 
+            duration: 10000,
           });
           console.warn("DUPLICATE CHECK SKIPPED due to missing Firestore index. Booking will proceed. Index link: " + indexCreationLink);
-          // proceedWithBooking remains true to allow submission in this specific scenario with warning
-        } else if (queryError.code === 'permission-denied') {
-           userFacingErrorMessage = t('firestorePermissionError');
-           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: userFacingErrorMessage });
-           proceedWithBooking = false;
         } else {
-           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('firestoreIndexRequiredErrorDetailed') }); // Using the detailed key
-           proceedWithBooking = false;
+          toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('firestoreIndexRequiredErrorDetailed') });
+          proceedWithBooking = false;
         }
       }
       
@@ -370,7 +364,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
-          paymentStatus: 'pending' as const,
+          paymentStatus: 'pending_transfer' as const, // Updated status
           approvalStatus: 'pending' as const,
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
@@ -380,7 +374,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
           toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
           const queryParams = new URLSearchParams({
-              status: 'booking_pending_approval',
+              status: 'booking_pending_approval', // This status drives confirmation page UI
               bookingId: docRef.id,
               itemName: itemNameForConfirmation,
               amount: totalCost.toString(),

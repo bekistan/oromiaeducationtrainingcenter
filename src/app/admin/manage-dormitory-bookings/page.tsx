@@ -115,34 +115,16 @@ export default function AdminManageDormitoryBookingsPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+  const handlePaymentVerification = async (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
     try {
       const bookingRef = doc(db, "bookings", bookingId);
-      const currentBooking = allBookings.find(b => b.id === bookingId);
-      if (!currentBooking) {
-        toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
-        return;
+      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+      if (newPaymentStatus === 'paid') {
+        updateData.approvalStatus = 'approved';
+      } else { // 'failed'
+        updateData.approvalStatus = 'rejected';
       }
-
-      const updateData: Partial<Booking> = { approvalStatus: newStatus };
-      
-      if (newStatus === 'approved' && currentBooking.bookingCategory === 'dormitory' && currentBooking.paymentStatus === 'pending') {
-        updateData.paymentStatus = 'pending_transfer';
-      }
-      
       await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('bookingStatusUpdated') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error updating booking status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
-    }
-  };
-
-  const handlePaymentVerification = async (bookingId: string, newStatus: 'paid' | 'failed') => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      await updateDoc(bookingRef, { paymentStatus: newStatus });
       toast({ title: t('success'), description: t('paymentStatusUpdated') });
       fetchBookings();
     } catch (error) {
@@ -296,22 +278,10 @@ export default function AdminManageDormitoryBookingsPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
-                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                      {t('setAsPending')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                      {t('rejectBooking')}
-                                  </DropdownMenuItem>
-
-                                  {booking.approvalStatus === 'approved' && (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
+                                  {(booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
                                     <>
-                                      <DropdownMenuSeparator />
                                       <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                      <DropdownMenuSeparator />
                                       <DropdownMenuItem>
                                         <div className='flex items-center text-xs text-muted-foreground'>
                                             <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
@@ -323,10 +293,9 @@ export default function AdminManageDormitoryBookingsPage() {
                                       <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                         <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
                                       </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
                                     </>
                                   )}
-
-                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
                                       <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
                                   </DropdownMenuItem>
@@ -391,7 +360,3 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
-
-    
-
-    
