@@ -65,8 +65,9 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
               <Image
                 src={hall.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
                 alt={hall.name}
-                layout="fill"
-                objectFit="cover"
+                fill
+                style={{ objectFit: 'cover' }}
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 data-ai-hint={hall.dataAiHint || "meeting space"}
               />
               <Badge 
@@ -135,4 +136,3 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
     </div>
   );
 }
-

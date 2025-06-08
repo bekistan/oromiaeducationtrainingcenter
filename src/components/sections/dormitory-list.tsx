@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Dormitory } from "@/types";
@@ -29,9 +30,10 @@ export function DormitoryList({ dormitories }: DormitoryListProps) {
             <Image
               src={dorm.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
               alt={`${t('dormitory')} ${dorm.roomNumber}`}
-              layout="fill"
-              objectFit="cover"
-              data-ai-hint="dormitory room"
+              fill
+              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              data-ai-hint={dorm.dataAiHint || "dormitory room"}
             />
             <Badge 
               variant={dorm.isAvailable ? "default" : "destructive"} 

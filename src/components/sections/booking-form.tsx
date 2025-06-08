@@ -310,8 +310,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         if (!existingBookingSnapshot.empty) {
           toast({
             variant: "destructive",
-            title: t('duplicateBookingTitleShort'), 
-            description: t('duplicateBookingForPhoneOnDateErrorShort'), 
+            title: t('duplicateBookingTitle'), 
+            description: t('duplicateBookingForPhoneOnDateError'), 
           });
           proceedWithBooking = false;
         }
@@ -364,7 +364,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           startDate: Timestamp.fromDate(startDateObject),
           endDate: Timestamp.fromDate(endDateObject),
           totalCost,
-          paymentStatus: 'pending_transfer' as const, // Updated status
+          paymentStatus: 'pending_transfer' as const,
           approvalStatus: 'pending' as const,
           bookedAt: serverTimestamp(),
           ...(user?.id && { userId: user.id }),
@@ -374,7 +374,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
           toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
           const queryParams = new URLSearchParams({
-              status: 'booking_pending_approval', // This status drives confirmation page UI
+              status: 'booking_pending_approval', 
               bookingId: docRef.id,
               itemName: itemNameForConfirmation,
               amount: totalCost.toString(),
@@ -587,8 +587,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneEthiopian')} {...field} /></FormControl><FormDescription>{t('phoneForTelegramIdentificationOptional')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="numberOfAttendees" render={({ field }) => ( <FormItem><FormLabel>{t('numberOfAttendees')}</FormLabel><FormControl><Input type="number" min="1" placeholder={t('exampleAttendees')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="services.lunch" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('lunchLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('lunch')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('lunch')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="services.refreshment" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('refreshmentLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('refreshment')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('refreshment')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="services.lunch" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('lunchLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('lunch')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('lunch')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="services.refreshment" render={({ field }) => ( <FormItem className="space-y-3"><FormLabel>{t('refreshmentLevel')}</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1"><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="none" /></FormControl><FormLabel className="font-normal">{t('serviceLevelNone')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level1" /></FormControl><FormLabel className="font-normal">{t('serviceLevel1')} {t('refreshment')}</FormLabel></FormItem><FormItem className="flex items-center space-x-3 space-y-0"><FormControl><RadioGroupItem value="level2" /></FormControl><FormLabel className="font-normal">{t('serviceLevel2')} {t('refreshment')}</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>{t('notesOrSpecialRequests')}</FormLabel><FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               </>
             )}
