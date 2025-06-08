@@ -55,8 +55,10 @@ export default function LoginPage() {
         errorMessage = t('invalidCredentials');
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = t('invalidEmailFormat'); 
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = t('networkRequestFailedError'); // Specific message for network errors
       } else if (error.message === "userDataMissing") {
-        errorMessage = t('userDataMissingError'); // Add to JSON: "Login successful, but key profile data is missing. Please contact support."
+        errorMessage = t('userDataMissingError'); 
       } else if (error.message) {
         // For other errors thrown from useAuth or Firebase that have a message
         errorMessage = error.message;
