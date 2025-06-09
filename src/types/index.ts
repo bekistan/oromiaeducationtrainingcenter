@@ -82,6 +82,7 @@ export interface Booking {
   agreementStatus?: AgreementStatus;
   agreementSentAt?: string | import('firebase/firestore').Timestamp;
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
+  signedAgreementUrl?: string; // URL of the client's uploaded signed agreement
 }
 
 export interface User {
@@ -112,3 +113,4 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][];
 }
+

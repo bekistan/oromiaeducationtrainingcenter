@@ -13,7 +13,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
 import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud } from 'lucide-react';
-import { db } from '@/lib/firebase';
+import { db, uploadFileToFirebaseStorage } from '@/lib/firebase'; // Import uploadFileToFirebaseStorage
 import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ export default function CompanyDashboardPage() {
   const router = useRouter();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
-  const [isSubmittingAgreement, setIsSubmittingAgreement] = useState<string | null>(null); 
+  const [isUploadingAgreementId, setIsUploadingAgreementId] = useState<string | null>(null); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentBookingIdForUpload, setCurrentBookingIdForUpload] = useState<string | null>(null);
 
@@ -90,22 +90,27 @@ export default function CompanyDashboardPage() {
   };
 
   const handleFileSelectedAndConfirm = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0 && currentBookingIdForUpload) {
+    const file = event.target.files?.[0];
+    if (file && currentBookingIdForUpload && user?.companyId) {
       const bookingId = currentBookingIdForUpload;
-      setIsSubmittingAgreement(bookingId);
+      setIsUploadingAgreementId(bookingId);
       try {
+        const filePath = `signed_agreements/${user.companyId}/${bookingId}/${file.name}`;
+        const downloadURL = await uploadFileToFirebaseStorage(file, filePath);
+
         const bookingRef = doc(db, "bookings", bookingId);
         await updateDoc(bookingRef, {
           agreementStatus: 'signed_by_client',
           agreementSignedAt: Timestamp.now(),
+          signedAgreementUrl: downloadURL,
         });
-        toast({ title: t('success'), description: t('agreementConfirmedAndMockUploaded') }); 
+        toast({ title: t('success'), description: t('agreementUploadedSuccessfully') }); // Add to JSON
         if (user?.companyId) fetchBookings(user.companyId); 
       } catch (error) {
-        console.error("Error confirming signed agreement:", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorMockUploadingAgreement') }); 
+        console.error("Error uploading signed agreement:", error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorUploadingAgreementActual') }); // Add to JSON
       } finally {
-        setIsSubmittingAgreement(null);
+        setIsUploadingAgreementId(null);
         setCurrentBookingIdForUpload(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = ""; 
@@ -113,6 +118,9 @@ export default function CompanyDashboardPage() {
       }
     } else {
         setCurrentBookingIdForUpload(null);
+        if (fileInputRef.current) { // Ensure reset if no file or other conditions not met
+          fileInputRef.current.value = "";
+        }
     }
   };
 
@@ -335,10 +343,10 @@ export default function CompanyDashboardPage() {
                                   size="sm" 
                                   variant="outline"
                                   onClick={() => handleTriggerFileUpload(booking.id)}
-                                  disabled={isSubmittingAgreement === booking.id}
+                                  disabled={isUploadingAgreementId === booking.id}
                                   className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
                                 >
-                                  {isSubmittingAgreement === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
+                                  {isUploadingAgreementId === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
                                   {t('uploadAndConfirmSignedAgreement')} 
                                 </Button>
                               </>

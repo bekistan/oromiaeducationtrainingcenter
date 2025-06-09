@@ -11,7 +11,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Save, Printer } from 'lucide-react'; 
+import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, FileDown } from 'lucide-react'; 
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -96,10 +96,10 @@ export default function AdminBookingAgreementPage() {
         customAgreementTerms: editableTerms,
       });
       setBooking(prev => prev ? { ...prev, customAgreementTerms: editableTerms } : null);
-      toast({ title: t('success'), description: t('agreementTermsSaved') }); // Add to JSON
+      toast({ title: t('success'), description: t('agreementTermsSaved') });
     } catch (err) {
       console.error("Error saving agreement terms:", err);
-      toast({ variant: "destructive", title: t('error'), description: t('errorSavingTerms') }); // Add to JSON
+      toast({ variant: "destructive", title: t('error'), description: t('errorSavingTerms') });
     } finally {
       setIsSaving(false);
     }
@@ -136,7 +136,7 @@ export default function AdminBookingAgreementPage() {
                 <div className="space-x-2">
                     <Button onClick={handleSaveTerms} variant="default" size="sm" disabled={isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {t('saveTerms')} {/* Add to JSON */}
+                        {t('saveTerms')}
                     </Button>
                     <Button onClick={() => window.print()} variant="outline" size="sm">
                         <Printer className="mr-2 h-4 w-4" /> {t('printAgreement')}
@@ -146,7 +146,7 @@ export default function AdminBookingAgreementPage() {
 
             <div className="space-y-2 mb-6 p-4 border rounded-md bg-background">
                 <label htmlFor="editableTerms" className="block text-sm font-medium text-foreground">
-                {t('editAgreementTerms')}: {/* Add to JSON */}
+                {t('editAgreementTerms')}:
                 </label>
                 <Textarea
                     id="editableTerms"
@@ -154,12 +154,24 @@ export default function AdminBookingAgreementPage() {
                     onChange={(e) => setEditableTerms(e.target.value)}
                     rows={10}
                     className="w-full text-xs"
-                    placeholder={t('enterCustomTermsHere')} /* Add to JSON */
+                    placeholder={t('enterCustomTermsHere')}
                 />
-                <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p> {/* Add to JSON */}
+                <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
             </div>
+
+            {booking?.signedAgreementUrl && (
+                <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
+                    <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
+                    <Button asChild variant="outline" size="sm">
+                        <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                            <FileDown className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
+                        </a>
+                    </Button>
+                </div>
+            )}
         </div>
         <AgreementTemplate booking={booking} customTerms={editableTerms} />
     </div>
   );
 }
+
