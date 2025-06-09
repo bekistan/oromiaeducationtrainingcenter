@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label"; // Import Label
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import type { BookingServiceDetails, BookingItem, Booking } from "@/types";
+import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2 } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -68,7 +68,7 @@ const facilityBookingSchema = z.object({
     lunch: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
     refreshment: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
   }),
-  notes: z.string().optional(),
+  notes: z.string().max(500, { message: "Notes cannot exceed 500 characters." }).optional(),
 });
 
 type DormitoryBookingValues = z.infer<typeof dormitoryBookingSchema>;
@@ -135,11 +135,17 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
 
       for (const item of itemsToCheck) {
-        const itemDocRef = doc(db, "halls", item.id);
+        const itemDocRef = doc(db, "halls", item.id); // Assumes items are from "halls" collection
         const itemDocSnap = await getDoc(itemDocRef);
-        if (itemDocSnap.exists() && !itemDocSnap.data().isAvailable) {
-          return t('facilityNotAvailableOverride', { itemName: item.name });
+        if (itemDocSnap.exists()) {
+            const hallData = itemDocSnap.data() as HallType;
+            if (!hallData.isAvailable) {
+                return t('facilityNotAvailableOverride', { itemName: item.name });
+            }
+        } else {
+            return t('itemNotFoundDatabase', {itemName: item.name });
         }
+
 
         const conflictingBookingsForItem = potentiallyConflictingBookings.filter(booking => {
           const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
@@ -171,7 +177,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"),
+        where("approvalStatus", "==", "approved"), // Only check against fully approved bookings
         where("startDate", "<=", toTimestamp)
     );
 
@@ -235,7 +241,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       clearTimeout(debounceTimer);
     };
   }, [
-    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity}))),
+    // Stringify only stable parts of itemsToBook for dependency array
+    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity, rentalCost: item.rentalCost, pricePerDay: item.pricePerDay }))),
     watchedDateRange?.from?.toISOString(),
     watchedDateRange?.to?.toISOString(),
     bookingCategory,
@@ -244,10 +251,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     checkDormitoryBedAvailability
   ]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
-      // Pre-fill company related fields if not already set or different
-      // This avoids a full form.reset() which can be problematic with controlled components
       if (user.companyName && form.getValues('companyName') !== user.companyName) {
         form.setValue('companyName', user.companyName, { shouldValidate: true, shouldDirty: true });
       }
@@ -260,8 +265,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       if (user.phone && form.getValues('phone') !== user.phone) {
         form.setValue('phone', user.phone, { shouldValidate: true, shouldDirty: true });
       }
-      // Other fields (dateRange, numberOfAttendees, services, notes) will retain their state
-      // from initial defaultValues or subsequent user interaction.
     }
   }, [user, isDormitoryBooking, form]);
 
@@ -290,25 +293,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
-      const item = itemsToBook[0];
+      const item = itemsToBook[0]; // Assuming single item for dormitory booking
       let proceedWithBooking = true;
 
+      // Check for existing booking by the same phone number on the same start date
       const startOfDay = new Date(startDateObject);
       startOfDay.setHours(0, 0, 0, 0);
       const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-      const endOfDay = new Date(startDateObject);
+      const endOfDay = new Date(startDateObject); // Check only for the start day
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
       const existingBookingQuery = query(
         collection(db, "bookings"),
-        where("approvalStatus", "in", ["pending", "approved"]),
+        where("approvalStatus", "in", ["pending", "approved"]), // Consider pending bookings too
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
         where("startDate", "<=", endOfDayTimestamp),
-        orderBy("startDate")
+        orderBy("startDate") 
       );
 
       try {
@@ -316,34 +320,21 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         if (!existingBookingSnapshot.empty) {
            toast({
             variant: "destructive",
-            title: t('duplicateBookingTitle'), 
-            description: t('sorryYouCannotBookTwice'),
+            title: t('duplicateBookingTitle'),
+            description: t('sorryYouCannotBookTwice'), // Using updated key
           });
           proceedWithBooking = false;
         }
       } catch (queryError: any) {
-        console.error("Firestore query error during existing booking check. Full error object:", queryError);
-        if (queryError.code) {
-            console.error("Firebase error code:", queryError.code);
-        }
+        console.error("Firestore query error during existing booking check:", queryError);
         let indexCreationLink = "";
         if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-             const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
-            if (match && match[0]) {
-                indexCreationLink = match[0];
-                console.error("Firestore requires a composite index for this query. Please create it using the link: " + indexCreationLink);
-            } else {
-                 console.error("Firestore requires a composite index for this query. Please create it using the link in the error message (if provided by Firestore) or in your Firebase console.");
-            }
+            const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
+            if (match && match[0]) indexCreationLink = match[0];
         }
 
         if (queryError.code === 'failed-precondition' && indexCreationLink) {
-          toast({
-            variant: "destructive",
-            title: t('warningDatabaseConfigNeeded'),
-            description: t('duplicateCheckSkippedBookingProceeds'),
-            duration: 10000,
-          });
+          toast({ variant: "destructive", title: t('warningDatabaseConfigNeeded'), description: t('duplicateCheckSkippedBookingProceeds'), duration: 10000 });
           console.warn("DUPLICATE CHECK SKIPPED due to missing Firestore index. Booking will proceed. Index link: " + indexCreationLink);
         } else {
           toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('firestoreIndexRequiredErrorDetailed') });
@@ -361,7 +352,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
         const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
           bookingCategory: 'dormitory',
-          items: itemsToBook.map(i => ({ id: i.id, name: i.name, itemType: i.itemType, capacity: i.capacity, pricePerDay: i.pricePerDay })),
+          items: itemsToBook.map(i => ({
+            id: i.id,
+            name: i.name,
+            itemType: i.itemType,
+            ...(i.capacity !== undefined && { capacity: i.capacity }),
+            ...(i.pricePerDay !== undefined && { pricePerDay: i.pricePerDay }),
+          })),
           guestName: dormData.fullName,
           phone: dormData.phone,
           guestEmployer: dormData.employer,
@@ -431,7 +428,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
-        items: itemsToBook.map(item => ({ id: item.id, name: item.name, itemType: item.itemType, rentalCost: item.rentalCost })),
+        items: itemsToBook.map(item => ({
+          id: item.id,
+          name: item.name,
+          itemType: item.itemType,
+          ...(item.rentalCost !== undefined && { rentalCost: item.rentalCost }),
+          ...(item.capacity !== undefined && { capacity: item.capacity }),
+        })),
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -440,13 +443,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         endDate: Timestamp.fromDate(endDateObject),
         numberOfAttendees: facilityData.numberOfAttendees,
         ...(Object.keys(serviceDetails).length > 0 && { serviceDetails }),
-        notes: facilityData.notes,
+        ...(facilityData.notes !== undefined && facilityData.notes.trim() !== "" && { notes: facilityData.notes }),
         totalCost,
         paymentStatus: 'pending' as const,
         approvalStatus: 'pending' as const,
         bookedAt: serverTimestamp(),
-        userId: user?.id,
-        companyId: user?.companyId,
+        ...(user?.id && { userId: user.id }),
+        ...(user?.companyId && { companyId: user.companyId }),
       };
 
       try {
@@ -605,15 +608,15 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                         value={field.value}
                         className="flex flex-col space-y-1"
                       >
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="none" id="lunch-none" />
                           <Label htmlFor="lunch-none" className="font-normal">{t('serviceLevelNone')}</Label>
                         </div>
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="level1" id="lunch-level1" />
                           <Label htmlFor="lunch-level1" className="font-normal">{t('serviceLevel1')} {t('lunch')}</Label>
                         </div>
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="level2" id="lunch-level2" />
                           <Label htmlFor="lunch-level2" className="font-normal">{t('serviceLevel2')} {t('lunch')}</Label>
                         </div>
@@ -633,15 +636,15 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                         value={field.value}
                         className="flex flex-col space-y-1"
                       >
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="none" id="refreshment-none" />
                           <Label htmlFor="refreshment-none" className="font-normal">{t('serviceLevelNone')}</Label>
                         </div>
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="level1" id="refreshment-level1" />
                           <Label htmlFor="refreshment-level1" className="font-normal">{t('serviceLevel1')} {t('refreshment')}</Label>
                         </div>
-                        <div className="flex items-center space-x-3 space-y-0">
+                        <div className="flex items-center space-x-3">
                           <RadioGroupItem value="level2" id="refreshment-level2" />
                           <Label htmlFor="refreshment-level2" className="font-normal">{t('serviceLevel2')} {t('refreshment')}</Label>
                         </div>
@@ -663,4 +666,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
