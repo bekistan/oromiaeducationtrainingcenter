@@ -135,7 +135,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
 
       for (const item of itemsToCheck) {
-        const itemDocRef = doc(db, "halls", item.id); // Assumes items are from "halls" collection
+        const itemDocRef = doc(db, "halls", item.id); 
         const itemDocSnap = await getDoc(itemDocRef);
         if (itemDocSnap.exists()) {
             const hallData = itemDocSnap.data() as HallType;
@@ -177,7 +177,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), // Only check against fully approved bookings
+        where("approvalStatus", "==", "approved"), 
         where("startDate", "<=", toTimestamp)
     );
 
@@ -241,7 +241,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       clearTimeout(debounceTimer);
     };
   }, [
-    // Stringify only stable parts of itemsToBook for dependency array
     JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity, rentalCost: item.rentalCost, pricePerDay: item.pricePerDay }))),
     watchedDateRange?.from?.toISOString(),
     watchedDateRange?.to?.toISOString(),
@@ -253,18 +252,18 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
-      if (user.companyName && form.getValues('companyName') !== user.companyName) {
-        form.setValue('companyName', user.companyName, { shouldValidate: true, shouldDirty: true });
-      }
-      if (user.name && form.getValues('contactPerson') !== user.name) {
-        form.setValue('contactPerson', user.name, { shouldValidate: true, shouldDirty: true });
-      }
-      if (user.email && form.getValues('email') !== user.email) {
-        form.setValue('email', user.email, { shouldValidate: true, shouldDirty: true });
-      }
-      if (user.phone && form.getValues('phone') !== user.phone) {
-        form.setValue('phone', user.phone, { shouldValidate: true, shouldDirty: true });
-      }
+        if (user.companyName && form.getValues('companyName') !== user.companyName) {
+          form.setValue('companyName', user.companyName, { shouldValidate: true });
+        }
+        if (user.name && form.getValues('contactPerson') !== user.name) {
+          form.setValue('contactPerson', user.name, { shouldValidate: true });
+        }
+        if (user.email && form.getValues('email') !== user.email) {
+          form.setValue('email', user.email, { shouldValidate: true });
+        }
+        if (user.phone && form.getValues('phone') !== user.phone) {
+          form.setValue('phone', user.phone, { shouldValidate: true });
+        }
     }
   }, [user, isDormitoryBooking, form]);
 
@@ -293,21 +292,20 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
     if (isDormitoryBooking) {
       const dormData = data as DormitoryBookingValues;
-      const item = itemsToBook[0]; // Assuming single item for dormitory booking
+      const item = itemsToBook[0]; 
       let proceedWithBooking = true;
 
-      // Check for existing booking by the same phone number on the same start date
       const startOfDay = new Date(startDateObject);
       startOfDay.setHours(0, 0, 0, 0);
       const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
 
-      const endOfDay = new Date(startDateObject); // Check only for the start day
+      const endOfDay = new Date(startDateObject); 
       endOfDay.setHours(23, 59, 59, 999);
       const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
 
       const existingBookingQuery = query(
         collection(db, "bookings"),
-        where("approvalStatus", "in", ["pending", "approved"]), // Consider pending bookings too
+        where("approvalStatus", "in", ["pending", "approved"]), 
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", dormData.phone),
         where("startDate", ">=", startOfDayTimestamp),
@@ -321,7 +319,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
            toast({
             variant: "destructive",
             title: t('duplicateBookingTitle'),
-            description: t('sorryYouCannotBookTwice'), // Using updated key
+            description: t('sorryYouCannotBookTwice'), 
           });
           proceedWithBooking = false;
         }
@@ -349,52 +347,63 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       if (item && typeof item.pricePerDay === 'number') {
         totalCost = numberOfDays * item.pricePerDay;
-
-        const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
-          bookingCategory: 'dormitory',
-          items: itemsToBook.map(i => ({
-            id: i.id,
-            name: i.name,
-            itemType: i.itemType,
-            ...(i.capacity !== undefined && { capacity: i.capacity }),
-            ...(i.pricePerDay !== undefined && { pricePerDay: i.pricePerDay }),
-          })),
-          guestName: dormData.fullName,
-          phone: dormData.phone,
-          guestEmployer: dormData.employer,
-          payerBankName: dormData.bankName,
-          payerAccountNumber: dormData.accountNumber,
-          startDate: Timestamp.fromDate(startDateObject),
-          endDate: Timestamp.fromDate(endDateObject),
-          totalCost,
-          paymentStatus: 'pending_transfer' as const,
-          approvalStatus: 'pending' as const,
-          bookedAt: serverTimestamp(),
-          ...(user?.id && { userId: user.id }),
-        };
-
-        try {
-          const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
-          toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
-          const queryParams = new URLSearchParams({
-              status: 'booking_pending_approval', 
-              bookingId: docRef.id,
-              itemName: itemNameForConfirmation,
-              amount: totalCost.toString(),
-              category: 'dormitory',
-              phone: dormData.phone,
-          });
-          router.push(`/booking-confirmation?${queryParams.toString()}`);
-        } catch (error) {
-            console.error("Error saving dormitory booking:", error);
-            toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
-            setIsSubmitting(false);
-            return;
-        }
       } else {
         toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
         setIsSubmitting(false);
         return;
+      }
+
+      if (isNaN(totalCost)) {
+        toast({ variant: "destructive", title: t('error'), description: t('errorCalculatingTotalCostNaN') });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const mappedItems = itemsToBook.map(i => {
+        const mappedItem: Partial<BookingItem> & { id: string; name: string; itemType: BookingItem['itemType'] } = {
+          id: i.id,
+          name: i.name,
+          itemType: i.itemType,
+        };
+        if (i.capacity !== undefined) mappedItem.capacity = i.capacity;
+        if (i.pricePerDay !== undefined) mappedItem.pricePerDay = i.pricePerDay;
+        return mappedItem as BookingItem;
+      });
+
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+        bookingCategory: 'dormitory',
+        items: mappedItems,
+        guestName: dormData.fullName,
+        phone: dormData.phone,
+        guestEmployer: dormData.employer,
+        payerBankName: dormData.bankName,
+        payerAccountNumber: dormData.accountNumber,
+        startDate: Timestamp.fromDate(startDateObject),
+        endDate: Timestamp.fromDate(endDateObject),
+        totalCost,
+        paymentStatus: 'pending_transfer' as const,
+        approvalStatus: 'pending' as const,
+        bookedAt: serverTimestamp(),
+        ...(user?.id && { userId: user.id }),
+      };
+
+      try {
+        const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+        toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
+        const queryParams = new URLSearchParams({
+            status: 'booking_pending_approval', 
+            bookingId: docRef.id,
+            itemName: itemNameForConfirmation,
+            amount: totalCost.toString(),
+            category: 'dormitory',
+            phone: dormData.phone,
+        });
+        router.push(`/booking-confirmation?${queryParams.toString()}`);
+      } catch (error) {
+          console.error("Error saving dormitory booking:", error);
+          toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
+          setIsSubmitting(false);
+          return;
       }
 
     } else { // Facility Booking
@@ -418,6 +427,12 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       totalCost = rentalCostComponent + lunchCostComponent + refreshmentCostComponent;
 
+      if (isNaN(totalCost)) {
+        toast({ variant: "destructive", title: t('error'), description: t('errorCalculatingTotalCostNaN') });
+        setIsSubmitting(false);
+        return;
+      }
+
       const serviceDetails: BookingServiceDetails = {};
       if (facilityData.services.lunch && facilityData.services.lunch !== 'none') {
         serviceDetails.lunch = facilityData.services.lunch;
@@ -426,15 +441,21 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
-        bookingCategory,
-        items: itemsToBook.map(item => ({
+      const mappedItems = itemsToBook.map(item => {
+        const mappedItem: Partial<BookingItem> & { id: string; name: string; itemType: BookingItem['itemType'] } = {
           id: item.id,
           name: item.name,
           itemType: item.itemType,
-          ...(item.rentalCost !== undefined && { rentalCost: item.rentalCost }),
-          ...(item.capacity !== undefined && { capacity: item.capacity }),
-        })),
+        };
+        if (item.rentalCost !== undefined) mappedItem.rentalCost = item.rentalCost;
+        if (item.capacity !== undefined) mappedItem.capacity = item.capacity;
+        return mappedItem as BookingItem;
+      });
+
+
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+        bookingCategory,
+        items: mappedItems,
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -556,7 +577,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('bankName')}</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || ""}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={t('selectBankPlaceholder')} />
@@ -666,3 +687,5 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
+
+    
