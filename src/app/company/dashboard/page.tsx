@@ -13,7 +13,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
 import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud } from 'lucide-react';
-import { db, uploadFileToFirebaseStorage } from '@/lib/firebase'; // Import uploadFileToFirebaseStorage
+import { db } from '@/lib/firebase'; 
 import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -94,21 +94,37 @@ export default function CompanyDashboardPage() {
     if (file && currentBookingIdForUpload && user?.companyId) {
       const bookingId = currentBookingIdForUpload;
       setIsUploadingAgreementId(bookingId);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('bookingId', bookingId);
+      formData.append('companyId', user.companyId);
+
       try {
-        const filePath = `signed_agreements/${user.companyId}/${bookingId}/${file.name}`;
-        const downloadURL = await uploadFileToFirebaseStorage(file, filePath);
+        const response = await fetch('/api/upload-agreement', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || result.details || t('failedToUploadToCloudinary'));
+        }
+        
+        const cloudinaryUrl = result.url;
 
         const bookingRef = doc(db, "bookings", bookingId);
         await updateDoc(bookingRef, {
           agreementStatus: 'signed_by_client',
           agreementSignedAt: Timestamp.now(),
-          signedAgreementUrl: downloadURL,
+          signedAgreementUrl: cloudinaryUrl,
         });
-        toast({ title: t('success'), description: t('agreementUploadedSuccessfully') }); // Add to JSON
+        toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
         if (user?.companyId) fetchBookings(user.companyId); 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error uploading signed agreement:", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorUploadingAgreementActual') }); // Add to JSON
+        toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUploadingAgreementActual') });
       } finally {
         setIsUploadingAgreementId(null);
         setCurrentBookingIdForUpload(null);
@@ -118,7 +134,7 @@ export default function CompanyDashboardPage() {
       }
     } else {
         setCurrentBookingIdForUpload(null);
-        if (fileInputRef.current) { // Ensure reset if no file or other conditions not met
+        if (fileInputRef.current) { 
           fileInputRef.current.value = "";
         }
     }
