@@ -246,19 +246,24 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   React.useEffect(() => {
     if (!isDormitoryBooking && user && user.role === 'company_representative') {
-      form.reset({
-        ...defaultFacilityValues,
-        companyName: user.companyName || "",
-        contactPerson: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        dateRange: form.getValues('dateRange') || undefined,
-        numberOfAttendees: form.getValues('numberOfAttendees') || 1,
-        services: form.getValues('services') || { lunch: 'none', refreshment: 'none' },
-        notes: form.getValues('notes') || "",
-      } as FacilityBookingValues);
+      // Pre-fill company related fields if not already set or different
+      // This avoids a full form.reset() which can be problematic with controlled components
+      if (user.companyName && form.getValues('companyName') !== user.companyName) {
+        form.setValue('companyName', user.companyName, { shouldValidate: true, shouldDirty: true });
+      }
+      if (user.name && form.getValues('contactPerson') !== user.name) {
+        form.setValue('contactPerson', user.name, { shouldValidate: true, shouldDirty: true });
+      }
+      if (user.email && form.getValues('email') !== user.email) {
+        form.setValue('email', user.email, { shouldValidate: true, shouldDirty: true });
+      }
+      if (user.phone && form.getValues('phone') !== user.phone) {
+        form.setValue('phone', user.phone, { shouldValidate: true, shouldDirty: true });
+      }
+      // Other fields (dateRange, numberOfAttendees, services, notes) will retain their state
+      // from initial defaultValues or subsequent user interaction.
     }
-  }, [user, form, isDormitoryBooking, defaultFacilityValues]);
+  }, [user, isDormitoryBooking, form]);
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
@@ -309,10 +314,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         const existingBookingSnapshot = await getDocs(existingBookingQuery);
         if (!existingBookingSnapshot.empty) {
-          toast({
+           toast({
             variant: "destructive",
             title: t('duplicateBookingTitle'), 
-            description: t('sorryYouCannotBookTwice'), 
+            description: t('sorryYouCannotBookTwice'),
           });
           proceedWithBooking = false;
         }
@@ -659,4 +664,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   );
 }
 
-    
