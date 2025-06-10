@@ -56,12 +56,12 @@ export async function POST(request: NextRequest) {
       cloudinary.uploader.upload_stream(
         {
           folder: `signed_agreements/${companyId}/${bookingId}`,
-          resource_type: 'auto', 
+          resource_type: 'auto',
         },
         (error, result) => {
           if (error) {
-            console.error('Cloudinary upload error during stream:', error);
-            reject({ error });
+            console.error('Cloudinary upload_stream error object:', JSON.stringify(error, null, 2));
+            reject({ error }); // error here is the Cloudinary error object
           } else {
             resolve({ secure_url: result?.secure_url, public_id: result?.public_id });
           }
@@ -70,15 +70,24 @@ export async function POST(request: NextRequest) {
     });
 
     if (uploadResult.error || !uploadResult.secure_url) {
-      console.error('Failed to upload to Cloudinary or secure_url missing:', uploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: uploadResult.error?.message || 'Unknown Cloudinary upload error' }, { status: 500 });
+      console.error('Failed to upload to Cloudinary or secure_url missing. Upload result error:', JSON.stringify(uploadResult.error, null, 2));
+      let detailMessage = 'Unknown Cloudinary upload error';
+      if (uploadResult.error) {
+        detailMessage = typeof uploadResult.error === 'string' ? uploadResult.error : uploadResult.error.message || JSON.stringify(uploadResult.error);
+      }
+      return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: detailMessage }, { status: 500 });
     }
 
     return NextResponse.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
 
   } catch (error: any) {
-    console.error('Error in /api/upload-agreement POST handler:', error);
-    return NextResponse.json({ error: 'Internal server error during file upload.', details: error.message }, { status: 500 });
+    console.error('Full error object in /api/upload-agreement POST handler:', JSON.stringify(error, null, 2));
+    let detailMessage = 'Unknown server error during upload process.';
+    if (error.error) { // This catches errors rejected from the promise like { error: CloudinaryError }
+      detailMessage = typeof error.error === 'string' ? error.error : error.error.message || JSON.stringify(error.error);
+    } else if (error.message) { // Standard JS error
+      detailMessage = error.message;
+    }
+    return NextResponse.json({ error: 'Internal server error during file upload.', details: detailMessage }, { status: 500 });
   }
 }
-
