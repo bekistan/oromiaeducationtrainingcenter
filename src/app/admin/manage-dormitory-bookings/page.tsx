@@ -42,13 +42,18 @@ export default function AdminManageDormitoryBookingsPage() {
   const { toast } = useToast();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
+  const fetchBookings = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad || allBookings.length === 0) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const q = query(collection(db, "bookings"), where("bookingCategory", "==", "dormitory"));
       const querySnapshot = await getDocs(q);
@@ -68,12 +73,13 @@ export default function AdminManageDormitoryBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [t, toast]);
+  }, [t, toast, allBookings.length]);
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchBookings(true);
+  }, []); // Removed fetchBookings from dependency array
 
   const filteredBookings = useMemo(() => {
     return allBookings.filter(booking => {
@@ -235,7 +241,10 @@ export default function AdminManageDormitoryBookingsPage() {
         {!isLoading && displayedBookings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('dormitoryBookingList')}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t('dormitoryBookingList')}</CardTitle>
+                {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              </div>
               <CardDescription>{t('viewAndManageDormitoryBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -360,3 +369,4 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
+

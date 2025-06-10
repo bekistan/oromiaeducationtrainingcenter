@@ -43,13 +43,18 @@ export default function AdminBookingsPage() {
   const { toast } = useToast();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
+  const fetchBookings = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad || allBookings.length === 0) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const querySnapshot = await getDocs(collection(db, "bookings"));
       const bookingsData = querySnapshot.docs.map(docSnap => {
@@ -70,12 +75,13 @@ export default function AdminBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [t, toast]);
+  }, [t, toast, allBookings.length]);
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchBookings(true); // Pass true for initial load
+  }, []); // Removed fetchBookings from dependency array to prevent re-triggering due to allBookings.length change
 
   const filteredBookings = useMemo(() => {
     return allBookings.filter(booking => {
@@ -267,7 +273,10 @@ export default function AdminBookingsPage() {
         {!isLoading && displayedBookings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('bookingList')}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t('bookingList')}</CardTitle>
+                {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              </div>
               <CardDescription>{t('viewAndManageAllBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -300,7 +309,6 @@ export default function AdminBookingsPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {/* Eye button removed */}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -410,7 +418,4 @@ export default function AdminBookingsPage() {
     </>
   );
 }
-
-    
-
     

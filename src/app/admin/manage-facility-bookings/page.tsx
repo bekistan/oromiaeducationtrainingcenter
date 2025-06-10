@@ -43,13 +43,18 @@ export default function AdminManageFacilityBookingsPage() {
   const { toast } = useToast();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const fetchBookings = useCallback(async () => {
-    setIsLoading(true);
+  const fetchBookings = useCallback(async (isInitialLoad = false) => {
+    if (isInitialLoad || allBookings.length === 0) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     try {
       const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"));
       const querySnapshot = await getDocs(q);
@@ -71,12 +76,13 @@ export default function AdminManageFacilityBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [t, toast]);
+  }, [t, toast, allBookings.length]);
 
   useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
+    fetchBookings(true);
+  }, []); // Removed fetchBookings from dependency array
 
   const filteredBookings = useMemo(() => {
     return allBookings.filter(booking => {
@@ -266,7 +272,10 @@ export default function AdminManageFacilityBookingsPage() {
         {!isLoading && displayedBookings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>{t('facilityBookingList')}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{t('facilityBookingList')}</CardTitle>
+                {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+              </div>
               <CardDescription>{t('viewAndManageFacilityBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
@@ -276,7 +285,7 @@ export default function AdminManageFacilityBookingsPage() {
                     <TableRow>
                       <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
                       <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('companyName')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead> {/* Sort by items.length or first item name? */}
+                      <TableHead>{t('itemsBooked')}</TableHead>
                       <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
                       <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                       <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
@@ -297,7 +306,6 @@ export default function AdminManageFacilityBookingsPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {/* Eye button removed */}
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" title={t('moreActions')}>
@@ -401,7 +409,4 @@ export default function AdminManageFacilityBookingsPage() {
     </>
   );
 }
-
-    
-
     
