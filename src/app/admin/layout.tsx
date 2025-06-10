@@ -21,6 +21,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -57,8 +58,19 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     <SidebarProvider defaultOpen>
         <Sidebar collapsible="icon" variant="sidebar" side="left">
           <SidebarHeader className="p-4 border-b border-sidebar-border">
-            <div className="flex items-center justify-between">
-              <Logo />
+            <div className="flex items-center h-full">
+              {/* Logo: shown when expanded, hidden when collapsed to icon mode */}
+              <div className={cn(
+                "flex-grow", // Takes available space, pushing trigger to the right
+                "group-data-[collapsible=icon]:group-data-[state=collapsed]:hidden"
+              )}>
+                 <Logo />
+              </div>
+              
+              {/* Desktop Sidebar Toggle Button - always at the end */}
+              <div className="hidden md:flex"> {/* Only show on desktop */}
+                <SidebarTrigger /> {/* This component handles toggling expanded/icon state */}
+              </div>
             </div>
           </SidebarHeader>
           <SidebarContent>
@@ -87,6 +99,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
         
         <SidebarInset>
           <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background px-4 md:px-6 md:justify-end">
+            {/* Mobile Sidebar Trigger (for off-canvas mobile sidebar) */}
             <div className="md:hidden">
               <SidebarTrigger />
             </div>
