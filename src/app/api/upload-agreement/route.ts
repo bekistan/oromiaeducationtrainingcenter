@@ -3,23 +3,35 @@ import { NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import type { NextRequest } from 'next/server';
 
-// Configure Cloudinary
-if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-  console.error("Cloudinary environment variables are not set!");
-  // In a real app, you might throw an error or handle this more gracefully
-} else {
+let isCloudinaryConfigured = false;
+
+// Attempt to configure Cloudinary at the module level
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  try {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET,
       secure: true,
     });
+    if (cloudinary.config().api_key && cloudinary.config().api_secret && cloudinary.config().cloud_name) {
+        isCloudinaryConfigured = true;
+        console.log("Cloudinary SDK configured successfully.");
+    } else {
+        console.error("Critical: Cloudinary config object incomplete after setting. Check variable integrity.");
+    }
+  } catch (error) {
+    console.error("Critical: Error during Cloudinary SDK configuration:", error);
+  }
+} else {
+  console.error("Critical: Cloudinary environment variables (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not fully set. Upload API will not function.");
 }
 
 
 export async function POST(request: NextRequest) {
-  if (!cloudinary.config().api_secret) { // Check if cloudinary is configured
-    return NextResponse.json({ error: 'Cloudinary not configured on server.' }, { status: 500 });
+  if (!isCloudinaryConfigured) {
+    console.error("API Call to /api/upload-agreement: Cloudinary is not configured due to missing or invalid environment variables.");
+    return NextResponse.json({ error: 'Cloudinary not configured on server. Please check server logs and environment variable setup.' }, { status: 500 });
   }
 
   try {
@@ -40,17 +52,15 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     // Upload to Cloudinary
-    // Use a public_id that's unique and identifiable, e.g., within a folder structure
     const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           folder: `signed_agreements/${companyId}/${bookingId}`,
-          // public_id: file.name.split('.')[0], // You can customize the public_id
-          resource_type: 'auto', // Or 'raw' if you want to store as raw file
+          resource_type: 'auto', 
         },
         (error, result) => {
           if (error) {
-            console.error('Cloudinary upload error:', error);
+            console.error('Cloudinary upload error during stream:', error);
             reject({ error });
           } else {
             resolve({ secure_url: result?.secure_url, public_id: result?.public_id });
@@ -60,14 +70,15 @@ export async function POST(request: NextRequest) {
     });
 
     if (uploadResult.error || !uploadResult.secure_url) {
-      console.error('Failed to upload to Cloudinary:', uploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: uploadResult.error?.message }, { status: 500 });
+      console.error('Failed to upload to Cloudinary or secure_url missing:', uploadResult.error);
+      return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: uploadResult.error?.message || 'Unknown Cloudinary upload error' }, { status: 500 });
     }
 
     return NextResponse.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
 
   } catch (error: any) {
-    console.error('Error in /api/upload-agreement:', error);
+    console.error('Error in /api/upload-agreement POST handler:', error);
     return NextResponse.json({ error: 'Internal server error during file upload.', details: error.message }, { status: 500 });
   }
 }
+
