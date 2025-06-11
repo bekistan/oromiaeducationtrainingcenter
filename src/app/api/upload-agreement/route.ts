@@ -42,15 +42,23 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const bookingId = formData.get('bookingId') as string | null;
-    const companyId = formData.get('companyId') as string | null;
+    // const bookingId = formData.get('bookingId') as string | null; // No longer used for folder path
+    // const companyId = formData.get('companyId') as string | null; // No longer used for folder path
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     }
-    if (!bookingId || !companyId) {
-        return NextResponse.json({ error: 'Missing bookingId or companyId.' }, { status: 400 });
+    // Validation for bookingId and companyId can remain if they are needed for other purposes,
+    // but they are removed from the folder structure in this change.
+    // For instance, you might still want to record them in the file's metadata or tags if Cloudinary supports that in upload_stream options.
+    // For now, let's assume they are not strictly needed if the folder is 'homepage'.
+    // If they ARE needed for other logic (e.g. database update after upload), ensure they are still extracted:
+    const bookingId = formData.get('bookingId') as string | null;
+    const companyId = formData.get('companyId') as string | null;
+     if (!bookingId || !companyId) { // Keep this check if these IDs are used elsewhere
+        return NextResponse.json({ error: 'Missing bookingId or companyId for metadata.' }, { status: 400 });
     }
+
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
     const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any; full_result?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: `signed_agreements/${companyId}/${bookingId}`,
+          folder: 'homepage', // Changed to 'homepage' folder
           resource_type: 'auto',
         },
         (error, result) => {
@@ -69,7 +77,7 @@ export async function POST(request: NextRequest) {
             }
             reject({ error });
           } else {
-            console.log('Cloudinary upload_stream successful result object:', JSON.stringify(result, null, 2)); // Log successful result
+            console.log('Cloudinary upload_stream successful result object:', JSON.stringify(result, null, 2));
             resolve({ secure_url: result?.secure_url, public_id: result?.public_id, full_result: result });
           }
         }
@@ -91,7 +99,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
 
   } catch (error: any) {
-    // Log the full error structure if it's an object, otherwise log as is
     const errorDetails = (typeof error === 'object' && error !== null) ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : String(error);
     console.error('Full error object in /api/upload-agreement POST handler:', errorDetails);
     
