@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/hooks/use-language";
 import { SUPPORTED_LOCALES } from '@/constants';
-import { Globe } from "lucide-react";
+import { Languages } from "lucide-react"; // Changed from Globe to Languages
 
 export function LanguageSwitcher() {
   const { locale, setLocale } = useLanguage();
@@ -18,7 +19,7 @@ export function LanguageSwitcher() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon">
-          <Globe className="h-5 w-5" />
+          <Languages className="h-5 w-5" /> {/* Changed from Globe to Languages */}
           <span className="sr-only">Change language</span>
         </Button>
       </DropdownMenuTrigger>
@@ -36,3 +37,4 @@ export function LanguageSwitcher() {
     </DropdownMenu>
   );
 }
+
