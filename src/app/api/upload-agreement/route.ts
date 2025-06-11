@@ -33,7 +33,6 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
 
 
 export async function POST(request: NextRequest) {
-  // Re-check configuration status at the time of the request for more immediate feedback
   if (!isCloudinaryConfigured) {
     const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured due to missing or invalid environment variables.';
     console.error(`API Call to /api/upload-agreement: ${serverConfigErrorMessage}`);
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any }>((resolve, reject) => {
+    const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any; full_result?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           folder: `signed_agreements/${companyId}/${bookingId}`,
@@ -65,13 +64,13 @@ export async function POST(request: NextRequest) {
         (error, result) => {
           if (error) {
             console.error('Cloudinary upload_stream error object:', JSON.stringify(error, null, 2));
-            // Check for typical signs of authentication error
             if (error.http_code === 401 || (error.message && error.message.toLowerCase().includes('authentication failed'))) {
                 console.error('Cloudinary returned an authentication error (401). This usually means your API Key, API Secret, or Cloud Name is incorrect. Please double-check these values in your .env.local file and ensure the server was restarted after any changes.');
             }
             reject({ error });
           } else {
-            resolve({ secure_url: result?.secure_url, public_id: result?.public_id });
+            console.log('Cloudinary upload_stream successful result object:', JSON.stringify(result, null, 2)); // Log successful result
+            resolve({ secure_url: result?.secure_url, public_id: result?.public_id, full_result: result });
           }
         }
       ).end(buffer);
@@ -92,13 +91,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
 
   } catch (error: any) {
-    console.error('Full error object in /api/upload-agreement POST handler:', JSON.stringify(error, null, 2));
+    // Log the full error structure if it's an object, otherwise log as is
+    const errorDetails = (typeof error === 'object' && error !== null) ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : String(error);
+    console.error('Full error object in /api/upload-agreement POST handler:', errorDetails);
+    
     let detailMessage = 'Unknown server error during upload process.';
-    if (error.error) { 
-      detailMessage = typeof error.error === 'string' ? error.error : error.error.message || JSON.stringify(error.error);
+    if (error.error && typeof error.error === 'object' && error.error !== null && error.error.message) {
+      detailMessage = error.error.message;
     } else if (error.message) {
       detailMessage = error.message;
+    } else if (typeof error.error === 'string') {
+      detailMessage = error.error;
     }
+    
     return NextResponse.json({ error: 'Internal server error during file upload.', details: detailMessage }, { status: 500 });
   }
 }
