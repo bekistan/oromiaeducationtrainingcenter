@@ -1,20 +1,26 @@
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.auth = exports.db = exports.app = void 0;
 var app_1 = require("firebase/app");
 var firestore_1 = require("firebase/firestore");
 var auth_1 = require("firebase/auth");
+
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// UPDATED based on error log: identitytoolkit.clients6.google.com/v2/projects/oromiaedurent-hm4zc/config?alt=json&key=AIzaSyDsw6ox_fmME37xw9qQhmv6MJW53CD7O68
+// USER MUST VERIFY THESE ARE THE CORRECT AND INTENDED CREDENTIALS.
+// Also, ensure messagingSenderId, appId, and measurementId match this project.
 var firebaseConfig = {
-    apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQg",
-    authDomain: "oroedu-4a86c.firebaseapp.com",
-    projectId: "oroedu-4a86c",
-    storageBucket: "oroedu-4a86c.firebasestorage.app",
-    messagingSenderId: "337131238082",
-    appId: "1:337131238082:web:fc94369715fbdfff96015b",
-    measurementId: "G-B31H6HWF15"
+    apiKey: "AIzaSyDsw6ox_fmME37xw9qQhmv6MJW53CD7O68", // From error log
+    authDomain: "oromiaedurent-hm4zc.firebaseapp.com", // Updated to match new projectId
+    projectId: "oromiaedurent-hm4zc", // From error log
+    storageBucket: "oromiaedurent-hm4zc.appspot.com", // Updated to match new projectId
+    messagingSenderId: "337131238082", // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
+    appId: "1:337131238082:web:fc94369715fbdfff96015b", // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
+    measurementId: "G-B31H6HWF15" // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
 };
+
 var app;
 // Ensure Firebase is initialized only once
 if (!(0, app_1.getApps)().length) {
