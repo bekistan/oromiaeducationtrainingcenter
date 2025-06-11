@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 
@@ -80,8 +80,8 @@ export default function AdminBookingsPage() {
   }, [t, toast, allBookings.length]);
 
   useEffect(() => {
-    fetchBookings(true); // Pass true for initial load
-  }, []); // Removed fetchBookings from dependency array to prevent re-triggering due to allBookings.length change
+    fetchBookings(true); 
+  }, []); 
 
   const filteredBookings = useMemo(() => {
     return allBookings.filter(booking => {
@@ -128,8 +128,13 @@ export default function AdminBookingsPage() {
       const bookingRef = doc(db, "bookings", bookingId);
       const updateData: Partial<Booking> = { approvalStatus: newStatus };
       const currentBooking = allBookings.find(b => b.id === bookingId);
+
       if (newStatus === 'approved' && currentBooking?.bookingCategory === 'facility') {
         updateData.agreementStatus = 'pending_admin_action';
+      } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'facility') {
+        updateData.paymentStatus = 'failed';
+      } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'dormitory') {
+         updateData.paymentStatus = 'failed'; // Also mark payment as failed for rejected dorm bookings
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('bookingStatusUpdated') });
@@ -139,6 +144,59 @@ export default function AdminBookingsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
     }
   };
+
+  const handleDormitoryPaymentVerification = async (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+      if (newPaymentStatus === 'paid') {
+        updateData.approvalStatus = 'approved';
+      } else { 
+        updateData.approvalStatus = 'rejected';
+      }
+      await updateDoc(bookingRef, updateData);
+      toast({ title: t('success'), description: t('paymentStatusUpdated') });
+      fetchBookings();
+    } catch (error) {
+      console.error("Error updating dormitory payment status: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+    }
+  };
+  
+  const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      const bookingSnap = await getFirestoreDoc(bookingRef);
+      if (!bookingSnap.exists()) {
+        toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
+        return;
+      }
+      const currentBooking = bookingSnap.data() as Booking;
+      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+
+      let newApprovalStatus = currentBooking.approvalStatus;
+      if (currentBooking.approvalStatus === 'pending') {
+        updateData.approvalStatus = 'approved';
+        newApprovalStatus = 'approved';
+      }
+      
+      if (newApprovalStatus === 'approved' && currentBooking.bookingCategory === 'facility') {
+        const agreementPrecedence: AgreementStatus[] = ['pending_admin_action', 'sent_to_client', 'signed_by_client', 'completed'];
+        const currentAgreementIndex = currentBooking.agreementStatus ? agreementPrecedence.indexOf(currentBooking.agreementStatus) : -1;
+        if (currentAgreementIndex < agreementPrecedence.indexOf('pending_admin_action')) {
+            updateData.agreementStatus = 'pending_admin_action';
+        }
+      }
+
+      await updateDoc(bookingRef, updateData);
+      toast({ title: t('success'), description: t('paymentStatusMarkedAsPaid') });
+      fetchBookings();
+    } catch (error) {
+      console.error("Error marking facility booking as paid: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+    }
+  };
+
 
   const handleAgreementStatusChange = async (bookingId: string, newStatus: AgreementStatus) => {
     try {
@@ -182,7 +240,11 @@ export default function AdminBookingsPage() {
     switch (status) {
       case 'paid':
         return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t(status)}</Badge>;
-      case 'pending':
+      case 'pending_transfer':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
+      case 'awaiting_verification':
+        return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
+      case 'pending': 
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -250,7 +312,7 @@ export default function AdminBookingsPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>{t('paymentStatus')}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {(['all', 'pending', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
+                {(['all', 'pending', 'pending_transfer', 'awaiting_verification', 'paid', 'failed'] as PaymentStatusFilter[]).map(status => (
                   <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
                     {t(status)}
                   </DropdownMenuCheckboxItem>
@@ -287,7 +349,7 @@ export default function AdminBookingsPage() {
                       <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
                       <TableHead onClick={() => requestSort('bookingCategory')} className="cursor-pointer group">{t('category')}{getSortIndicator('bookingCategory')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead> {/* Sorting by guestName, companyName would be similar */}
+                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
                       <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
                       <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                       <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
@@ -317,20 +379,23 @@ export default function AdminBookingsPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
-                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                      {t('setAsPending')}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                      {t('rejectBooking')}
-                                  </DropdownMenuItem>
-
-                                  {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
+                                  {booking.bookingCategory === 'facility' && (
                                     <>
+                                      <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
+                                          <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
+                                          {t('setAsPending')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                          {t('rejectBooking')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuLabel>{t('paymentActions')}</DropdownMenuLabel>
+                                      <DropdownMenuItem onClick={() => handleFacilityPaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
+                                          <CreditCard className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                      </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
                                       <DropdownMenuItem asChild>
@@ -349,6 +414,23 @@ export default function AdminBookingsPage() {
                                         disabled={booking.agreementStatus !== 'sent_to_client'}
                                       >
                                         <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+
+                                  {booking.bookingCategory === 'dormitory' && (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
+                                    <>
+                                      <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                      <DropdownMenuItem>
+                                        <div className='flex items-center text-xs text-muted-foreground'>
+                                            <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
+                                        </div>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
+                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                        <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
                                       </DropdownMenuItem>
                                     </>
                                   )}

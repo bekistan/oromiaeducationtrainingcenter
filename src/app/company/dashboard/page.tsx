@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
-import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud } from 'lucide-react';
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud, ExternalLink } from 'lucide-react';
 import { db } from '@/lib/firebase'; 
 import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -373,11 +373,20 @@ export default function CompanyDashboardPage() {
                                </span>
                             )}
                              {booking.bookingCategory === 'facility' && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
+                               <>
                                 <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
                                   <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewAgreement')}</a>
+                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewGeneratedAgreement')}</a>
                                   </Button>
                                 </Link>
+                                {booking.signedAgreementUrl && (
+                                    <Button size="sm" variant="outline" asChild className="border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                                        <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                                            <ExternalLink className="mr-2 h-4 w-4" />{t('viewYourSignedAgreement')}
+                                        </a>
+                                    </Button>
+                                )}
+                               </>
                             )}
                           </TableCell>
                         </TableRow>

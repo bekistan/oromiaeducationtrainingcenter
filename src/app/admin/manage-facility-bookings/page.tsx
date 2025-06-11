@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import type { Booking, AgreementStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 
@@ -82,7 +82,7 @@ export default function AdminManageFacilityBookingsPage() {
 
   useEffect(() => {
     fetchBookings(true);
-  }, []); // Removed fetchBookings from dependency array
+  }, []); 
 
   const filteredBookings = useMemo(() => {
     return allBookings.filter(booking => {
@@ -130,6 +130,8 @@ export default function AdminManageFacilityBookingsPage() {
       const updateData: Partial<Booking> = { approvalStatus: newStatus };
       if (newStatus === 'approved') { 
         updateData.agreementStatus = 'pending_admin_action';
+      } else if (newStatus === 'rejected') {
+        updateData.paymentStatus = 'failed'; // If rejected, assume payment also failed or isn't relevant.
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('bookingStatusUpdated') });
@@ -137,6 +139,41 @@ export default function AdminManageFacilityBookingsPage() {
     } catch (error) {
       console.error("Error updating booking status: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
+    }
+  };
+
+  const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
+    try {
+      const bookingRef = doc(db, "bookings", bookingId);
+      const bookingSnap = await getFirestoreDoc(bookingRef);
+      if (!bookingSnap.exists()) {
+        toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
+        return;
+      }
+      const currentBooking = bookingSnap.data() as Booking;
+      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+
+      let newApprovalStatus = currentBooking.approvalStatus;
+      if (currentBooking.approvalStatus === 'pending') {
+        updateData.approvalStatus = 'approved';
+        newApprovalStatus = 'approved';
+      }
+      
+      if (newApprovalStatus === 'approved' && currentBooking.bookingCategory === 'facility') {
+         // Set agreement status only if it's not already in a later stage
+        const agreementPrecedence: AgreementStatus[] = ['pending_admin_action', 'sent_to_client', 'signed_by_client', 'completed'];
+        const currentAgreementIndex = currentBooking.agreementStatus ? agreementPrecedence.indexOf(currentBooking.agreementStatus) : -1;
+        if (currentAgreementIndex < agreementPrecedence.indexOf('pending_admin_action')) {
+            updateData.agreementStatus = 'pending_admin_action';
+        }
+      }
+
+      await updateDoc(bookingRef, updateData);
+      toast({ title: t('success'), description: t('paymentStatusMarkedAsPaid') });
+      fetchBookings();
+    } catch (error) {
+      console.error("Error marking facility booking as paid: ", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
     }
   };
 
@@ -315,7 +352,6 @@ export default function AdminManageFacilityBookingsPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                   <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
-                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
                                       <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
                                   </DropdownMenuItem>
@@ -325,6 +361,13 @@ export default function AdminManageFacilityBookingsPage() {
                                   <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                       {t('rejectBooking')}
                                   </DropdownMenuItem>
+                                  
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuLabel>{t('paymentActions')}</DropdownMenuLabel>
+                                  <DropdownMenuItem onClick={() => handleFacilityPaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
+                                      <CreditCard className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                  </DropdownMenuItem>
+
                                   <DropdownMenuSeparator />
                                   <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
                                   <DropdownMenuItem asChild>
