@@ -4,6 +4,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import type { NextRequest } from 'next/server';
 
 let isCloudinaryConfigured = false;
+let cloudinaryConfigError: string | null = null;
 
 // Attempt to configure Cloudinary at the module level
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
@@ -16,22 +17,27 @@ if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && proce
     });
     if (cloudinary.config().api_key && cloudinary.config().api_secret && cloudinary.config().cloud_name) {
         isCloudinaryConfigured = true;
-        console.log("Cloudinary SDK configured successfully.");
+        console.log("Cloudinary SDK configured successfully at module level.");
     } else {
-        console.error("Critical: Cloudinary config object incomplete after setting. Check variable integrity.");
+        cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check variable integrity.";
+        console.error(`Critical: ${cloudinaryConfigError}`);
     }
-  } catch (error) {
-    console.error("Critical: Error during Cloudinary SDK configuration:", error);
+  } catch (error: any) {
+    cloudinaryConfigError = `Error during Cloudinary SDK configuration: ${error.message || JSON.stringify(error)}`;
+    console.error(`Critical: ${cloudinaryConfigError}`);
   }
 } else {
-  console.error("Critical: Cloudinary environment variables (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not fully set. Upload API will not function.");
+  cloudinaryConfigError = "Cloudinary environment variables (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not fully set. Upload API will not function.";
+  console.error(`Critical: ${cloudinaryConfigError}`);
 }
 
 
 export async function POST(request: NextRequest) {
+  // Re-check configuration status at the time of the request for more immediate feedback
   if (!isCloudinaryConfigured) {
-    console.error("API Call to /api/upload-agreement: Cloudinary is not configured due to missing or invalid environment variables.");
-    return NextResponse.json({ error: 'Cloudinary not configured on server. Please check server logs and environment variable setup.' }, { status: 500 });
+    const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured due to missing or invalid environment variables.';
+    console.error(`API Call to /api/upload-agreement: ${serverConfigErrorMessage}`);
+    return NextResponse.json({ error: 'Cloudinary not configured on server. Please check server logs and environment variable setup. Ensure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are correct in .env.local and the server was restarted.', details: serverConfigErrorMessage }, { status: 500 });
   }
 
   try {
@@ -47,11 +53,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing bookingId or companyId.' }, { status: 400 });
     }
 
-    // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Upload to Cloudinary
     const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
@@ -61,7 +65,11 @@ export async function POST(request: NextRequest) {
         (error, result) => {
           if (error) {
             console.error('Cloudinary upload_stream error object:', JSON.stringify(error, null, 2));
-            reject({ error }); // error here is the Cloudinary error object
+            // Check for typical signs of authentication error
+            if (error.http_code === 401 || (error.message && error.message.toLowerCase().includes('authentication failed'))) {
+                console.error('Cloudinary returned an authentication error (401). This usually means your API Key, API Secret, or Cloud Name is incorrect. Please double-check these values in your .env.local file and ensure the server was restarted after any changes.');
+            }
+            reject({ error });
           } else {
             resolve({ secure_url: result?.secure_url, public_id: result?.public_id });
           }
@@ -74,6 +82,9 @@ export async function POST(request: NextRequest) {
       let detailMessage = 'Unknown Cloudinary upload error';
       if (uploadResult.error) {
         detailMessage = typeof uploadResult.error === 'string' ? uploadResult.error : uploadResult.error.message || JSON.stringify(uploadResult.error);
+        if (uploadResult.error.http_code === 401) {
+            detailMessage = 'Cloudinary authentication failed (401). Check credentials in .env.local and restart server. ' + detailMessage;
+        }
       }
       return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: detailMessage }, { status: 500 });
     }
@@ -83,9 +94,9 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Full error object in /api/upload-agreement POST handler:', JSON.stringify(error, null, 2));
     let detailMessage = 'Unknown server error during upload process.';
-    if (error.error) { // This catches errors rejected from the promise like { error: CloudinaryError }
+    if (error.error) { 
       detailMessage = typeof error.error === 'string' ? error.error : error.error.message || JSON.stringify(error.error);
-    } else if (error.message) { // Standard JS error
+    } else if (error.message) {
       detailMessage = error.message;
     }
     return NextResponse.json({ error: 'Internal server error during file upload.', details: detailMessage }, { status: 500 });
