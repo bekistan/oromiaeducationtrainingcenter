@@ -22,6 +22,7 @@ export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'dormitories', href: '/dormitories' },
   { labelKey: 'halls', href: '/halls' },
   { labelKey: 'myDormitoryNav', href: '/check-my-booking' },
+  { labelKey: 'contactUs', href: '/contact' },
 ];
 
 export const ADMIN_NAVS: NavItem[] = [
@@ -35,6 +36,13 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
+
+export const KEYHOLDER_NAVS: NavItem[] = [
+  { labelKey: 'keyholderDashboard', href: '/keyholder/dashboard', authRequired: true, roles: ['keyholder'] },
+  { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
+  { labelKey: 'dailyReports', href: '/keyholder/daily-reports', authRequired: true, roles: ['keyholder'] },
+];
+
 
 export const FOOTER_LINKS = [
   { labelKey: 'privacyPolicy', href: '/privacy-policy' },
@@ -73,3 +81,4 @@ export const ETHIOPIAN_BANKS = [
 
 
     
+
