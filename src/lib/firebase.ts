@@ -6,15 +6,14 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "fire
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// USER MUST VERIFY ALL THESE ARE THE CORRECT AND INTENDED CREDENTIALS FOR PROJECT oromiaedurent-hm4zc.
 const firebaseConfig = {
-  apiKey: "AIzaSyDsw6ox_fmME37xw9qQhmv6MJW53CD7O68", // From error log
-  authDomain: "oromiaedurent-hm4zc.firebaseapp.com", // Updated to match new projectId
-  projectId: "oromiaedurent-hm4zc", // From error log
-  storageBucket: "oromiaedurent-hm4zc.appspot.com", // Updated to match new projectId
-  messagingSenderId: "337131238082", // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
-  appId: "1:337131238082:web:fc94369715fbdfff96015b", // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
-  measurementId: "G-B31H6HWF15" // Placeholder - VERIFY if this is correct for oromiaedurent-hm4zc
+  apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQg", // User Provided
+  authDomain: "oroedu-4a86c.firebaseapp.com", // Derived from User Provided Project ID
+  projectId: "oroedu-4a86c", // User Provided
+  storageBucket: "oroedu-4a86c.appspot.com", // Derived from User Provided Project ID
+  messagingSenderId: "337131238082", // User Provided (Project Number)
+  appId: "1:337131238082:web:fc94369715fbdfff96015b", // Retained as project number matches
+  measurementId: "G-B31H6HWF15" // Retained - User should verify if Analytics is used
 };
 
 let app: FirebaseApp;
@@ -69,3 +68,4 @@ export const uploadFileToFirebaseStorage = async (file: File, path: string): Pro
 };
 
 export { app, db, auth, storage };
+
