@@ -34,6 +34,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import { formatDualDate } from '@/lib/date-utils';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -134,7 +135,7 @@ export default function AdminBookingsPage() {
       } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'facility') {
         updateData.paymentStatus = 'failed';
       } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'dormitory') {
-         updateData.paymentStatus = 'failed'; // Also mark payment as failed for rejected dorm bookings
+         updateData.paymentStatus = 'failed'; 
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('bookingStatusUpdated') });
@@ -364,8 +365,8 @@ export default function AdminBookingsPage() {
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell>
                         <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
-                        <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
-                        <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
+                        <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

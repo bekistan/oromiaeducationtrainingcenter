@@ -18,6 +18,7 @@ import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'fi
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import { formatDualDate } from '@/lib/date-utils';
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
@@ -120,11 +121,11 @@ export default function CompanyDashboardPage() {
           agreementSignedAt: Timestamp.now(),
           signedAgreementUrl: cloudinaryUrl,
         });
-        toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
+        toast({ title: t('uploadSuccessfulTitle'), description: t('agreementUploadedSuccessfully') });
         if (user?.companyId) fetchBookings(user.companyId); 
       } catch (error: any) {
         console.error("Error uploading signed agreement:", error);
-        toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUploadingAgreementActual') });
+        toast({ variant: "destructive", title: t('uploadFailedTitle'), description: error.message || t('errorUploadingAgreementActual') });
       } finally {
         setIsUploadingAgreementId(null);
         setCurrentBookingIdForUpload(null);
@@ -321,9 +322,7 @@ export default function CompanyDashboardPage() {
                         <TableRow key={booking.id}>
                           <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
                           <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            {new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}
-                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
                           <TableCell className="min-w-[120px]">
                             <div className="flex flex-col text-xs">
                               {booking.serviceDetails?.lunch && (
