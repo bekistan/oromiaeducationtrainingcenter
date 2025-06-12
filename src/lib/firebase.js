@@ -8,9 +8,7 @@ var auth_1 = require("firebase/auth");
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// UPDATED based on error log: identitytoolkit.clients6.google.com/v2/projects/oromiaedurent-hm4zc/config?alt=json&key=AIzaSyDsw6ox_fmME37xw9qQhmv6MJW53CD7O68
-// USER MUST VERIFY THESE ARE THE CORRECT AND INTENDED CREDENTIALS.
-// Also, ensure messagingSenderId, appId, and measurementId match this project.
+// USER MUST VERIFY ALL THESE ARE THE CORRECT AND INTENDED CREDENTIALS FOR PROJECT oromiaedurent-hm4zc.
 var firebaseConfig = {
     apiKey: "AIzaSyDsw6ox_fmME37xw9qQhmv6MJW53CD7O68", // From error log
     authDomain: "oromiaedurent-hm4zc.firebaseapp.com", // Updated to match new projectId
