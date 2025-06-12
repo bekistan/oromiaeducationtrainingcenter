@@ -7,17 +7,21 @@ let isCloudinaryConfigured = false;
 let cloudinaryConfigError: string | null = null;
 
 // Attempt to configure Cloudinary at the module level
-if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+const apiKey = process.env.CLOUDINARY_API_KEY;
+const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+if (cloudName && apiKey && apiSecret) {
   try {
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
       secure: true,
     });
     if (cloudinary.config().api_key && cloudinary.config().api_secret && cloudinary.config().cloud_name) {
         isCloudinaryConfigured = true;
-        console.log("Cloudinary SDK configured successfully at module level.");
+        console.log("Cloudinary SDK configured successfully at module level. Cloud Name:", cloudinary.config().cloud_name);
     } else {
         cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check variable integrity.";
         console.error(`Critical: ${cloudinaryConfigError}`);
@@ -42,23 +46,15 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    // const bookingId = formData.get('bookingId') as string | null; // No longer used for folder path
-    // const companyId = formData.get('companyId') as string | null; // No longer used for folder path
+    const bookingId = formData.get('bookingId') as string | null;
+    const companyId = formData.get('companyId') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     }
-    // Validation for bookingId and companyId can remain if they are needed for other purposes,
-    // but they are removed from the folder structure in this change.
-    // For instance, you might still want to record them in the file's metadata or tags if Cloudinary supports that in upload_stream options.
-    // For now, let's assume they are not strictly needed if the folder is 'homepage'.
-    // If they ARE needed for other logic (e.g. database update after upload), ensure they are still extracted:
-    const bookingId = formData.get('bookingId') as string | null;
-    const companyId = formData.get('companyId') as string | null;
-     if (!bookingId || !companyId) { // Keep this check if these IDs are used elsewhere
-        return NextResponse.json({ error: 'Missing bookingId or companyId for metadata.' }, { status: 400 });
+    if (!bookingId || !companyId) { 
+        return NextResponse.json({ error: 'Missing bookingId or companyId for context.' }, { status: 400 });
     }
-
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -66,8 +62,8 @@ export async function POST(request: NextRequest) {
     const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any; full_result?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: 'homepage', // Changed to 'homepage' folder
-          resource_type: 'auto',
+          folder: 'homepage', 
+          resource_type: 'raw', // Changed from 'auto' to 'raw'
         },
         (error, result) => {
           if (error) {
