@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       cloudinary.uploader.upload_stream(
         {
           folder: 'homepage', 
-          resource_type: 'raw', // Changed from 'auto' to 'raw'
+          resource_type: 'raw',
+          access_mode: 'public', // Explicitly request public access
         },
         (error, result) => {
           if (error) {
