@@ -1,7 +1,7 @@
 
 import { format as formatGregorian, parseISO as parseISOGregorian } from 'date-fns';
-// Import EthiopianDate class and use the imported format function correctly
-import { EthiopianDate, format as formatEthiopianFromPackage, toEthiopian } from 'ethiopian-date';
+// Import the entire module as a namespace
+import * as EthiopianDateModule from 'ethiopian-date';
 import type { Timestamp } from 'firebase/firestore';
 
 /**
@@ -48,11 +48,11 @@ export const formatDualDate = (
     const gregorianFormatted = formatGregorian(dateObj, gregorianFormatStr);
 
     // toEthiopian returns [year, month (1-indexed), day]
-    const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+    const [year, month, day] = EthiopianDateModule.toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
     // Create an EthiopianDate instance. EthiopianDate constructor expects 1-indexed month.
-    const ethiopianDateInstance = new EthiopianDate(year, month, day);
+    const ethiopianDateInstance = new EthiopianDateModule.EthiopianDate(year, month, day);
     // Call the imported format function with the EthiopianDate instance
-    const ethiopianFormatted = formatEthiopianFromPackage(ethiopianDateInstance, ethiopianFormatStr);
+    const ethiopianFormatted = EthiopianDateModule.format(ethiopianDateInstance, ethiopianFormatStr);
 
     return `${gregorianFormatted} (${ethiopianFormatted})`;
   } catch (error) {
@@ -95,9 +95,9 @@ export const formatEthiopianCalendarDate = (
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
   try {
-    const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
-    const ethiopianDateInstance = new EthiopianDate(year, month, day);
-    return formatEthiopianFromPackage(ethiopianDateInstance, formatStr);
+    const [year, month, day] = EthiopianDateModule.toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+    const ethiopianDateInstance = new EthiopianDateModule.EthiopianDate(year, month, day);
+    return EthiopianDateModule.format(ethiopianDateInstance, formatStr);
   } catch (error) {
     console.error("Error formatting Ethiopian date:", error, "Input:", dateInput);
     return "N/A";
