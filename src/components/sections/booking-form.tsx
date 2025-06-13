@@ -28,7 +28,7 @@ import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, List, Loader2 } from 'lucide-react';
+import { AlertCircle, List, Loader2, Building, BedDouble } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -517,17 +517,25 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     );
   }
 
-  const itemsDisplayList = itemsToBook.map(item => item.name).join(', ');
-
   return (
     <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl text-center text-primary">
           {t('submitBookingRequest')}
         </CardTitle>
-        <p className="text-sm text-muted-foreground text-center flex items-center justify-center">
-            <List className="mr-2 h-4 w-4"/> {t('bookingForItems')}: {itemsDisplayList}
-        </p>
+        {itemsToBook && itemsToBook.length > 0 && (
+          <div className="text-sm text-muted-foreground text-center mt-2">
+            <div className="flex items-center justify-center mb-1">
+                {bookingCategory === 'dormitory' ? <BedDouble className="mr-2 h-5 w-5 text-primary"/> : <Building className="mr-2 h-5 w-5 text-primary"/>}
+                <span className="font-semibold">{t('bookingForItems')}:</span>
+            </div>
+            <ul className="list-disc list-inside text-left inline-block">
+                {itemsToBook.map(item => (
+                    <li key={item.id} className="text-xs">{item.name} ({t(item.itemType)})</li>
+                ))}
+            </ul>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <Form {...form}>

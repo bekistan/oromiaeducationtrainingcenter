@@ -44,10 +44,14 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
 
-  let calculatedFacilityRentalCost = 0;
-  booking.items.forEach(item => {
-    calculatedFacilityRentalCost += (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
+  let totalFacilityRentalCost = 0;
+  // Calculate individual rental costs for items
+  const facilityItemCosts = booking.items.map(item => {
+    const itemRentalCost = (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
+    totalFacilityRentalCost += itemRentalCost;
+    return { name: item.name, cost: itemRentalCost };
   });
+
 
   let calculatedLunchServiceCost = 0;
   if (booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
@@ -61,9 +65,11 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     calculatedRefreshmentServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
   }
   
-  const totalBookingCostFromRecord = booking.totalCost;
+  const totalBookingCostFromRecord = booking.totalCost; // This should ideally match the sum of components
 
   const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
+  const facilitiesBookedString = booking.items.map(item => `${item.name} (${t(item.itemType)})`).join(', ');
+
 
   return (
     <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4">
@@ -119,7 +125,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
         <section className="mb-6">
           <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('serviceDetails')}</h2>
           <div className="space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
-            <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {booking.items.map(item => item.name).join(', ')}</p>
+            <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {facilitiesBookedString}</p>
             <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> 
             <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
           </div>
@@ -137,11 +143,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="border border-slate-300 p-2">{t('facilityRental')}</td>
-                  <td className="border border-slate-300 p-2">{booking.items.map(item => item.name).join(', ')} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
-                  <td className="border border-slate-300 p-2 text-right">{calculatedFacilityRentalCost.toFixed(2)}</td>
-                </tr>
+                {facilityItemCosts.map((itemCost, index) => (
+                  <tr key={index}>
+                    <td className="border border-slate-300 p-2">{t('facilityRental')} - {itemCost.name}</td>
+                    <td className="border border-slate-300 p-2">{itemCost.name} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
+                    <td className="border border-slate-300 p-2 text-right">{itemCost.cost.toFixed(2)}</td>
+                  </tr>
+                ))}
                 {booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && (
                   <tr>
                     <td className="border border-slate-300 p-2">{t('lunchService')}</td>
