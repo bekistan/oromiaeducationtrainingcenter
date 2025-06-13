@@ -8,11 +8,12 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Presentation, AlertCircle, Loader2 } from "lucide-react";
-import type { BookingItem, Hall as HallType } from "@/types"; // Added HallType
+import type { BookingItem, Hall as HallType } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { db } from '@/lib/firebase'; // Added db
-import { doc, getDoc } from 'firebase/firestore'; // Added getDoc
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 function BookMultipleSectionsContent() {
   const { t } = useLanguage();
@@ -21,6 +22,7 @@ function BookMultipleSectionsContent() {
   const { user, loading: authLoading } = useAuth();
   const [itemsToBook, setItemsToBook] = useState<BookingItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchItemsData = async () => {
@@ -31,39 +33,57 @@ function BookMultipleSectionsContent() {
           const [id, name, itemTypeStr] = param.split(':');
           const decodedId = decodeURIComponent(id);
           const decodedName = decodeURIComponent(name);
-          const decodedItemType = decodeURIComponent(itemTypeStr) as 'section';
+          const decodedItemType = decodeURIComponent(itemTypeStr) as 'hall' | 'section';
 
           try {
             const itemRef = doc(db, "halls", decodedId);
             const docSnap = await getDoc(itemRef);
             if (docSnap.exists()) {
               const itemData = docSnap.data() as HallType;
+              if (!itemData.isAvailable) {
+                toast({ variant: "destructive", title: t('itemNotAvailableErrorTitle'), description: t('itemNotAvailableErrorMultiBook', { itemName: decodedName }) });
+                return null;
+              }
               return {
                 id: decodedId,
-                name: decodedName, // Using name from param as it's already decoded and set
+                name: decodedName, 
                 itemType: decodedItemType,
-                rentalCost: itemData.rentalCost, // Fetch rentalCost
-                capacity: itemData.capacity, // Also fetch capacity if relevant
+                rentalCost: itemData.rentalCost,
+                capacity: itemData.capacity,
               } as BookingItem;
             } else {
               console.warn(`Item with id ${decodedId} not found during multi-book setup.`);
+              toast({ variant: "destructive", title: t('error'), description: t('itemNotFoundDatabase', { itemName: decodedName }) });
               return null;
             }
           } catch (error) {
             console.error(`Error fetching item ${decodedId} for multi-book:`, error);
+            toast({ variant: "destructive", title: t('error'), description: t('errorFetchingItemDetailsMulti', { itemName: decodedName }) });
             return null;
           }
         });
 
         const resolvedItems = await Promise.all(fetchedItemsPromises);
         const validItems = resolvedItems.filter(item => item !== null) as BookingItem[];
+        
+        if (validItems.length !== itemParams.length && validItems.length === 0) {
+            // All items failed to load or were unavailable, redirect back or show significant error
+            router.push('/halls'); // Or a more specific error page/toast
+            return;
+        }
         setItemsToBook(validItems);
+      } else {
+        // No items in query params, redirect
+        toast({ variant: "destructive", title: t('error'), description: t('noItemsSelectedForBooking') });
+        router.push('/halls');
       }
       setIsLoadingItems(false);
     };
 
-    fetchItemsData();
-  }, [searchParams]);
+    if (!authLoading) { // Ensure auth state is resolved before fetching
+        fetchItemsData();
+    }
+  }, [searchParams, authLoading, t, router, toast]);
 
   if (authLoading || isLoadingItems) {
     return (
@@ -88,12 +108,27 @@ function BookMultipleSectionsContent() {
       </Card>
     );
   }
+  
+  if (user.role === 'company_representative' && user.approvalStatus !== 'approved') {
+    return (
+       <Card className="w-full max-w-md mx-auto my-8 shadow-xl">
+          <CardHeader className="text-center">
+              <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <CardTitle className="text-2xl text-yellow-600">{t('accountPendingApprovalTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+              <p className="mb-4">{t('accountPendingApprovalMultiBook')}</p>
+              <Button onClick={() => router.push('/company/dashboard')}>{t('backToCompanyDashboard')}</Button>
+          </CardContent>
+      </Card>
+    );
+  }
 
-  if (itemsToBook.length === 0 && !isLoadingItems) { // Check isLoadingItems to prevent flash of this message
+  if (itemsToBook.length === 0 && !isLoadingItems) { 
     return (
       <div className="text-center py-8">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <p className="text-xl text-destructive">{t('noSectionsSelectedOrFound')}</p> {/* Updated key */}
+        <p className="text-xl text-destructive">{t('noValidItemsForBooking')}</p>
         <Button onClick={() => router.push('/halls')} variant="link" className="mt-4">
           {t('backToHallsPage')}
         </Button>
@@ -106,9 +141,11 @@ function BookMultipleSectionsContent() {
       <div className="flex flex-col items-center mb-8">
         <Presentation className="w-12 h-12 text-primary mb-2" />
         <h1 className="text-3xl font-bold text-primary text-center">
-          {t('bookMultipleSections')}
+          {itemsToBook.length > 1 ? t('bookMultipleItemsTitle') : t('bookFacility')}
         </h1>
-        <p className="text-muted-foreground text-center max-w-md">{t('fillFormToBookSelectedSections')}</p>
+        <p className="text-muted-foreground text-center max-w-md">
+          {itemsToBook.length > 1 ? t('fillFormToBookSelectedItems') : t('fillFormToBookFacility')}
+        </p>
       </div>
       <BookingForm bookingCategory="facility" itemsToBook={itemsToBook} />
     </>
@@ -116,7 +153,7 @@ function BookMultipleSectionsContent() {
 }
 
 
-export default function BookMultipleSectionsPage() {
+export default function BookMultiplePage() {
   const { t } = useLanguage();
   return (
     <PublicLayout>
