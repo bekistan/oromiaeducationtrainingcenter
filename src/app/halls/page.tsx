@@ -1,20 +1,25 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PublicLayout } from "@/components/layout/public-layout";
 import { HallList } from "@/components/sections/hall-list";
-import type { Hall } from "@/types";
+import type { Hall, Booking } from "@/types"; // Added Booking type
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Building, SquareStack, CalendarPlus, Loader2, Library } from "lucide-react";
+import { Building, Library, CalendarPlus, Loader2, Filter, CalendarDays, AlertCircle } from "lucide-react"; // Added icons
 import { useRouter } from "next/navigation";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { DatePickerWithRange } from '@/components/ui/date-picker-with-range'; // Added
+import type { DateRange } from 'react-day-picker'; // Added
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added
+import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+type ItemTypeFilter = "all" | "hall" | "section";
 
 export default function HallsAndSectionsPage() {
   const { t } = useLanguage();
@@ -22,33 +27,115 @@ export default function HallsAndSectionsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [allAvailableHalls, setAllAvailableHalls] = useState<Hall[]>([]);
-  const [allAvailableSelectableItems, setAllAvailableSelectableItems] = useState<Hall[]>([]);
+  const [allAdminEnabledFacilities, setAllAdminEnabledFacilities] = useState<Hall[]>([]);
+  const [filteredFacilitiesByType, setFilteredFacilitiesByType] = useState<Hall[]>([]);
+  const [availableFacilitiesInRange, setAvailableFacilitiesInRange] = useState<Hall[]>([]);
+  
   const [selectedItems, setSelectedItems] = useState<Hall[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingInitialFacilities, setIsLoadingInitialFacilities] = useState(true);
+  const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
+  
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
+  const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>("all");
 
-  const fetchHallsAndSections = useCallback(async () => {
-    setIsLoading(true);
+
+  const fetchAllAdminEnabledFacilities = useCallback(async () => {
+    setIsLoadingInitialFacilities(true);
     try {
       const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true));
       const itemsSnapshot = await getDocs(itemsQuery);
-      
       const allItemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
-      
-      setAllAvailableHalls(allItemsData.filter(item => item.itemType === 'hall'));
-      setAllAvailableSelectableItems(allItemsData); // This list contains both halls and sections that are available
-
+      setAllAdminEnabledFacilities(allItemsData);
+      setFilteredFacilitiesByType(allItemsData); // Initially show all
+      setAvailableFacilitiesInRange(allItemsData); // Initially show all, will be refined by date
     } catch (error) {
       console.error("Error fetching halls/sections: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHallsAndSections') });
     } finally {
-      setIsLoading(false);
+      setIsLoadingInitialFacilities(false);
     }
   }, [t, toast]);
 
   useEffect(() => {
-    fetchHallsAndSections();
-  }, [fetchHallsAndSections]);
+    fetchAllAdminEnabledFacilities();
+  }, [fetchAllAdminEnabledFacilities]);
+
+  // Filter by item type
+  useEffect(() => {
+    let filtered = allAdminEnabledFacilities;
+    if (itemTypeFilter !== "all") {
+      filtered = allAdminEnabledFacilities.filter(item => item.itemType === itemTypeFilter);
+    }
+    setFilteredFacilitiesByType(filtered);
+    // When item type filter changes, re-evaluate availability if a date range is set
+    if (selectedDateRange?.from && selectedDateRange?.to) {
+      // Trigger re-check for this new subset of facilities
+      // This will be handled by the date range useEffect
+    } else {
+      setAvailableFacilitiesInRange(filtered); // No date range, so available = filtered by type
+    }
+  }, [itemTypeFilter, allAdminEnabledFacilities, selectedDateRange]);
+
+
+  const checkFacilityAvailabilityForRange = useCallback(async (facility: Hall, range: DateRange): Promise<boolean> => {
+    if (!range.from || !range.to) return true; // No range, assume available
+
+    const fromTimestamp = Timestamp.fromDate(range.from);
+    const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
+
+    const bookingsQuery = query(
+        collection(db, "bookings"),
+        where("bookingCategory", "==", "facility"),
+        where("approvalStatus", "in", ["approved", "pending"]),
+        where("startDate", "<=", toTimestamp) 
+    );
+    
+    try {
+        const querySnapshot = await getDocs(bookingsQuery);
+        const conflictingBookings = querySnapshot.docs.filter(docSnap => {
+            const booking = docSnap.data() as Booking;
+            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            
+            const overlapsDate = bookingEndDate >= range.from!;
+            if (!overlapsDate) return false;
+
+            return booking.items.some(bookedItem => bookedItem.id === facility.id);
+        });
+        return conflictingBookings.length === 0; // Available if no conflicting bookings
+    } catch (error) {
+        console.error(`Error checking availability for facility ${facility.id}:`, error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
+        return false; // Assume unavailable on error
+    }
+  }, [t, toast]);
+
+  // Check availability when date range changes or when type filter changes (which also might affect date range check)
+  useEffect(() => {
+    if (!selectedDateRange?.from || !selectedDateRange?.to) {
+      setAvailableFacilitiesInRange(filteredFacilitiesByType); // No range, so show all type-filtered
+      setSelectedItems([]); // Clear selection when date range is cleared
+      return;
+    }
+
+    const updateAvailableFacilities = async () => {
+      setIsCheckingRangeAvailability(true);
+      const available: Hall[] = [];
+      for (const facility of filteredFacilitiesByType) {
+        if (facility.isAvailable) { // Double check admin status
+            const isTrulyAvailableInRange = await checkFacilityAvailabilityForRange(facility, selectedDateRange);
+            if (isTrulyAvailableInRange) {
+                available.push(facility);
+            }
+        }
+      }
+      setAvailableFacilitiesInRange(available);
+      setSelectedItems(prevSelected => prevSelected.filter(selItem => available.some(availItem => availItem.id === selItem.id)));
+      setIsCheckingRangeAvailability(false);
+    };
+
+    updateAvailableFacilities();
+  }, [selectedDateRange, filteredFacilitiesByType, checkFacilityAvailabilityForRange]);
+
 
   const handleSelectionChange = (newSelection: Hall[]) => {
     setSelectedItems(newSelection);
@@ -57,10 +144,20 @@ export default function HallsAndSectionsPage() {
   const handleBookSelectedItems = () => {
     if (authLoading) return;
     if (!user || user.role !== 'company_representative') {
-      // Instead of alert, navigate to login with redirect
       toast({ variant: "destructive", title: t('loginRequired'), description: t('loginAsCompanyToBook') });
-      const currentPath = window.location.pathname + window.location.search;
-      router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
+      const currentPath = window.location.pathname;
+      let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
+       if (selectedItems.length > 0) {
+           const itemsQueryPart = selectedItems
+               .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
+               .join('&');
+            queryParams += `&${itemsQueryPart}`; // Add selected items to redirect to preserve selection
+       }
+      router.push(`/auth/login${queryParams}`);
+      return;
+    }
+     if (user.approvalStatus !== 'approved') {
+      toast({ variant: "destructive", title: t('accountPendingApprovalTitle'), description: t('accountPendingApprovalBookFacility') });
       return;
     }
     if (selectedItems.length === 0) {
@@ -75,73 +172,122 @@ export default function HallsAndSectionsPage() {
     router.push(`/halls/book-multiple?${itemsQuery}`);
   };
 
+  const displayedFacilities = useMemo(() => {
+    // If a date range is selected, availableFacilitiesInRange already reflects both type and date availability.
+    // If no date range, filteredFacilitiesByType reflects only type filtering.
+    return selectedDateRange?.from && selectedDateRange?.to ? availableFacilitiesInRange : filteredFacilitiesByType;
+  }, [selectedDateRange, availableFacilitiesInRange, filteredFacilitiesByType]);
+
+
+  const renderContent = () => {
+    if (isLoadingInitialFacilities) {
+        return (
+          <div className="flex flex-col justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin mb-2" />
+            <p>{t('loadingFacilities')}</p>
+          </div>
+        );
+    }
+    if (isCheckingRangeAvailability) {
+        return (
+          <div className="flex flex-col justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin mb-2" />
+            <p>{t('checkingAvailabilityForRange')}</p>
+          </div>
+        );
+    }
+    if (selectedDateRange?.from && selectedDateRange?.to && availableFacilitiesInRange.length === 0 && !isCheckingRangeAvailability) {
+        return (
+          <Alert variant="destructive" className="max-w-md mx-auto">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
+            <AlertDescription>
+              {t('noFacilitiesAvailableInDateRange')}
+            </AlertDescription>
+          </Alert>
+        );
+    }
+    if (displayedFacilities.length === 0 && !isLoadingInitialFacilities && !isCheckingRangeAvailability) {
+        return <p className="text-center text-lg text-muted-foreground py-10">{t('noItemsCurrentlyMatchFilters')}</p>;
+    }
+    
+    return (
+      <HallList 
+        halls={displayedFacilities} 
+        selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'}
+        selectedItems={selectedItems}
+        onSelectionChange={handleSelectionChange}
+      />
+    );
+  };
+
+
   return (
     <PublicLayout>
-      <div className="container mx-auto py-12 px-4">
-        <h1 className="text-3xl font-bold text-primary mb-8 text-center">
-          {t('viewAvailableHallsAndSections')}
-        </h1>
-        
-        {isLoading ? (
-           <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
-        ) : (
-          <Tabs defaultValue="halls" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:w-2/3 lg:w-1/2 mx-auto mb-8">
-              <TabsTrigger value="halls">
-                <Building className="mr-2 h-5 w-5" /> {t('halls')}
-              </TabsTrigger>
-              <TabsTrigger value="select_multiple">
-                <Library className="mr-2 h-5 w-5" /> {t('selectMultipleItemsTab')}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="halls">
-              <h2 className="text-2xl font-semibold text-foreground mb-6 text-center">{t('ourAvailableHall')}</h2>
-              {allAvailableHalls.length > 0 ? (
-                <HallList halls={allAvailableHalls} />
-              ) : (
-                <p className="text-center text-muted-foreground">{t('noHallsCurrentlyAvailable')}</p>
-              )}
-            </TabsContent>
-            <TabsContent value="select_multiple">
-              <div className="flex flex-col items-center">
-                <h2 className="text-2xl font-semibold text-foreground mb-2 text-center">{t('selectItemsToBookTogether')}</h2>
-                <p className="text-muted-foreground text-center mb-6 max-w-md mx-auto">{t('selectMultipleDescription')}</p>
-                
-                {user?.role === 'company_representative' && user.approvalStatus === 'approved' && allAvailableSelectableItems.length > 0 && (
-                    <Button onClick={handleBookSelectedItems} className="mb-6" disabled={authLoading || selectedItems.length === 0}>
-                        <CalendarPlus className="mr-2 h-5 w-5" /> 
-                        {authLoading ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
-                    </Button>
-                )}
+      <div className="container mx-auto py-12 px-4 space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-primary mb-2 text-center">
+            {t('viewAvailableHallsAndSections')}
+          </h1>
+          <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateAndFilterFacility')}</p>
+        </div>
 
-                {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAvailableSelectableItems.length > 0 && (
-                     <Alert variant="default" className="max-w-md mx-auto mb-6 bg-blue-50 border-blue-200 text-blue-700">
-                        <AlertTitle>{t('loginToBookMultipleTitle')}</AlertTitle>
-                        <AlertDescription>
-                        {t('loginToBookMultipleDesc')}
-                        <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
-                            const currentPath = window.location.pathname + window.location.search;
-                            router.push(`/auth/login?redirect=${encodeURIComponent(currentPath)}`);
-                        }}>{t('loginHere')}</Button>.
-                        </AlertDescription>
-                    </Alert>
-                )}
+        <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow">
+            <div className="flex-1 min-w-[300px]">
+                <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
+                <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+                 <label htmlFor="itemTypeFilter" className="text-sm font-medium mb-1 block">{t('filterByType')}</label>
+                <Select value={itemTypeFilter} onValueChange={(value) => setItemTypeFilter(value as ItemTypeFilter)}>
+                    <SelectTrigger id="itemTypeFilter" className="w-full">
+                        <SelectValue placeholder={t('filterByTypePlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">{t('allItemTypes')}</SelectItem>
+                        <SelectItem value="hall">{t('hallsOnly')}</SelectItem>
+                        <SelectItem value="section">{t('sectionsOnly')}</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
 
-                {allAvailableSelectableItems.length > 0 ? (
-                  <HallList 
-                    halls={allAvailableSelectableItems} 
-                    selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'} // Only allow selection if company rep and approved
-                    selectedItems={selectedItems}
-                    onSelectionChange={handleSelectionChange}
-                  />
-                ) : (
-                   <p className="text-center text-muted-foreground">{t('noItemsCurrentlyAvailableForSelection')}</p>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+        {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
+            <div className="text-center">
+                 <Button 
+                    onClick={handleBookSelectedItems} 
+                    disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability}
+                    size="lg"
+                 >
+                    <CalendarPlus className="mr-2 h-5 w-5" /> 
+                    {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
+                </Button>
+            </div>
         )}
+         {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
+            <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
+                <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
+                <AlertDescription>
+                {t('loginToBookMultipleDesc')}
+                <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
+                    const currentPath = window.location.pathname;
+                     let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
+                     if (selectedItems.length > 0) {
+                         const itemsQueryPart = selectedItems
+                             .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
+                             .join('&');
+                          queryParams += `&${itemsQueryPart}`;
+                     }
+                    router.push(`/auth/login${queryParams}`);
+                }}>{t('loginHere')}</Button>.
+                </AlertDescription>
+            </Alert>
+        )}
+        
+        {renderContent()}
       </div>
     </PublicLayout>
   );
 }
+
+    
