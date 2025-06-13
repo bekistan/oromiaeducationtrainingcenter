@@ -18,7 +18,7 @@ import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'fi
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDualDate, toDateObject } from '@/lib/date-utils';
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
@@ -37,19 +37,32 @@ export default function CompanyDashboardPage() {
     try {
       const q = query(collection(db, "bookings"), where("companyId", "==", companyId));
       const querySnapshot = await getDocs(q);
-      const bookingsData = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
-          agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
-          agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
-        } as Booking;
-      });
-      setAllBookings(bookingsData.sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime()));
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today for comparison
+
+      const bookingsData = querySnapshot.docs
+        .map(docSnap => {
+            const data = docSnap.data();
+            return {
+            id: docSnap.id,
+            ...data,
+            bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+            startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
+            endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+            agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
+            agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
+            } as Booking;
+        })
+        .filter(booking => {
+            const bookingEndDate = toDateObject(booking.endDate);
+            if (!bookingEndDate) return false; 
+            bookingEndDate.setHours(23, 59, 59, 999);
+            return bookingEndDate >= today;
+        })
+        .sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime());
+      
+      setAllBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching company bookings: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingYourBookings') });
@@ -288,7 +301,7 @@ export default function CompanyDashboardPage() {
             <div className="flex justify-between items-center">
                 <CardTitle className="flex items-center">
                 <ShoppingBag className="mr-2 h-6 w-6 text-primary" />
-                {t('yourBookingsTitle')}
+                {t('yourActiveBookingsTitle')}
                 </CardTitle>
                 <Input
                     placeholder={t('searchYourBookings')}
@@ -297,7 +310,7 @@ export default function CompanyDashboardPage() {
                     className="max-w-xs text-sm"
                 />
             </div>
-            <CardDescription>{t('yourBookingsDescription')}</CardDescription>
+            <CardDescription>{t('yourActiveBookingsDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoadingBookings && !allBookings.length ? (
@@ -305,7 +318,7 @@ export default function CompanyDashboardPage() {
             ) : displayedBookings.length === 0 ? (
               <div className="text-center py-10">
                 <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noBookingsFound')}</p>
+                <p className="text-lg text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noActiveBookingsFound')}</p>
                 <Link href="/halls" passHref>
                     <Button className="mt-4">{t('makeYourFirstBooking')}</Button>
                 </Link>
@@ -424,5 +437,7 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
+
+    
 
     

@@ -11,8 +11,8 @@ import type { Booking } from "@/types";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { Loader2, Search, AlertCircle, BedDouble, CalendarDays, DollarSign, ShieldCheck, Phone } from "lucide-react";
-import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { toDateObject, formatDualDate } from '@/lib/date-utils'; // Use formatDualDate
 
 export default function CheckMyBookingPage() {
   const { t } = useLanguage();
@@ -37,23 +37,37 @@ export default function CheckMyBookingPage() {
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", phoneNumber.trim()),
-        where("approvalStatus", "==", "approved") // Only show approved bookings
+        where("approvalStatus", "==", "approved")
       );
       const querySnapshot = await getDocs(q);
-      const foundBookings = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString() : data.endDate,
-        } as Booking;
-      }).sort((a, b) => {
-        const dateA = a.startDate instanceof Timestamp ? a.startDate.toDate() : parseISO(a.startDate as string);
-        const dateB = b.startDate instanceof Timestamp ? b.startDate.toDate() : parseISO(b.startDate as string);
-        return dateB.getTime() - dateA.getTime(); // Sort by most recent start date
-      });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); 
+
+      const foundBookings = querySnapshot.docs
+        .map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+            startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate,
+            endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString() : data.endDate,
+          } as Booking;
+        })
+        .filter(booking => {
+            const bookingEndDate = toDateObject(booking.endDate);
+            if (!bookingEndDate) return false;
+            bookingEndDate.setHours(23, 59, 59, 999);
+            return bookingEndDate >= today; // Only show active or upcoming
+        })
+        .sort((a, b) => {
+          const dateA = toDateObject(a.startDate);
+          const dateB = toDateObject(b.startDate);
+          if (!dateA || !dateB) return 0;
+          return dateB.getTime() - dateA.getTime(); // Sort by most recent start date
+        });
+        
       setBookings(foundBookings);
     } catch (err) {
       console.error("Error searching bookings:", err);
@@ -62,16 +76,6 @@ export default function CheckMyBookingPage() {
       setIsLoading(false);
     }
   }, [phoneNumber, t]);
-
-  const formatDate = (dateInput: string | Timestamp | undefined): string => {
-    if (!dateInput) return t('notAvailable');
-    const date = dateInput instanceof Timestamp ? dateInput.toDate() : parseISO(dateInput as string);
-    try {
-      return format(date, 'PPP'); // e.g., Jun 3, 2025
-    } catch {
-      return t('invalidDate');
-    }
-  };
   
   const getPaymentStatusBadge = (status?: Booking['paymentStatus']) => {
     if (!status) return <Badge variant="secondary">{t('unknown')}</Badge>;
@@ -108,8 +112,8 @@ export default function CheckMyBookingPage() {
                 value={phoneNumber}
                 onChange={(e) => {
                   setPhoneNumber(e.target.value);
-                  setError(null); // Clear error when typing
-                  setSearched(false); // Reset searched state
+                  setError(null); 
+                  setSearched(false); 
                 }}
                 className="flex-grow"
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -138,14 +142,14 @@ export default function CheckMyBookingPage() {
           <Card className="max-w-lg mx-auto mt-8 shadow-md">
             <CardContent className="pt-6 text-center">
               <AlertCircle className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">{t('noBookingsFoundForPhone')}</p>
+              <p className="text-muted-foreground">{t('noActiveBookingsFoundForPhone')}</p>
             </CardContent>
           </Card>
         )}
 
         {!isLoading && bookings.length > 0 && (
           <div className="mt-8 max-w-2xl mx-auto space-y-6">
-            <h2 className="text-xl font-semibold text-center text-primary">{t('yourBookingDetails')} ({bookings.length})</h2>
+            <h2 className="text-xl font-semibold text-center text-primary">{t('yourActiveBookingDetails')} ({bookings.length})</h2>
             {bookings.map(booking => (
               <Card key={booking.id} className="shadow-lg">
                 <CardHeader>
@@ -158,7 +162,7 @@ export default function CheckMyBookingPage() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
                     <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>{t('bookingDates')}: {formatDate(booking.startDate)} - {formatDate(booking.endDate)}</span>
+                    <span>{t('bookingDates')}: {formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</span>
                   </div>
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
@@ -171,7 +175,7 @@ export default function CheckMyBookingPage() {
                 </CardContent>
                  <CardFooter>
                     <p className="text-xs text-muted-foreground">
-                      {t('bookedOn')}: {formatDate(booking.bookedAt)}
+                      {t('bookedOn')}: {formatDualDate(booking.bookedAt)}
                     </p>
                 </CardFooter>
               </Card>
@@ -182,5 +186,7 @@ export default function CheckMyBookingPage() {
     </PublicLayout>
   );
 }
+
+    
 
     

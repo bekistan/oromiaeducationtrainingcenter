@@ -34,7 +34,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDualDate, toDateObject } from '@/lib/date-utils';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -85,10 +85,20 @@ export default function AdminBookingsPage() {
   }, []); 
 
   const filteredBookings = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today for comparison
+
     return allBookings.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
-      return approvalMatch && paymentMatch;
+      
+      const bookingEndDate = toDateObject(booking.endDate);
+      if (!bookingEndDate) return false; // If date is invalid, filter out
+      bookingEndDate.setHours(23, 59, 59, 999); // Consider the full day of endDate
+
+      const isActiveBooking = bookingEndDate >= today;
+
+      return approvalMatch && paymentMatch && isActiveBooking;
     });
   }, [allBookings, approvalFilter, paymentFilter]);
 
@@ -207,6 +217,9 @@ export default function AdminBookingsPage() {
         updateData.agreementSentAt = Timestamp.now();
       } else if (newStatus === 'signed_by_client') {
         updateData.agreementSignedAt = Timestamp.now(); 
+      } else if (newStatus === 'completed') {
+        // Potentially add logic if booking.agreementSignedAt is not set, set it.
+        // Or ensure admin cannot mark completed if client hasn't signed. For now, admin has full control.
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('agreementStatusUpdated') });
@@ -328,7 +341,7 @@ export default function AdminBookingsPage() {
         {!isLoading && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noBookingsFoundAdminCta')}</p>
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noActiveBookingsFoundAdmin')}</p>
             </CardContent>
           </Card>
         )}
@@ -337,10 +350,10 @@ export default function AdminBookingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{t('bookingList')}</CardTitle>
+                <CardTitle>{t('activeBookingList')}</CardTitle>
                 {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
-              <CardDescription>{t('viewAndManageAllBookings')}</CardDescription>
+              <CardDescription>{t('viewAndManageActiveBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -415,6 +428,12 @@ export default function AdminBookingsPage() {
                                         disabled={booking.agreementStatus !== 'sent_to_client'}
                                       >
                                         <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
+                                      </DropdownMenuItem>
+                                       <DropdownMenuItem
+                                        onClick={() => handleAgreementStatusChange(booking.id, 'completed')}
+                                        disabled={booking.agreementStatus !== 'signed_by_client'}
+                                      >
+                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAgreementCompleted')}
                                       </DropdownMenuItem>
                                     </>
                                   )}
@@ -501,4 +520,6 @@ export default function AdminBookingsPage() {
     </>
   );
 }
+    
+
     
