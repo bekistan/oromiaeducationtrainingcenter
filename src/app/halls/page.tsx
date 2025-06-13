@@ -4,18 +4,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { PublicLayout } from "@/components/layout/public-layout";
 import { HallList } from "@/components/sections/hall-list";
-import type { Hall, Booking } from "@/types"; // Added Booking type
+import type { Hall, Booking } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { Building, Library, CalendarPlus, Loader2, Filter, CalendarDays, AlertCircle } from "lucide-react"; // Added icons
+import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { DatePickerWithRange } from '@/components/ui/date-picker-with-range'; // Added
-import type { DateRange } from 'react-day-picker'; // Added
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added
+import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
+import type { DateRange } from 'react-day-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -46,8 +46,8 @@ export default function HallsAndSectionsPage() {
       const itemsSnapshot = await getDocs(itemsQuery);
       const allItemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
       setAllAdminEnabledFacilities(allItemsData);
-      setFilteredFacilitiesByType(allItemsData); // Initially show all
-      setAvailableFacilitiesInRange(allItemsData); // Initially show all, will be refined by date
+      setFilteredFacilitiesByType(allItemsData);
+      setAvailableFacilitiesInRange(allItemsData);
     } catch (error) {
       console.error("Error fetching halls/sections: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHallsAndSections') });
@@ -60,25 +60,22 @@ export default function HallsAndSectionsPage() {
     fetchAllAdminEnabledFacilities();
   }, [fetchAllAdminEnabledFacilities]);
 
-  // Filter by item type
   useEffect(() => {
     let filtered = allAdminEnabledFacilities;
     if (itemTypeFilter !== "all") {
       filtered = allAdminEnabledFacilities.filter(item => item.itemType === itemTypeFilter);
     }
     setFilteredFacilitiesByType(filtered);
-    // When item type filter changes, re-evaluate availability if a date range is set
     if (selectedDateRange?.from && selectedDateRange?.to) {
-      // Trigger re-check for this new subset of facilities
-      // This will be handled by the date range useEffect
+      // Availability re-check will be triggered by selectedDateRange or filteredFacilitiesByType changing
     } else {
-      setAvailableFacilitiesInRange(filtered); // No date range, so available = filtered by type
+      setAvailableFacilitiesInRange(filtered);
     }
   }, [itemTypeFilter, allAdminEnabledFacilities, selectedDateRange]);
 
 
   const checkFacilityAvailabilityForRange = useCallback(async (facility: Hall, range: DateRange): Promise<boolean> => {
-    if (!range.from || !range.to) return true; // No range, assume available
+    if (!range.from || !range.to) return true;
 
     const fromTimestamp = Timestamp.fromDate(range.from);
     const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
@@ -101,19 +98,18 @@ export default function HallsAndSectionsPage() {
 
             return booking.items.some(bookedItem => bookedItem.id === facility.id);
         });
-        return conflictingBookings.length === 0; // Available if no conflicting bookings
+        return conflictingBookings.length === 0;
     } catch (error) {
         console.error(`Error checking availability for facility ${facility.id}:`, error);
         toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
-        return false; // Assume unavailable on error
+        return false;
     }
   }, [t, toast]);
 
-  // Check availability when date range changes or when type filter changes (which also might affect date range check)
   useEffect(() => {
     if (!selectedDateRange?.from || !selectedDateRange?.to) {
-      setAvailableFacilitiesInRange(filteredFacilitiesByType); // No range, so show all type-filtered
-      setSelectedItems([]); // Clear selection when date range is cleared
+      setAvailableFacilitiesInRange(filteredFacilitiesByType);
+      setSelectedItems([]);
       return;
     }
 
@@ -121,7 +117,7 @@ export default function HallsAndSectionsPage() {
       setIsCheckingRangeAvailability(true);
       const available: Hall[] = [];
       for (const facility of filteredFacilitiesByType) {
-        if (facility.isAvailable) { // Double check admin status
+        if (facility.isAvailable) {
             const isTrulyAvailableInRange = await checkFacilityAvailabilityForRange(facility, selectedDateRange);
             if (isTrulyAvailableInRange) {
                 available.push(facility);
@@ -151,7 +147,7 @@ export default function HallsAndSectionsPage() {
            const itemsQueryPart = selectedItems
                .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
                .join('&');
-            queryParams += `&${itemsQueryPart}`; // Add selected items to redirect to preserve selection
+            queryParams += `&${itemsQueryPart}`;
        }
       router.push(`/auth/login${queryParams}`);
       return;
@@ -164,6 +160,10 @@ export default function HallsAndSectionsPage() {
       toast({ variant: "destructive", title: t('error'), description: t('pleaseSelectItemsToBook') });
       return;
     }
+    if (!selectedDateRange?.from || !selectedDateRange?.to) {
+      toast({ variant: "destructive", title: t('error'), description: t('selectDateRangeFirst')});
+      return;
+    }
 
     const itemsQuery = selectedItems
       .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
@@ -173,8 +173,6 @@ export default function HallsAndSectionsPage() {
   };
 
   const displayedFacilities = useMemo(() => {
-    // If a date range is selected, availableFacilitiesInRange already reflects both type and date availability.
-    // If no date range, filteredFacilitiesByType reflects only type filtering.
     return selectedDateRange?.from && selectedDateRange?.to ? availableFacilitiesInRange : filteredFacilitiesByType;
   }, [selectedDateRange, availableFacilitiesInRange, filteredFacilitiesByType]);
 
@@ -256,12 +254,16 @@ export default function HallsAndSectionsPage() {
             <div className="text-center">
                  <Button 
                     onClick={handleBookSelectedItems} 
-                    disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability}
+                    disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
                     size="lg"
+                    title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
                  >
                     <CalendarPlus className="mr-2 h-5 w-5" /> 
                     {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
                 </Button>
+                {(!selectedDateRange?.from || !selectedDateRange?.to) && (
+                  <p className="text-xs text-muted-foreground mt-1">{t('pleaseSelectDateRangeToEnableBooking')}</p>
+                )}
             </div>
         )}
          {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
@@ -289,5 +291,3 @@ export default function HallsAndSectionsPage() {
     </PublicLayout>
   );
 }
-
-    

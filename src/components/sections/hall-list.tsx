@@ -5,18 +5,18 @@ import type { Hall } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Users, DollarSign, Utensils, Coffee, CheckCircle, XCircle, CheckSquare, Square } from "lucide-react";
+import { Users, DollarSign, Utensils, Coffee, CheckSquare, Square } from "lucide-react"; // Removed CheckCircle, XCircle
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
-import React from "react"; // Import React
+import React from "react";
 
 interface HallListProps {
-  halls: Hall[]; // Can be halls or sections
-  selectable?: boolean; // True if items can be selected (e.g., for multi-booking sections)
+  halls: Hall[];
+  selectable?: boolean;
   selectedItems?: Hall[];
   onSelectionChange?: (selected: Hall[]) => void;
 }
@@ -37,11 +37,10 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
   };
 
   const handleBookNowClick = (hallId: string) => {
-    if (loading) return; // Wait for auth state to load
+    if (loading) return;
 
     if (!user || user.role !== 'company_representative') {
-      alert(t('loginAsCompanyToBook')); // Add 'loginAsCompanyToBook' to JSON. In real app, redirect to login.
-      // router.push('/auth/login?redirect=/halls/' + hallId + '/book'); // Example redirect
+      alert(t('loginAsCompanyToBook'));
       return;
     }
     router.push(`/halls/${hallId}/book`);
@@ -108,27 +107,18 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                   </div>
                 )}
               </div>
-               <div className="flex items-center text-sm text-muted-foreground mt-3">
-                {hall.isAvailable ? (
-                  <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                ) : (
-                  <XCircle className="w-4 h-4 mr-1 text-red-500" />
-                )}
-                {hall.isAvailable ? t('available') : t('unavailable')}
-              </div>
+              {/* Removed the availability indicator from here as it's handled by filtering on the parent page */}
             </CardContent>
             <CardFooter className="p-4">
-               {/* For individual booking, not multi-select */}
                {!selectable && (
                   <Button 
                     className="w-full" 
-                    disabled={!hall.isAvailable || loading}
+                    disabled={!hall.isAvailable || loading} // hall.isAvailable is the admin-set general availability
                     onClick={() => handleBookNowClick(hall.id)}
                   >
                     {loading ? t('loading') : t('bookNow')}
                   </Button>
                )}
-               {/* If selectable, the book button is outside this component */}
             </CardFooter>
           </Card>
         )
