@@ -1,6 +1,7 @@
 
 import { format as formatGregorian, parseISO as parseISOGregorian } from 'date-fns';
-import { format as formatEthiopian, toEthiopian } from 'ethiopian-date';
+// Import EthiopianDate class and use the imported format function correctly
+import { EthiopianDate, format as formatEthiopianFromPackage, toEthiopian } from 'ethiopian-date';
 import type { Timestamp } from 'firebase/firestore';
 
 /**
@@ -36,25 +37,28 @@ export const toDateObject = (dateInput: string | Date | Timestamp | undefined): 
  */
 export const formatDualDate = (
     dateInput: string | Date | Timestamp | undefined,
-    gregorianFormatStr: string = 'MMM d, yyyy', 
-    ethiopianFormatStr: string = 'MMM d, yyyy GGG'
+    gregorianFormatStr: string = 'MMM d, yyyy',
+    // Use format tokens compatible with ethiopian-date's format function
+    ethiopianFormatStr: string = 'MMMM D, YYYY ERA'
   ): string => {
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
 
   try {
     const gregorianFormatted = formatGregorian(dateObj, gregorianFormatStr);
-    
+
+    // toEthiopian returns [year, month (1-indexed), day]
     const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
-    // Create a Date object for ethiopian-date-fns's format function.
-    // Month is 0-indexed for JS Date, toEthiopian returns 1-indexed month.
-    const ethiopianDateObjForFormatting = new Date(year, month - 1, day); 
-    const ethiopianFormatted = formatEthiopian(ethiopianDateObjForFormatting, ethiopianFormatStr);
-    
+    // Create an EthiopianDate instance. EthiopianDate constructor expects 1-indexed month.
+    const ethiopianDateInstance = new EthiopianDate(year, month, day);
+    // Call the imported format function with the EthiopianDate instance
+    const ethiopianFormatted = formatEthiopianFromPackage(ethiopianDateInstance, ethiopianFormatStr);
+
     return `${gregorianFormatted} (${ethiopianFormatted})`;
   } catch (error) {
     console.error("Error formatting dual date:", error, "Input:", dateInput, "Date Object:", dateObj);
     try {
+      // Fallback to Gregorian only if Ethiopian formatting fails
       return formatGregorian(dateObj, gregorianFormatStr) + " (Eth. N/A)";
     } catch {
       return "Invalid Date";
@@ -81,17 +85,19 @@ export const formatGregorianDate = (
 
 /**
  * Formats a date into Ethiopian string.
+ * Renamed to avoid conflict with potential local 'formatEthiopian' variables.
  */
-export const formatEthiopianDate = (
+export const formatEthiopianCalendarDate = (
     dateInput: string | Date | Timestamp | undefined,
-    formatStr: string = 'PPP GGG' // e.g., Sene 5, 2016 A.M.
+    // Use format tokens compatible with ethiopian-date's format function
+    formatStr: string = 'dddd, MMMM DD, YYYY ERA'
   ): string => {
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
   try {
     const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
-    const ethiopianDateObjForFormatting = new Date(year, month - 1, day);
-    return formatEthiopian(ethiopianDateObjForFormatting, formatStr);
+    const ethiopianDateInstance = new EthiopianDate(year, month, day);
+    return formatEthiopianFromPackage(ethiopianDateInstance, formatStr);
   } catch (error) {
     console.error("Error formatting Ethiopian date:", error, "Input:", dateInput);
     return "N/A";
