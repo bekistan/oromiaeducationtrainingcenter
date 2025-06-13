@@ -5,10 +5,10 @@ import type { Hall } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Users, DollarSign, Utensils, Coffee, CheckSquare, Square } from "lucide-react"; // Removed CheckCircle, XCircle
+import { Users, DollarSign, Utensils, Coffee, CheckSquare, Square } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-import { Badge } from "@/components/ui/badge";
+// Removed Badge import as it's no longer used for top-right availability
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
@@ -39,8 +39,20 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
   const handleBookNowClick = (hallId: string) => {
     if (loading) return;
 
+    // Availability for individual booking is now primarily handled by the parent page filtering
+    // or the individual booking page's date selection.
+    // The `hall.isAvailable` (admin-set) is still relevant for the booking page itself.
+    const hall = halls.find(h => h.id === hallId);
+    if (!hall || !hall.isAvailable) {
+        // This alert might be redundant if the list is already filtered by availability,
+        // but kept as a fallback for direct navigation or edge cases.
+        alert(t('itemNotAvailableError', { itemName: hall?.name || t('thisItem') }));
+        return;
+    }
+
     if (!user || user.role !== 'company_representative') {
       alert(t('loginAsCompanyToBook'));
+      router.push(`/auth/login?redirect=/halls/${hallId}/book`);
       return;
     }
     router.push(`/halls/${hallId}/book`);
@@ -69,12 +81,7 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 data-ai-hint={hall.dataAiHint || "meeting space"}
               />
-              <Badge 
-                variant={hall.isAvailable ? "default" : "destructive"} 
-                className={`absolute top-2 right-2 ${hall.isAvailable ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}
-              >
-                {hall.isAvailable ? t('available') : t('unavailable')}
-              </Badge>
+              {/* Removed the Badge component from here */}
               {selectable && (
                 <div className="absolute top-2 left-2 bg-background/70 p-1 rounded-md">
                   {isSelected ? <CheckSquare className="w-6 h-6 text-primary" /> : <Square className="w-6 h-6 text-muted-foreground" />}
@@ -107,13 +114,12 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                   </div>
                 )}
               </div>
-              {/* Removed the availability indicator from here as it's handled by filtering on the parent page */}
             </CardContent>
             <CardFooter className="p-4">
                {!selectable && (
                   <Button 
                     className="w-full" 
-                    disabled={!hall.isAvailable || loading} // hall.isAvailable is the admin-set general availability
+                    disabled={!hall.isAvailable || loading} 
                     onClick={() => handleBookNowClick(hall.id)}
                   >
                     {loading ? t('loading') : t('bookNow')}
