@@ -7,17 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages } from "lucide-react"; // Added Languages
-import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME } from "@/constants"; // Import SITE_NAME
+import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode } from "lucide-react";
+import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME } from "@/constants";
+import { QRCodeDisplay } from "@/components/shared/qr-code-display"; // Import the QR code component
+import { useEffect, useState } from "react";
 
 export default function HomePage() {
   const { t } = useLanguage();
+  const [brochureUrl, setBrochureUrl] = useState('');
+
+  useEffect(() => {
+    // Ensure this runs only on the client where window is available
+    if (typeof window !== 'undefined') {
+      setBrochureUrl(window.location.origin + '/brochure');
+    }
+  }, []);
 
   const services = [
     {
       icon: <BedDouble className="h-10 w-10 text-primary" />,
       titleKey: "dormitories",
-      descriptionKey: "tagline", // Placeholder, needs more specific description
+      descriptionKey: "tagline",
       link: "/dormitories",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
       imageHint: "modern dormitory"
@@ -25,16 +35,16 @@ export default function HomePage() {
     {
       icon: <Presentation className="h-10 w-10 text-primary" />,
       titleKey: "halls",
-      descriptionKey: "tagline", // Placeholder
+      descriptionKey: "tagline",
       link: "/halls",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
       imageHint: "conference hall"
     },
     {
       icon: <Utensils className="h-10 w-10 text-primary" />,
-      titleKey: "cateringServices", // Needs new key
-      descriptionKey: "tagline", // Placeholder
-      link: "/halls#catering", // Assuming catering is part of halls
+      titleKey: "cateringServices",
+      descriptionKey: "tagline",
+      link: "/halls#catering",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
       imageHint: "catering food"
     },
@@ -102,7 +112,7 @@ export default function HomePage() {
                     fill
                     style={{ objectFit: 'cover' }}
                     data-ai-hint={service.imageHint}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Added sizes for responsiveness
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 </div>
                 <CardContent className="p-6 text-center">
@@ -117,7 +127,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features Section - Card View */}
+      {/* Features Section */}
       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-12">{t('features')}</h2>
@@ -136,6 +146,32 @@ export default function HomePage() {
               </Card>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Brochure QR Code Section */}
+      <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto text-center">
+          <h2 className="text-3xl font-bold text-primary mb-4">{t('discoverMoreTitle')}</h2>
+          <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">{t('discoverMoreSubtitle')}</p>
+          <Card className="max-w-xs mx-auto shadow-xl p-6 md:p-8">
+            <CardHeader className="p-0 mb-4">
+              <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
+                <QrCode className="w-8 h-8 text-primary" />
+              </div>
+              <CardTitle className="text-xl">{t('scanForBrochureTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex justify-center">
+              {brochureUrl ? (
+                <QRCodeDisplay value={brochureUrl} size={160} />
+              ) : (
+                <div className="w-[160px] h-[160px] bg-muted rounded-md flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">{t('generatingQrCode')}</p>
+                </div>
+              )}
+            </CardContent>
+            <CardDescription className="mt-4 text-sm">{t('scanForBrochureDesc')}</CardDescription>
+          </Card>
         </div>
       </section>
     </PublicLayout>
