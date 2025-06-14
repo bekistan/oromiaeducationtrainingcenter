@@ -30,11 +30,11 @@ export default function HallsAndSectionsPage() {
   const [allAdminEnabledFacilities, setAllAdminEnabledFacilities] = useState<Hall[]>([]);
   const [filteredFacilitiesByType, setFilteredFacilitiesByType] = useState<Hall[]>([]);
   const [availableFacilitiesInRange, setAvailableFacilitiesInRange] = useState<Hall[]>([]);
-  
+
   const [selectedItems, setSelectedItems] = useState<Hall[]>([]);
   const [isLoadingInitialFacilities, setIsLoadingInitialFacilities] = useState(true);
   const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
-  
+
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>("all");
 
@@ -57,7 +57,7 @@ export default function HallsAndSectionsPage() {
   }, [t, toast]);
 
   useEffect(() => {
-    fetchAllAdminEnabledFacilities();
+    fetchAllAdminEnabledFacilities().catch(console.error);
   }, [fetchAllAdminEnabledFacilities]);
 
   useEffect(() => {
@@ -84,15 +84,15 @@ export default function HallsAndSectionsPage() {
         collection(db, "bookings"),
         where("bookingCategory", "==", "facility"),
         where("approvalStatus", "in", ["approved", "pending"]),
-        where("startDate", "<=", toTimestamp) 
+        where("startDate", "<=", toTimestamp)
     );
-    
+
     try {
         const querySnapshot = await getDocs(bookingsQuery);
         const conflictingBookings = querySnapshot.docs.filter(docSnap => {
             const booking = docSnap.data() as Booking;
             const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-            
+
             const overlapsDate = bookingEndDate >= range.from!;
             if (!overlapsDate) return false;
 
@@ -129,7 +129,7 @@ export default function HallsAndSectionsPage() {
       setIsCheckingRangeAvailability(false);
     };
 
-    updateAvailableFacilities();
+    updateAvailableFacilities().catch(console.error);
   }, [selectedDateRange, filteredFacilitiesByType, checkFacilityAvailabilityForRange]);
 
 
@@ -168,7 +168,7 @@ export default function HallsAndSectionsPage() {
     const itemsQuery = selectedItems
       .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
       .join('&');
-    
+
     router.push(`/halls/book-multiple?${itemsQuery}`);
   };
 
@@ -208,10 +208,10 @@ export default function HallsAndSectionsPage() {
     if (displayedFacilities.length === 0 && !isLoadingInitialFacilities && !isCheckingRangeAvailability) {
         return <p className="text-center text-lg text-muted-foreground py-10">{t('noItemsCurrentlyMatchFilters')}</p>;
     }
-    
+
     return (
-      <HallList 
-        halls={displayedFacilities} 
+      <HallList
+        halls={displayedFacilities}
         selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'}
         selectedItems={selectedItems}
         onSelectionChange={handleSelectionChange}
@@ -252,13 +252,13 @@ export default function HallsAndSectionsPage() {
 
         {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
             <div className="text-center">
-                 <Button 
-                    onClick={handleBookSelectedItems} 
+                 <Button
+                    onClick={handleBookSelectedItems}
                     disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
                     size="lg"
                     title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
                  >
-                    <CalendarPlus className="mr-2 h-5 w-5" /> 
+                    <CalendarPlus className="mr-2 h-5 w-5" />
                     {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
                 </Button>
                 {(!selectedDateRange?.from || !selectedDateRange?.to) && (
@@ -285,7 +285,7 @@ export default function HallsAndSectionsPage() {
                 </AlertDescription>
             </Alert>
         )}
-        
+
         {renderContent()}
       </div>
     </PublicLayout>

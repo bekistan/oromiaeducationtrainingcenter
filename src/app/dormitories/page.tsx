@@ -32,10 +32,10 @@ export default function DormitoriesPage() {
     try {
       const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
       const querySnapshot = await getDocs(q);
-      const dormsData = querySnapshot.docs.map(doc => ({ 
-          id: doc.id, 
+      const dormsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
           ...doc.data(),
-          isAvailable: true 
+          isAvailable: true
         } as Dormitory));
       setAllAdminEnabledDormitories(dormsData);
     } catch (error) {
@@ -47,7 +47,7 @@ export default function DormitoriesPage() {
   }, [t, toast]);
 
   useEffect(() => {
-    fetchAllAdminEnabledDormitories();
+    fetchAllAdminEnabledDormitories().catch(console.error);
   }, [fetchAllAdminEnabledDormitories]);
 
   const checkDormitoryAvailabilityForRange = useCallback(async (dorm: Dormitory, range: DateRange): Promise<boolean> => {
@@ -61,8 +61,8 @@ export default function DormitoriesPage() {
     const bookingsQuery = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "in", ["approved", "pending"]), 
-        where("startDate", "<=", toTimestamp) 
+        where("approvalStatus", "in", ["approved", "pending"]),
+        where("startDate", "<=", toTimestamp)
     );
 
     try {
@@ -94,7 +94,7 @@ export default function DormitoriesPage() {
 
   useEffect(() => {
     if (!selectedDateRange || !selectedDateRange.from || !selectedDateRange.to) {
-      setAvailableDormitoriesInRange([]); 
+      setAvailableDormitoriesInRange([]);
       // If a tab was on "available", switch to "all" if no range is selected, or keep user's choice
       // For simplicity, we won't force tab switch here, user can switch manually.
       return;
@@ -115,7 +115,7 @@ export default function DormitoriesPage() {
       setIsCheckingRangeAvailability(false);
     };
 
-    updateAvailableDorms();
+    updateAvailableDorms().catch(console.error);
   }, [selectedDateRange, allAdminEnabledDormitories, checkDormitoryAvailabilityForRange]);
 
   const handleTabChange = (value: string) => {
@@ -175,7 +175,7 @@ export default function DormitoriesPage() {
         return <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesConfigured')}</p>;
       }
     }
-    
+
     return <DormitoryList dormitories={displayedDormitories} />;
   };
 
@@ -214,4 +214,3 @@ export default function DormitoriesPage() {
     </PublicLayout>
   );
 }
-
