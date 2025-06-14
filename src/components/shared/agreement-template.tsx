@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { Booking } from '@/types';
+import type { Booking, BookingItem } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
@@ -44,14 +44,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
 
+  // Calculate individual rental costs for items and sum them up
   let totalFacilityRentalCost = 0;
-  // Calculate individual rental costs for items
   const facilityItemCosts = booking.items.map(item => {
     const itemRentalCost = (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
     totalFacilityRentalCost += itemRentalCost;
-    return { name: item.name, cost: itemRentalCost };
+    return { name: item.name, cost: itemRentalCost, type: item.itemType };
   });
-
 
   let calculatedLunchServiceCost = 0;
   if (booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
@@ -64,8 +63,17 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     const pricePerPersonPerDay = REFRESHMENT_PRICES_PER_DAY[booking.serviceDetails.refreshment];
     calculatedRefreshmentServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
   }
+
+  let calculatedLedProjectorCost = 0;
+  if (booking.serviceDetails?.ledProjector && numberOfDays > 0) {
+    booking.items.forEach(item => {
+      if (item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0) {
+        calculatedLedProjectorCost += item.ledProjectorCost * numberOfDays;
+      }
+    });
+  }
   
-  const totalBookingCostFromRecord = booking.totalCost; // This should ideally match the sum of components
+  const totalBookingCostFromRecord = booking.totalCost; 
 
   const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
   const facilitiesBookedString = booking.items.map(item => `${item.name} (${t(item.itemType)})`).join(', ');
@@ -145,7 +153,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
               <tbody>
                 {facilityItemCosts.map((itemCost, index) => (
                   <tr key={index}>
-                    <td className="border border-slate-300 p-2">{t('facilityRental')} - {itemCost.name}</td>
+                    <td className="border border-slate-300 p-2">{t(itemCost.type)} {t('rental')} - {itemCost.name}</td>
                     <td className="border border-slate-300 p-2">{itemCost.name} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
                     <td className="border border-slate-300 p-2 text-right">{itemCost.cost.toFixed(2)}</td>
                   </tr>
@@ -162,6 +170,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
                     <td className="border border-slate-300 p-2">{t('refreshmentService')}</td>
                     <td className="border border-slate-300 p-2">{t(booking.serviceDetails.refreshment)} - {numberOfAttendees} {t('persons')} x {numberOfDays} {numberOfDays === 1 ? t('day') : t('days')}</td>
                     <td className="border border-slate-300 p-2 text-right">{calculatedRefreshmentServiceCost.toFixed(2)}</td>
+                  </tr>
+                )}
+                {booking.serviceDetails?.ledProjector && calculatedLedProjectorCost > 0 && (
+                   <tr>
+                    <td className="border border-slate-300 p-2">{t('ledProjectorService')}</td>
+                    <td className="border border-slate-300 p-2">{t('forAllApplicableSections')} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
+                    <td className="border border-slate-300 p-2 text-right">{calculatedLedProjectorCost.toFixed(2)}</td>
                   </tr>
                 )}
                 <tr className="font-bold bg-slate-100">

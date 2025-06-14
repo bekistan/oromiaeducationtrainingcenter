@@ -24,6 +24,7 @@ export interface Hall {
   rentalCost: number;
   lunchServiceCost?: number | null;
   refreshmentServiceCost?: number | null;
+  ledProjectorCost?: number | null; // Added for sections
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -33,14 +34,16 @@ export interface Hall {
 export interface BookingServiceDetails {
   lunch?: 'level1' | 'level2';
   refreshment?: 'level1' | 'level2';
+  ledProjector?: boolean; // Added for facility bookings with sections
 }
 
 export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number;
+  pricePerDay?: number; // For dormitories
   rentalCost?: number; // For facilities, this is the per-day rental cost for the item.
+  ledProjectorCost?: number | null; // For sections, carries over the potential cost from Hall type
   capacity?: number;
 };
 
@@ -61,19 +64,18 @@ export interface Booking {
   guestEmployer?: string;
   payerBankName?: string;
   payerAccountNumber?: string;
-  phone?: string; // Added for dormitory bookings too
+  phone?: string; 
   // Facility specific
   companyName?: string;
   contactPerson?: string;
   email?: string;
-  // notes?: string; // Already present under Facility specific, removed guestNotes
   customAgreementTerms?: string;
   // Common
   startDate: string | import('firebase/firestore').Timestamp;
   endDate: string | import('firebase/firestore').Timestamp;
-  numberOfAttendees?: number; // Moved to common as dorms might have it implicitly via capacity
-  serviceDetails?: BookingServiceDetails; // Moved to common
-  notes?: string; // Moved to common
+  numberOfAttendees?: number; 
+  serviceDetails?: BookingServiceDetails; 
+  notes?: string; 
   totalCost: number;
   paymentStatus: 'pending' | 'pending_transfer' | 'awaiting_verification' | 'paid' | 'failed';
   approvalStatus: 'pending' | 'approved' | 'rejected';
@@ -82,13 +84,13 @@ export interface Booking {
   agreementStatus?: AgreementStatus;
   agreementSentAt?: string | import('firebase/firestore').Timestamp;
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
-  signedAgreementUrl?: string; // URL of the client's uploaded signed agreement
+  signedAgreementUrl?: string; 
 }
 
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'superadmin' | 'company_representative' | 'individual';
+  role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder';
   name?: string;
   companyId?: string;
   companyName?: string;
@@ -114,3 +116,4 @@ export interface NavItem {
   roles?: User['role'][];
 }
 
+    

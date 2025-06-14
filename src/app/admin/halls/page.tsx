@@ -18,7 +18,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
@@ -32,6 +32,7 @@ const hallSchema = z.object({
   isAvailable: z.boolean().default(true),
   lunchServiceCost: z.coerce.number().nonnegative({ message: "Cost must be zero or positive." }).optional().or(z.literal('')),
   refreshmentServiceCost: z.coerce.number().nonnegative({ message: "Cost must be zero or positive." }).optional().or(z.literal('')),
+  ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')),
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
   description: z.string().max(300, { message: "Description cannot exceed 300 characters." }).optional(),
@@ -60,6 +61,7 @@ export default function AdminHallsAndSectionsPage() {
       isAvailable: true,
       lunchServiceCost: undefined,
       refreshmentServiceCost: undefined,
+      ledProjectorCost: undefined,
       images: "",
       dataAiHint: "meeting space",
       description: ""
@@ -69,6 +71,10 @@ export default function AdminHallsAndSectionsPage() {
   const editForm = useForm<HallFormValues>({
     resolver: zodResolver(hallSchema),
   });
+
+  const watchedItemType = form.watch("itemType");
+  const watchedEditItemType = editForm.watch("itemType");
+
 
   const fetchItems = useCallback(async () => {
     setIsLoading(true);
@@ -118,8 +124,6 @@ export default function AdminHallsAndSectionsPage() {
 
   async function onSubmit(values: HallFormValues) {
     setIsSubmitting(true);
-    console.log("Hall/Section Add - Form values:", values);
-    console.log("Hall/Section Add - isAvailable from form values:", values.isAvailable);
     try {
       const itemData = {
         ...values,
@@ -127,8 +131,8 @@ export default function AdminHallsAndSectionsPage() {
         dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
         lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
         refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
+        ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
       };
-      console.log("Hall/Section Add - Data being sent to Firestore:", itemData);
       await addDoc(collection(db, "halls"), itemData);
       toast({ title: t('success'), description: t('itemAddedSuccessfully') });
       fetchItems();
@@ -140,6 +144,7 @@ export default function AdminHallsAndSectionsPage() {
         isAvailable: true,
         lunchServiceCost: undefined,
         refreshmentServiceCost: undefined,
+        ledProjectorCost: undefined,
         images: "",
         dataAiHint: "meeting space",
         description: ""
@@ -161,6 +166,7 @@ export default function AdminHallsAndSectionsPage() {
         dataAiHint: item.dataAiHint || (item.itemType === 'hall' ? "conference hall" : "meeting section"),
         lunchServiceCost: item.lunchServiceCost ?? undefined,
         refreshmentServiceCost: item.refreshmentServiceCost ?? undefined,
+        ledProjectorCost: item.ledProjectorCost ?? undefined,
         description: item.description || "",
     });
     setIsEditDialogOpen(true);
@@ -169,8 +175,6 @@ export default function AdminHallsAndSectionsPage() {
   async function onEditSubmit(values: HallFormValues) {
     if (!currentItem) return;
     setIsSubmitting(true);
-    console.log("Hall/Section Edit - Form values:", values);
-    console.log("Hall/Section Edit - isAvailable from form values:", values.isAvailable);
     try {
       const itemRef = doc(db, "halls", currentItem.id);
       const updatedData = {
@@ -179,8 +183,8 @@ export default function AdminHallsAndSectionsPage() {
           dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
           lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
           refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
+          ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
       };
-      console.log("Hall/Section Edit - Data being sent to Firestore:", updatedData);
       await updateDoc(itemRef, updatedData);
       toast({ title: t('success'), description: t('itemUpdatedSuccessfully') });
       fetchItems();
@@ -221,6 +225,7 @@ export default function AdminHallsAndSectionsPage() {
                 isAvailable: true,
                 lunchServiceCost: undefined,
                 refreshmentServiceCost: undefined,
+                ledProjectorCost: undefined,
                 images: "",
                 dataAiHint: "meeting space",
                 description: ""
@@ -242,6 +247,9 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={form.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="lunchServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostLunch')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="refreshmentServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostRefreshment')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                {watchedItemType === 'section' && (
+                  <FormField control={form.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostProjector')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                )}
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={form.getValues("itemType") === "hall" ? t('placeholderConferenceHall') : t('placeholderMeetingSpace')} {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -293,6 +301,7 @@ export default function AdminHallsAndSectionsPage() {
                     <TableHead onClick={() => requestSort('itemType')} className="cursor-pointer group">{t('type')}{getSortIndicator('itemType')}</TableHead>
                     <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
                     <TableHead onClick={() => requestSort('rentalCost')} className="cursor-pointer group">{t('rentalCost')}{getSortIndicator('rentalCost')}</TableHead>
+                    <TableHead onClick={() => requestSort('ledProjectorCost')} className="cursor-pointer group">{t('ledProjectorCost')}{getSortIndicator('ledProjectorCost')}</TableHead>
                     <TableHead onClick={() => requestSort('isAvailable')} className="cursor-pointer group">{t('availability')}{getSortIndicator('isAvailable')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
@@ -304,6 +313,7 @@ export default function AdminHallsAndSectionsPage() {
                       <TableCell className="capitalize">{t(item.itemType)}</TableCell>
                       <TableCell>{item.capacity}</TableCell>
                       <TableCell>{item.rentalCost} {t('currencySymbol')}</TableCell>
+                      <TableCell>{item.itemType === 'section' && item.ledProjectorCost ? `${item.ledProjectorCost} ${t('currencySymbol')}` : t('notApplicableShort')}</TableCell>
                       <TableCell>
                         <Badge
                             variant={item.isAvailable ? "default" : "destructive"}
@@ -368,6 +378,9 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={editForm.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="lunchServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostLunch')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="refreshmentServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostRefreshment')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                {watchedEditItemType === 'section' && (
+                  <FormField control={editForm.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostProjector')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                )}
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={editForm.getValues("itemType") === "hall" ? t('placeholderConferenceHall') : t('placeholderMeetingSpace')} {...field} /></FormControl><FormMessage /></FormItem> )} />

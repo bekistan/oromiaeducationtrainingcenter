@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,7 +29,7 @@ import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, List, Loader2, Building, BedDouble } from 'lucide-react';
+import { AlertCircle, List, Loader2, Building, BedDouble, Film } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -67,6 +68,7 @@ const facilityBookingSchema = z.object({
   services: z.object({
     lunch: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
     refreshment: z.enum(['none', 'level1', 'level2'], { errorMap: (issue, ctx) => ({ message: ctx.defaultError + " - " + issue.code }) }).default('none'),
+    ledProjector: z.boolean().optional().default(false),
   }),
   notes: z.string().max(500, { message: "Notes cannot exceed 500 characters." }).optional(),
 });
@@ -84,6 +86,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
+  const [showLedProjectorOption, setShowLedProjectorOption] = useState(false);
 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
@@ -103,7 +106,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     phone: user?.phone || "",
     dateRange: undefined,
     numberOfAttendees: 1,
-    services: { lunch: 'none' as const, refreshment: 'none' as const },
+    services: { lunch: 'none' as const, refreshment: 'none' as const, ledProjector: false },
     notes: ""
   };
 
@@ -115,6 +118,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   });
 
   const watchedDateRange = form.watch('dateRange');
+
+  useEffect(() => {
+    if (bookingCategory === 'facility') {
+      const hasProjectorOption = itemsToBook.some(item => item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0);
+      setShowLedProjectorOption(hasProjectorOption);
+    }
+  }, [itemsToBook, bookingCategory]);
+
 
   const checkFacilityAvailability = useCallback(async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
     if (!selectedRange.from || !selectedRange.to) return null;
@@ -145,7 +156,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         } else {
             return t('itemNotFoundDatabase', {itemName: item.name });
         }
-
 
         const conflictingBookingsForItem = potentiallyConflictingBookings.filter(booking => {
           const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
@@ -241,7 +251,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       clearTimeout(debounceTimer);
     };
   }, [
-    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity, rentalCost: item.rentalCost, pricePerDay: item.pricePerDay }))),
+    JSON.stringify(itemsToBook.map(item => ({id: item.id, capacity: item.capacity, rentalCost: item.rentalCost, pricePerDay: item.pricePerDay, ledProjectorCost: item.ledProjectorCost }))),
     watchedDateRange?.from?.toISOString(),
     watchedDateRange?.to?.toISOString(),
     bookingCategory,
@@ -425,7 +435,16 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         refreshmentCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
 
-      totalCost = rentalCostComponent + lunchCostComponent + refreshmentCostComponent;
+      let ledProjectorCostComponent = 0;
+      if (facilityData.services.ledProjector) {
+        itemsToBook.forEach(item => {
+          if (item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0) {
+            ledProjectorCostComponent += item.ledProjectorCost * (numberOfDays > 0 ? numberOfDays : 1);
+          }
+        });
+      }
+      
+      totalCost = rentalCostComponent + lunchCostComponent + refreshmentCostComponent + ledProjectorCostComponent;
 
       if (isNaN(totalCost)) {
         toast({ variant: "destructive", title: t('error'), description: t('errorCalculatingTotalCostNaN') });
@@ -440,6 +459,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       if (facilityData.services.refreshment && facilityData.services.refreshment !== 'none') {
         serviceDetails.refreshment = facilityData.services.refreshment;
       }
+      if (facilityData.services.ledProjector) {
+        serviceDetails.ledProjector = true;
+      }
+
 
       const mappedItems = itemsToBook.map(item => {
         const mappedItem: Partial<BookingItem> & { id: string; name: string; itemType: BookingItem['itemType'] } = {
@@ -448,6 +471,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           itemType: item.itemType,
         };
         if (item.rentalCost !== undefined) mappedItem.rentalCost = item.rentalCost;
+        if (item.ledProjectorCost !== undefined) mappedItem.ledProjectorCost = item.ledProjectorCost;
         if (item.capacity !== undefined) mappedItem.capacity = item.capacity;
         return mappedItem as BookingItem;
       });
@@ -511,6 +535,24 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           <p>{t('mustBeLoggedInAsCompany')}</p>
            <Button onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)} className="mt-4">
             {t('login')}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  if (!isDormitoryBooking && user?.role === 'company_representative' && user.approvalStatus !== 'approved') {
+    return (
+      <Card className="w-full max-w-2xl mx-auto my-8 shadow-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center text-yellow-600 flex items-center justify-center">
+            <AlertCircle className="mr-2 h-8 w-8" /> {t('accountPendingApprovalTitle')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center">
+          <p>{t('accountPendingApprovalBookFacility')}</p>
+          <Button onClick={() => router.push('/company/dashboard')} className="mt-4">
+            {t('backToCompanyDashboard')}
           </Button>
         </CardContent>
       </Card>
@@ -682,6 +724,31 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                     </FormItem>
                   )}
                 />
+                {showLedProjectorOption && (
+                    <FormField
+                        control={form.control}
+                        name="services.ledProjector"
+                        render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                            <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                id="ledProjector"
+                            />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                            <FormLabel htmlFor="ledProjector" className="flex items-center">
+                                <Film className="mr-2 h-4 w-4 text-primary" /> {t('addLedProjector')}
+                            </FormLabel>
+                            <FormDescription>
+                                {t('addLedProjectorDescription')}
+                            </FormDescription>
+                            </div>
+                        </FormItem>
+                        )}
+                    />
+                )}
                 <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>{t('notesOrSpecialRequests')}</FormLabel><FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               </>
             )}
