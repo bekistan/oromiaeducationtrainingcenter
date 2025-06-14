@@ -4,8 +4,8 @@
 import Script from 'next/script';
 import { useEffect } from 'react';
 
-const TAWK_TO_PROPERTY_ID = '684ca64dea835c190b6d6d04';
-const TAWK_TO_WIDGET_ID = 'c560c4fe4caef7341383713c7271af5d6454f279'; // Your user-provided "API key" is the widget ID
+const TAWK_TO_PROPERTY_ID = '684ca64dea835c190b6d6d04'; // This remains the same
+const TAWK_TO_WIDGET_ID = '1itlmj8if'; // Updated to match the new script's widget ID
 
 export function TawkToWidget() {
   useEffect(() => {
