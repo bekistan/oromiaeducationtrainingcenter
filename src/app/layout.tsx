@@ -7,6 +7,7 @@ import { LanguageProvider } from '@/contexts/language-context';
 import { AuthProvider } from '@/hooks/use-auth'; // Import AuthProvider
 import { Toaster } from "@/components/ui/toaster";
 import { SITE_NAME, SITE_DESCRIPTION } from '@/constants';
+import { TawkToWidget } from '@/components/analytics/tawk-to'; // Import Tawk.to widget
 
 export const metadata: Metadata = {
   title: {
@@ -28,6 +29,7 @@ export default function RootLayout({
           <LanguageProvider>
             {children}
             <Toaster />
+            <TawkToWidget /> {/* Add Tawk.to widget here */}
           </LanguageProvider>
         </AuthProvider>
       </body>
