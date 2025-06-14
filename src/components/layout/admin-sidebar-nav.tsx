@@ -19,12 +19,13 @@ import {
   LayoutDashboard, 
   Bed, 
   Building, 
-  ListChecks, // Re-use for facility bookings
+  ListChecks, 
   FileText, 
   UserCircle,
   UserPlus, 
   Users,
-  BedDouble // Specific for dormitory bookings
+  BedDouble,
+  KeyRound // Added KeyRound
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -32,12 +33,13 @@ const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   manageDormitories: Bed,
   manageHalls: Building,
-  manageDormitoryBookings: BedDouble, // New icon for dormitory bookings
-  manageFacilityBookings: ListChecks, // Re-using ListChecks or could use Building
+  manageDormitoryBookings: BedDouble,
+  manageFacilityBookings: ListChecks,
   manageCompanies: Users,
   reports: FileText,
   userProfile: UserCircle,
   registerAdmin: UserPlus,
+  registerKeyholder: KeyRound, // Added icon for keyholder registration
 };
 
 export function AdminSidebarNav() {

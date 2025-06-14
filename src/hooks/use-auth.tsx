@@ -40,6 +40,12 @@ interface AdminDetails {
   password: string;
 }
 
+interface KeyholderDetails { // New interface for keyholder
+  name: string;
+  email: string;
+  password: string;
+}
+
 // Define the shape of the context state
 interface AuthState {
   user: AppUserType | null;
@@ -47,7 +53,8 @@ interface AuthState {
   loading: boolean;
   login: (email: string, pass: string) => Promise<AppUserType | null>;
   signupCompany: (companyDetails: CompanyDetails) => Promise<AppUserType | null>;
-  signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>; // For superadmin to create admins
+  signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
+  signupKeyholder: (keyholderDetails: KeyholderDetails) => Promise<AppUserType | null>; // New function
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -247,6 +254,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     [user?.role] 
   );
 
+  const signupKeyholder = useCallback(
+    async (keyholderDetails: KeyholderDetails): Promise<AppUserType | null> => {
+      if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+        console.error("Unauthorized attempt to sign up keyholder by user:", user?.email, "with role:", user?.role);
+        setLoading(false);
+        throw new Error("Only admins or superadmins can register new keyholders.");
+      }
+      setLoading(true);
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, keyholderDetails.email, keyholderDetails.password);
+        const fbUserInstance = userCredential.user;
+
+        const newKeyholderUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
+          email: keyholderDetails.email,
+          name: keyholderDetails.name,
+          role: 'keyholder' as const,
+          createdAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, "users", fbUserInstance.uid), newKeyholderUserDocData);
+        
+        const registeredKeyholder: AppUserType = {
+            id: fbUserInstance.uid,
+            email: keyholderDetails.email,
+            name: keyholderDetails.name,
+            role: 'keyholder',
+            createdAt: new Date().toISOString(), 
+        };
+        setLoading(false);
+        return registeredKeyholder;
+      } catch (error) {
+        console.error("Keyholder signup error:", error);
+        setLoading(false);
+        throw error;
+      }
+    },
+    [user?.role]
+  );
 
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -304,9 +348,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     signupCompany,
     signupAdmin,
+    signupKeyholder, // Add new function to context
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>
@@ -322,5 +367,3 @@ export const useAuth = (): AuthState => {
   }
   return context;
 };
-
-    

@@ -34,6 +34,7 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
+  { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
@@ -81,4 +82,3 @@ export const ETHIOPIAN_BANKS = [
 
 
     
-
