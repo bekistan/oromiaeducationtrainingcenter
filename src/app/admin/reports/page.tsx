@@ -174,7 +174,7 @@ export default function AdminReportsPage() {
       title: t(reportTitleKey),
       data: bookings.map(b => ({ 
         [t('guestName')]: b.guestName || t('notAvailable'), 
-        [t('roomNumber')]: b.items.map(i=>i.name).join(', '), 
+        [t('item')]: b.items.map(i=>i.name).join(', '), 
         [t('dates')]: `${formatDate(b.startDate)} - ${formatDate(b.endDate)}`,
         [t('totalCost')]: `${b.totalCost} ${t('currencySymbol')}`
       })),
