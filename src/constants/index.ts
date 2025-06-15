@@ -16,6 +16,7 @@ export const SUPPORTED_LOCALES = [
 ] as const;
 
 export const DEFAULT_LOCALE = 'en';
+export const DEFAULT_CALENDAR_SYSTEM = 'gregorian'; // New constant
 
 export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },

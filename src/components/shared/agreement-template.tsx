@@ -3,9 +3,10 @@
 
 import type { Booking, BookingItem } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
-import { format, differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { SITE_NAME } from '@/constants'; 
+import { formatDateForDisplay } from '@/lib/date-utils'; // Import the new formatter
 
 interface AgreementTemplateProps {
   booking: Booking | null;
@@ -23,7 +24,7 @@ const DEFAULT_TERMS_KEYS = [
 ];
 
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
-  const { t } = useLanguage();
+  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
 
   if (!booking) {
     return <p>{t('loadingAgreementDetails')}</p>; 
@@ -32,19 +33,20 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   if (booking.bookingCategory !== 'facility') {
     return <p>{t('agreementNotApplicable')}</p>; 
   }
-
-  const agreementDate = format(new Date(), 'MMMM dd, yyyy');
+  
+  // Use preferred calendar system for date display
+  const displayFormat = preferredCalendarSystem === 'ethiopian' ? 'MMMM D, YYYY ERA' : 'MMMM dd, yyyy';
+  const agreementDate = formatDateForDisplay(new Date(), preferredCalendarSystem, displayFormat, displayFormat);
   
   const startDateObj = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
   const endDateObj = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
 
-  const startDate = format(startDateObj, 'MMMM dd, yyyy');
-  const endDate = format(endDateObj, 'MMMM dd, yyyy');
+  const startDateFormatted = formatDateForDisplay(startDateObj, preferredCalendarSystem, displayFormat, displayFormat);
+  const endDateFormatted = formatDateForDisplay(endDateObj, preferredCalendarSystem, displayFormat, displayFormat);
   const numberOfDays = differenceInCalendarDays(endDateObj, startDateObj) + 1;
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
 
-  // Calculate individual rental costs for items and sum them up
   let totalFacilityRentalCost = 0;
   const facilityItemCosts = booking.items.map(item => {
     const itemRentalCost = (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
@@ -134,7 +136,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
           <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('serviceDetails')}</h2>
           <div className="space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
             <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {facilitiesBookedString}</p>
-            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDate} {t('to')} {endDate} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> 
+            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDateFormatted} {t('to')} {endDateFormatted} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> 
             <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
           </div>
         </section>

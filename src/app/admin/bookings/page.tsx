@@ -34,13 +34,13 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { formatDateForDisplay, toDateObject } from '@/lib/date-utils'; // Updated import
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
 export default function AdminBookingsPage() {
-  const { t } = useLanguage();
+  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
   const { toast } = useToast();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,15 +86,15 @@ export default function AdminBookingsPage() {
 
   const filteredBookings = useMemo(() => {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today for comparison
+    today.setHours(0, 0, 0, 0); 
 
     return allBookings.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
       
       const bookingEndDate = toDateObject(booking.endDate);
-      if (!bookingEndDate) return false; // If date is invalid, filter out
-      bookingEndDate.setHours(23, 59, 59, 999); // Consider the full day of endDate
+      if (!bookingEndDate) return false; 
+      bookingEndDate.setHours(23, 59, 59, 999); 
 
       const isActiveBooking = bookingEndDate >= today;
 
@@ -219,7 +219,6 @@ export default function AdminBookingsPage() {
         updateData.agreementSignedAt = Timestamp.now(); 
       } else if (newStatus === 'completed') {
         // Potentially add logic if booking.agreementSignedAt is not set, set it.
-        // Or ensure admin cannot mark completed if client hasn't signed. For now, admin has full control.
       }
       await updateDoc(bookingRef, updateData);
       toast({ title: t('success'), description: t('agreementStatusUpdated') });
@@ -379,7 +378,9 @@ export default function AdminBookingsPage() {
                         <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                         <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {formatDateForDisplay(booking.startDate, preferredCalendarSystem, 'MMM d, yy', 'MMM D, YY')} - {formatDateForDisplay(booking.endDate, preferredCalendarSystem, 'MMM d, yy', 'MMM D, YY')}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

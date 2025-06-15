@@ -5,6 +5,8 @@ export type Translations = {
   [key: string]: string | Translations;
 };
 
+export type CalendarSystem = 'gregorian' | 'ethiopian'; // New type
+
 export interface Dormitory {
   id: string;
   floor: number;
@@ -24,7 +26,7 @@ export interface Hall {
   rentalCost: number;
   lunchServiceCost?: number | null;
   refreshmentServiceCost?: number | null;
-  ledProjectorCost?: number | null; // Added for sections
+  ledProjectorCost?: number | null;
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -34,16 +36,16 @@ export interface Hall {
 export interface BookingServiceDetails {
   lunch?: 'level1' | 'level2';
   refreshment?: 'level1' | 'level2';
-  ledProjector?: boolean; // Added for facility bookings with sections
+  ledProjector?: boolean;
 }
 
 export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number; // For dormitories
-  rentalCost?: number; // For facilities, this is the per-day rental cost for the item.
-  ledProjectorCost?: number | null; // For sections, carries over the potential cost from Hall type
+  pricePerDay?: number;
+  rentalCost?: number;
+  ledProjectorCost?: number | null;
   capacity?: number;
 };
 
@@ -85,7 +87,10 @@ export interface Booking {
   agreementSentAt?: string | import('firebase/firestore').Timestamp;
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
   signedAgreementUrl?: string; 
+  keyStatus?: KeyStatus; // Added for keyholder management
 }
+
+export type KeyStatus = 'not_issued' | 'issued' | 'returned'; // Added for keyholder
 
 export interface User {
   id: string;
@@ -97,6 +102,7 @@ export interface User {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
   createdAt?: string;
+  preferredCalendarSystem?: CalendarSystem; // Optional: if stored per user
 }
 
 export interface CompanyProfile {

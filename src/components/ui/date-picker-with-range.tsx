@@ -1,7 +1,7 @@
+
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
@@ -14,6 +14,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useLanguage } from "@/hooks/use-language"
+import { formatDateForDisplay } from "@/lib/date-utils"; // Import the new formatter
 
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   date?: DateRange;
@@ -25,7 +26,7 @@ export function DatePickerWithRange({
   date: initialDate,
   onDateChange,
 }: DatePickerWithRangeProps) {
-  const { t } = useLanguage();
+  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
 
   React.useEffect(() => {
@@ -40,6 +41,9 @@ export function DatePickerWithRange({
       onDateChange(selectedDate);
     }
   }
+
+  const displayFormat = preferredCalendarSystem === 'ethiopian' ? 'MMMM D, YYYY' : 'LLL dd, y';
+
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -57,14 +61,14 @@ export function DatePickerWithRange({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y")} -{" "}
-                  {format(date.to, "LLL dd, y")}
+                  {formatDateForDisplay(date.from, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')} -{" "}
+                  {formatDateForDisplay(date.to, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')}
                 </>
               ) : (
-                format(date.from, "LLL dd, y")
+                formatDateForDisplay(date.from, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')
               )
             ) : (
-              <span>{t('pickADateRange')}</span> /* Add 'pickADateRange' to JSON */
+              <span>{t('pickADateRange')}</span>
             )}
           </Button>
         </PopoverTrigger>
