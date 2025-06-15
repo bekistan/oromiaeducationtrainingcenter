@@ -5,6 +5,7 @@ import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
 import { AuthProvider } from '@/hooks/use-auth'; // Import AuthProvider
+import { QueryProvider } from '@/components/providers/query-provider'; // Import QueryProvider
 import { Toaster } from "@/components/ui/toaster";
 import { SITE_NAME, SITE_DESCRIPTION } from '@/constants';
 import { TawkToWidget } from '@/components/analytics/tawk-to'; // Import Tawk.to widget
@@ -25,11 +26,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={GeistSans.variable}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <AuthProvider> {/* Wrap with AuthProvider */}
+        <AuthProvider>
           <LanguageProvider>
-            {children}
-            <Toaster />
-            <TawkToWidget /> {/* Add Tawk.to widget here */}
+            <QueryProvider> {/* Wrap with QueryProvider */}
+              {children}
+              <Toaster />
+              <TawkToWidget />
+            </QueryProvider>
           </LanguageProvider>
         </AuthProvider>
       </body>

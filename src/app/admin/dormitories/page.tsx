@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +23,7 @@ import type { Dormitory } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -31,6 +31,7 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { PLACEHOLDER_THUMBNAIL_SIZE } from '@/constants';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
@@ -43,56 +44,104 @@ const dormitorySchema = z.object({
 });
 type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 
+const DORMITORIES_QUERY_KEY = "dormitories";
+
+const fetchDormitoriesFromDb = async (): Promise<Dormitory[]> => {
+  const q = query(collection(db, "dormitories"), firestoreOrderBy("floor", "asc"), firestoreOrderBy("roomNumber", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
+};
+
 export default function AdminDormitoriesPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [allDormitories, setAllDormitories] = useState<Dormitory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient: QueryClient = useQueryClient();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentDormitory, setCurrentDormitory] = useState<Dormitory | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [dormitoryToDeleteId, setDormitoryToDeleteId] = useState<string | null>(null);
 
-
   const defaultImage = `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`;
+
+  const { data: allDormitories = [], isLoading: isLoadingDormitories, error: dormitoriesError } = useQuery<Dormitory[], Error>({
+    queryKey: [DORMITORIES_QUERY_KEY],
+    queryFn: fetchDormitoriesFromDb,
+  });
+
+  const addDormitoryMutation = useMutation<void, Error, DormitoryFormValues>({
+    mutationFn: async (values) => {
+      const dormData = {
+        ...values,
+        images: values.images ? [values.images] : [defaultImage],
+        dataAiHint: values.dataAiHint || "dormitory room",
+      };
+      await addDoc(collection(db, "dormitories"), dormData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DORMITORIES_QUERY_KEY] });
+      toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
+      setIsAddDialogOpen(false);
+      form.reset({
+        roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+      });
+    },
+    onError: (error) => {
+      console.error("Error adding dormitory: ", error);
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorAddingDormitory') });
+    },
+  });
+
+  const editDormitoryMutation = useMutation<void, Error, { id: string; values: DormitoryFormValues }>({
+    mutationFn: async ({ id, values }) => {
+      const dormRef = doc(db, "dormitories", id);
+      const updatedData = {
+        ...values,
+        images: values.images ? [values.images] : [defaultImage],
+        dataAiHint: values.dataAiHint || "dormitory room",
+      };
+      await updateDoc(dormRef, updatedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DORMITORIES_QUERY_KEY] });
+      toast({ title: t('success'), description: t('dormitoryUpdatedSuccessfully') });
+      setIsEditDialogOpen(false);
+      setCurrentDormitory(null);
+    },
+    onError: (error) => {
+      console.error("Error updating dormitory: ", error);
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingDormitory') });
+    },
+  });
+
+  const deleteDormitoryMutation = useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await deleteDoc(doc(db, "dormitories", id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DORMITORIES_QUERY_KEY] });
+      toast({ title: t('success'), description: t('dormitoryDeletedSuccessfully') });
+      setIsDeleteDialogOpen(false);
+      setDormitoryToDeleteId(null);
+    },
+    onError: (error) => {
+      console.error("Error deleting dormitory: ", error);
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorDeletingDormitory') });
+    },
+  });
+
 
   const form = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
     defaultValues: {
-      roomNumber: "",
-      floor: 1,
-      capacity: 2,
-      pricePerDay: 500,
-      isAvailable: true,
-      images: "",
-      dataAiHint: "dormitory room",
+      roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
     },
   });
 
   const editForm = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
   });
-
-  const fetchDormitories = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, "dormitories"));
-      const dormsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
-      // Initial sort by floor then roomNumber, will be overridden by user sort
-      setAllDormitories(dormsData);
-    } catch (error) {
-      console.error("Error fetching dormitories: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDormitories') });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t, toast]);
-
-  useEffect(() => {
-    fetchDormitories();
-  }, [fetchDormitories]);
 
   const {
     paginatedData: displayedDormitories,
@@ -107,12 +156,18 @@ export default function AdminDormitoriesPage() {
     totalItems,
     requestSort,
     sortConfig,
+    setDataSource,
   } = useSimpleTable<Dormitory>({
       initialData: allDormitories,
       rowsPerPage: 10,
       searchKeys: ['roomNumber', 'floor'],
       initialSort: { key: 'floor', direction: 'ascending' },
   });
+  
+  useEffect(() => {
+    setDataSource(allDormitories);
+  }, [allDormitories, setDataSource]);
+
 
   const getSortIndicator = (columnKey: keyof Dormitory) => {
     if (sortConfig?.key === columnKey) {
@@ -122,35 +177,7 @@ export default function AdminDormitoriesPage() {
   };
 
   async function onSubmit(values: DormitoryFormValues) {
-    setIsSubmitting(true);
-    console.log("Dormitory Add - Form values:", values);
-    console.log("Dormitory Add - isAvailable from form values:", values.isAvailable);
-    try {
-      const dormData = {
-        ...values,
-        images: values.images ? [values.images] : [defaultImage],
-        dataAiHint: values.dataAiHint || "dormitory room",
-      };
-      console.log("Dormitory Add - Data being sent to Firestore:", dormData);
-      await addDoc(collection(db, "dormitories"), dormData);
-      toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
-      fetchDormitories();
-      form.reset({
-        roomNumber: "",
-        floor: 1,
-        capacity: 2,
-        pricePerDay: 500,
-        isAvailable: true,
-        images: "",
-        dataAiHint: "dormitory room",
-      });
-      setIsAddDialogOpen(false);
-    } catch (error) {
-      console.error("Error adding dormitory: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorAddingDormitory') });
-    } finally {
-      setIsSubmitting(false);
-    }
+    addDormitoryMutation.mutate(values);
   }
 
   const handleEdit = (dorm: Dormitory) => {
@@ -165,28 +192,7 @@ export default function AdminDormitoriesPage() {
 
   async function onEditSubmit(values: DormitoryFormValues) {
     if (!currentDormitory) return;
-    setIsSubmitting(true);
-    console.log("Dormitory Edit - Form values:", values);
-    console.log("Dormitory Edit - isAvailable from form values:", values.isAvailable);
-    try {
-      const dormRef = doc(db, "dormitories", currentDormitory.id);
-      const updatedData = {
-        ...values,
-        images: values.images ? [values.images] : [defaultImage],
-        dataAiHint: values.dataAiHint || "dormitory room",
-      };
-      console.log("Dormitory Edit - Data being sent to Firestore:", updatedData);
-      await updateDoc(dormRef, updatedData);
-      toast({ title: t('success'), description: t('dormitoryUpdatedSuccessfully') });
-      fetchDormitories();
-      setIsEditDialogOpen(false);
-      setCurrentDormitory(null);
-    } catch (error) {
-      console.error("Error updating dormitory: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingDormitory') });
-    } finally {
-      setIsSubmitting(false);
-    }
+    editDormitoryMutation.mutate({ id: currentDormitory.id, values });
   }
 
   const openDeleteDialog = (dormId: string) => {
@@ -196,18 +202,17 @@ export default function AdminDormitoriesPage() {
 
   const confirmDeleteDormitory = async () => {
     if (!dormitoryToDeleteId) return;
-    try {
-        await deleteDoc(doc(db, "dormitories", dormitoryToDeleteId));
-        toast({ title: t('success'), description: t('dormitoryDeletedSuccessfully') });
-        fetchDormitories();
-    } catch (error) {
-        console.error("Error deleting dormitory: ", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorDeletingDormitory') });
-    } finally {
-        setIsDeleteDialogOpen(false);
-        setDormitoryToDeleteId(null);
-    }
+    deleteDormitoryMutation.mutate(dormitoryToDeleteId);
   };
+
+  if (dormitoriesError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-lg text-destructive">{t('errorFetchingDormitories')}: {dormitoriesError.message}</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -218,13 +223,7 @@ export default function AdminDormitoriesPage() {
           <DialogTrigger asChild>
             <Button onClick={() => {
               form.reset({
-                roomNumber: "",
-                floor: 1,
-                capacity: 2,
-                pricePerDay: 500,
-                isAvailable: true,
-                images: "",
-                dataAiHint: "dormitory room",
+                roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
               });
               setIsAddDialogOpen(true);
             }}>
@@ -246,8 +245,8 @@ export default function AdminDormitoriesPage() {
                 <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={addDormitoryMutation.isPending}>
+                    {addDormitoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('submit')}
                   </Button>
                 </DialogFooter>
@@ -266,9 +265,9 @@ export default function AdminDormitoriesPage() {
           />
       </div>
 
-      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+      {isLoadingDormitories && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
-      {!isLoading && displayedDormitories.length === 0 && (
+      {!isLoadingDormitories && displayedDormitories.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p>{searchTerm ? t('noDormitoriesMatchSearch') : t('noDormitoriesFoundPleaseAdd')}</p>
@@ -276,7 +275,7 @@ export default function AdminDormitoriesPage() {
         </Card>
       )}
 
-      {!isLoading && displayedDormitories.length > 0 && (
+      {!isLoadingDormitories && displayedDormitories.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>{t('dormitoryList')}</CardTitle>
@@ -311,11 +310,11 @@ export default function AdminDormitoriesPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(dorm)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(dorm)} disabled={editDormitoryMutation.isPending}>
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">{t('edit')}</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(dorm.id)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(dorm.id)} disabled={deleteDormitoryMutation.isPending}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">{t('delete')}</span>
                         </Button>
@@ -369,8 +368,8 @@ export default function AdminDormitoriesPage() {
                 <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={editDormitoryMutation.isPending}>
+                    {editDormitoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('saveChanges')}
                   </Button>
                 </DialogFooter>
@@ -397,7 +396,9 @@ export default function AdminDormitoriesPage() {
             <AlertDialogAction
               onClick={confirmDeleteDormitory}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteDormitoryMutation.isPending}
             >
+              {deleteDormitoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -406,5 +407,3 @@ export default function AdminDormitoriesPage() {
     </>
   );
 }
-
-    

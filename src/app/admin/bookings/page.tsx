@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,58 +31,78 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDateForDisplay, toDateObject } from '@/lib/date-utils'; // Updated import
+import { formatDateForDisplay, toDateObject } from '@/lib/date-utils';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
+const BOOKINGS_QUERY_KEY = "bookings";
+
+const fetchBookingsFromDb = async (): Promise<Booking[]> => {
+  const q = query(collection(db, "bookings"), orderBy("bookedAt", "desc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnap => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+      startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
+      endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+      agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
+      agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
+    } as Booking;
+  });
+};
+
 export default function AdminBookingsPage() {
-  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
+  const { t, preferredCalendarSystem } = useLanguage();
   const { toast } = useToast();
-  const [allBookings, setAllBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient: QueryClient = useQueryClient();
+
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const fetchBookings = useCallback(async (isInitialLoad = false) => {
-    if (isInitialLoad || allBookings.length === 0) {
-      setIsLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-    try {
-      const querySnapshot = await getDocs(collection(db, "bookings"));
-      const bookingsData = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
-          agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
-          agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
-        } as Booking;
-      });
-      setAllBookings(bookingsData);
-    } catch (error) {
-      console.error("Error fetching bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [t, toast, allBookings.length]);
+  const { data: allBookings = [], isLoading: isLoadingBookings, error: bookingsError, refetch: refetchBookings } = useQuery<Booking[], Error>({
+    queryKey: [BOOKINGS_QUERY_KEY],
+    queryFn: fetchBookingsFromDb,
+  });
 
-  useEffect(() => {
-    fetchBookings(true); 
-  }, []); 
+  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessage: string }>({
+    mutationFn: async ({ bookingId, updateData }) => {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, updateData);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [BOOKINGS_QUERY_KEY] });
+      toast({ title: t('success'), description: variables.successMessage });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingBookingStatus') });
+    },
+  });
+
+  const deleteBookingMutation = useMutation<void, Error, string>({
+    mutationFn: async (bookingId) => {
+      await deleteDoc(doc(db, "bookings", bookingId));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [BOOKINGS_QUERY_KEY] });
+      toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
+      setIsDeleteDialogOpen(false);
+      setBookingToDeleteId(null);
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorDeletingBooking') });
+    },
+  });
+
 
   const filteredBookings = useMemo(() => {
     const today = new Date();
@@ -134,114 +154,68 @@ export default function AdminBookingsPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      const updateData: Partial<Booking> = { approvalStatus: newStatus };
-      const currentBooking = allBookings.find(b => b.id === bookingId);
-
-      if (newStatus === 'approved' && currentBooking?.bookingCategory === 'facility') {
-        updateData.agreementStatus = 'pending_admin_action';
-      } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'facility') {
-        updateData.paymentStatus = 'failed';
-      } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'dormitory') {
-         updateData.paymentStatus = 'failed'; 
-      }
-      await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('bookingStatusUpdated') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error updating booking status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingBookingStatus') });
+  const handleApprovalChange = (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+    const currentBooking = allBookings.find(b => b.id === bookingId);
+    const updateData: Partial<Booking> = { approvalStatus: newStatus };
+    if (newStatus === 'approved' && currentBooking?.bookingCategory === 'facility') {
+      updateData.agreementStatus = 'pending_admin_action';
+    } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'facility') {
+      updateData.paymentStatus = 'failed';
+    } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'dormitory') {
+       updateData.paymentStatus = 'failed'; 
     }
+    updateBookingMutation.mutate({ bookingId, updateData, successMessage: t('bookingStatusUpdated') });
   };
 
-  const handleDormitoryPaymentVerification = async (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
-      if (newPaymentStatus === 'paid') {
-        updateData.approvalStatus = 'approved';
-      } else { 
-        updateData.approvalStatus = 'rejected';
-      }
-      await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('paymentStatusUpdated') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error updating dormitory payment status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+  const handleDormitoryPaymentVerification = (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
+    const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+    if (newPaymentStatus === 'paid') {
+      updateData.approvalStatus = 'approved';
+    } else { 
+      updateData.approvalStatus = 'rejected';
     }
+    updateBookingMutation.mutate({ bookingId, updateData, successMessage: t('paymentStatusUpdated') });
   };
   
   const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      const bookingSnap = await getFirestoreDoc(bookingRef);
-      if (!bookingSnap.exists()) {
-        toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
-        return;
-      }
-      const currentBooking = bookingSnap.data() as Booking;
-      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
-
-      let newApprovalStatus = currentBooking.approvalStatus;
-      if (currentBooking.approvalStatus === 'pending') {
-        updateData.approvalStatus = 'approved';
-        newApprovalStatus = 'approved';
-      }
-      
-      if (newApprovalStatus === 'approved' && currentBooking.bookingCategory === 'facility') {
-        const agreementPrecedence: AgreementStatus[] = ['pending_admin_action', 'sent_to_client', 'signed_by_client', 'completed'];
-        const currentAgreementIndex = currentBooking.agreementStatus ? agreementPrecedence.indexOf(currentBooking.agreementStatus) : -1;
-        if (currentAgreementIndex < agreementPrecedence.indexOf('pending_admin_action')) {
-            updateData.agreementStatus = 'pending_admin_action';
-        }
-      }
-
-      await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('paymentStatusMarkedAsPaid') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error marking facility booking as paid: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+    const bookingRef = doc(db, "bookings", bookingId);
+    const bookingSnap = await getFirestoreDoc(bookingRef); // Still need to fetch current for logic
+    if (!bookingSnap.exists()) {
+      toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
+      return;
     }
+    const currentBooking = bookingSnap.data() as Booking;
+    const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+
+    let newApprovalStatus = currentBooking.approvalStatus;
+    if (currentBooking.approvalStatus === 'pending') {
+      updateData.approvalStatus = 'approved';
+      newApprovalStatus = 'approved';
+    }
+    
+    if (newApprovalStatus === 'approved' && currentBooking.bookingCategory === 'facility') {
+      const agreementPrecedence: AgreementStatus[] = ['pending_admin_action', 'sent_to_client', 'signed_by_client', 'completed'];
+      const currentAgreementIndex = currentBooking.agreementStatus ? agreementPrecedence.indexOf(currentBooking.agreementStatus) : -1;
+      if (currentAgreementIndex < agreementPrecedence.indexOf('pending_admin_action')) {
+          updateData.agreementStatus = 'pending_admin_action';
+      }
+    }
+    updateBookingMutation.mutate({ bookingId, updateData, successMessage: t('paymentStatusMarkedAsPaid') });
   };
 
-
-  const handleAgreementStatusChange = async (bookingId: string, newStatus: AgreementStatus) => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      const updateData: Partial<Booking> = { agreementStatus: newStatus };
-      if (newStatus === 'sent_to_client') {
-        updateData.agreementSentAt = Timestamp.now();
-      } else if (newStatus === 'signed_by_client') {
-        updateData.agreementSignedAt = Timestamp.now(); 
-      } else if (newStatus === 'completed') {
-        // Potentially add logic if booking.agreementSignedAt is not set, set it.
-      }
-      await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('agreementStatusUpdated') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error updating agreement status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingAgreementStatus') });
+  const handleAgreementStatusChange = (bookingId: string, newStatus: AgreementStatus) => {
+    const updateData: Partial<Booking> = { agreementStatus: newStatus };
+    if (newStatus === 'sent_to_client') {
+      updateData.agreementSentAt = Timestamp.now();
+    } else if (newStatus === 'signed_by_client') {
+      updateData.agreementSignedAt = Timestamp.now(); 
     }
+    updateBookingMutation.mutate({ bookingId, updateData, successMessage: t('agreementStatusUpdated') });
   };
 
-  const confirmDeleteBooking = async () => {
+  const confirmDeleteBooking = () => {
     if (!bookingToDeleteId) return;
-    try {
-      await deleteDoc(doc(db, "bookings", bookingToDeleteId));
-      toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error deleting booking: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorDeletingBooking') });
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setBookingToDeleteId(null);
-    }
+    deleteBookingMutation.mutate(bookingToDeleteId);
   };
 
   const openDeleteDialog = (bookingId: string) => {
@@ -295,6 +269,14 @@ export default function AdminBookingsPage() {
     }
   };
 
+  if (bookingsError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-lg text-destructive">{t('errorFetchingBookings')}: {bookingsError.message}</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -335,9 +317,9 @@ export default function AdminBookingsPage() {
           </div>
         </div>
 
-        {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+        {isLoadingBookings && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
-        {!isLoading && displayedBookings.length === 0 && (
+        {!isLoadingBookings && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
               <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noActiveBookingsFoundAdmin')}</p>
@@ -345,12 +327,12 @@ export default function AdminBookingsPage() {
           </Card>
         )}
 
-        {!isLoading && displayedBookings.length > 0 && (
+        {!isLoadingBookings && displayedBookings.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{t('activeBookingList')}</CardTitle>
-                {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                 {updateBookingMutation.isPending || deleteBookingMutation.isPending && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
               <CardDescription>{t('viewAndManageActiveBookings')}</CardDescription>
             </CardHeader>
@@ -388,7 +370,7 @@ export default function AdminBookingsPage() {
                         <TableCell className="text-right space-x-1">
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" title={t('moreActions')}>
+                                  <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
                                       <MoreHorizontal className="h-4 w-4" />
                                       <span className="sr-only">{t('moreActions')}</span>
                                   </Button>
@@ -512,7 +494,9 @@ export default function AdminBookingsPage() {
             <AlertDialogAction
               onClick={confirmDeleteBooking}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBookingMutation.isPending}
             >
+              {deleteBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -521,6 +505,3 @@ export default function AdminBookingsPage() {
     </>
   );
 }
-    
-
-    
