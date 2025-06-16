@@ -6,23 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import type { Hall } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 const hallSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }),
@@ -39,32 +50,104 @@ const hallSchema = z.object({
 });
 type HallFormValues = z.infer<typeof hallSchema>;
 
+const HALLS_QUERY_KEY = "adminHalls";
+
+const fetchHallsFromDb = async (): Promise<Hall[]> => {
+  const q = query(collection(db, "halls"), firestoreOrderBy("name", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
+};
+
 export default function AdminHallsAndSectionsPage() {
   const { t } = useLanguage();
   const { toast } = useToast();
-  const [allItems, setAllItems] = useState<Hall[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const queryClient: QueryClient = useQueryClient();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<Hall | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [hallToDeleteId, setHallToDeleteId] = useState<string | null>(null);
 
   const defaultImage = `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`;
+
+  const { data: allItemsFromDb = [], isLoading: isLoadingHalls, error: hallsError } = useQuery<Hall[], Error>({
+    queryKey: [HALLS_QUERY_KEY],
+    queryFn: fetchHallsFromDb,
+  });
+
+  const addHallMutation = useMutation<void, Error, HallFormValues>({
+    mutationFn: async (values) => {
+      const itemData = {
+        ...values,
+        images: values.images ? [values.images] : [defaultImage],
+        dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
+        lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
+        refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
+        ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
+      };
+      await addDoc(collection(db, "halls"), itemData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [HALLS_QUERY_KEY] });
+      toast({ title: t('success'), description: t('itemAddedSuccessfully') });
+      setIsAddDialogOpen(false);
+      form.reset({
+        name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
+        lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+        images: "", dataAiHint: "meeting space", description: ""
+      });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorAddingItem') });
+    },
+  });
+
+  const editHallMutation = useMutation<void, Error, { id: string; values: HallFormValues }>({
+    mutationFn: async ({ id, values }) => {
+      const itemRef = doc(db, "halls", id);
+      const updatedData = {
+          ...values,
+          images: values.images ? [values.images] : [defaultImage],
+          dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
+          lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
+          refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
+          ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
+      };
+      await updateDoc(itemRef, updatedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [HALLS_QUERY_KEY] });
+      toast({ title: t('success'), description: t('itemUpdatedSuccessfully') });
+      setIsEditDialogOpen(false);
+      setCurrentItem(null);
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingItem') });
+    },
+  });
+
+  const deleteHallMutation = useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await deleteDoc(doc(db, "halls", id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [HALLS_QUERY_KEY] });
+      toast({ title: t('success'), description: t('itemDeletedSuccessfully') });
+      setIsDeleteDialogOpen(false);
+      setHallToDeleteId(null);
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorDeletingItem') });
+    },
+  });
 
   const form = useForm<HallFormValues>({
     resolver: zodResolver(hallSchema),
     defaultValues: {
-      name: "",
-      itemType: "hall",
-      capacity: 50,
-      rentalCost: 1000,
-      isAvailable: true,
-      lunchServiceCost: undefined,
-      refreshmentServiceCost: undefined,
-      ledProjectorCost: undefined,
-      images: "",
-      dataAiHint: "meeting space",
-      description: ""
+      name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
+      lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+      images: "", dataAiHint: "meeting space", description: ""
     },
   });
 
@@ -74,25 +157,6 @@ export default function AdminHallsAndSectionsPage() {
 
   const watchedItemType = form.watch("itemType");
   const watchedEditItemType = editForm.watch("itemType");
-
-
-  const fetchItems = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const querySnapshot = await getDocs(collection(db, "halls"));
-      const itemsData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
-      setAllItems(itemsData);
-    } catch (error) {
-      console.error("Error fetching halls/sections: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHalls') });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t, toast]);
-
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
 
   const {
     paginatedData: displayedItems,
@@ -107,12 +171,17 @@ export default function AdminHallsAndSectionsPage() {
     totalItems,
     requestSort,
     sortConfig,
+    setDataSource,
   } = useSimpleTable<Hall>({
-      initialData: allItems,
+      initialData: allItemsFromDb,
       rowsPerPage: 10,
       searchKeys: ['name', 'itemType', 'description'],
       initialSort: { key: 'name', direction: 'ascending' },
   });
+
+  useEffect(() => {
+    setDataSource(allItemsFromDb);
+  }, [allItemsFromDb, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof Hall) => {
     if (sortConfig?.key === columnKey) {
@@ -121,41 +190,8 @@ export default function AdminHallsAndSectionsPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-
   async function onSubmit(values: HallFormValues) {
-    setIsSubmitting(true);
-    try {
-      const itemData = {
-        ...values,
-        images: values.images ? [values.images] : [defaultImage],
-        dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
-        lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
-        refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
-        ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
-      };
-      await addDoc(collection(db, "halls"), itemData);
-      toast({ title: t('success'), description: t('itemAddedSuccessfully') });
-      fetchItems();
-      form.reset({
-        name: "",
-        itemType: "hall",
-        capacity: 50,
-        rentalCost: 1000,
-        isAvailable: true,
-        lunchServiceCost: undefined,
-        refreshmentServiceCost: undefined,
-        ledProjectorCost: undefined,
-        images: "",
-        dataAiHint: "meeting space",
-        description: ""
-      });
-      setIsAddDialogOpen(false);
-    } catch (error) {
-      console.error("Error adding item: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorAddingItem') });
-    } finally {
-      setIsSubmitting(false);
-    }
+    addHallMutation.mutate(values);
   }
 
   const handleEdit = (item: Hall) => {
@@ -174,43 +210,30 @@ export default function AdminHallsAndSectionsPage() {
 
   async function onEditSubmit(values: HallFormValues) {
     if (!currentItem) return;
-    setIsSubmitting(true);
-    try {
-      const itemRef = doc(db, "halls", currentItem.id);
-      const updatedData = {
-          ...values,
-          images: values.images ? [values.images] : [defaultImage],
-          dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
-          lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
-          refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
-          ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
-      };
-      await updateDoc(itemRef, updatedData);
-      toast({ title: t('success'), description: t('itemUpdatedSuccessfully') });
-      fetchItems();
-      setIsEditDialogOpen(false);
-      setCurrentItem(null);
-    } catch (error) {
-      console.error("Error updating item: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingItem') });
-    } finally {
-      setIsSubmitting(false);
-    }
+    editHallMutation.mutate({ id: currentItem.id, values });
   }
 
-  const handleDelete = async (itemId: string) => {
-    if (!confirm(t('confirmDeleteItem'))) return;
-    try {
-        await deleteDoc(doc(db, "halls", itemId));
-        toast({ title: t('success'), description: t('itemDeletedSuccessfully') });
-        fetchItems();
-    } catch (error) {
-        console.error("Error deleting item: ", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorDeletingItem') });
-    }
+  const openDeleteDialog = (hallId: string) => {
+    setHallToDeleteId(hallId);
+    setIsDeleteDialogOpen(true);
   };
 
+  const confirmDeleteHall = async () => {
+    if (!hallToDeleteId) return;
+    deleteHallMutation.mutate(hallToDeleteId);
+  };
+
+  if (hallsError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-lg text-destructive">{t('errorFetchingHalls')}: {hallsError.message}</p>
+      </div>
+    );
+  }
+
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageHallsAndSections')}</h1>
@@ -218,17 +241,9 @@ export default function AdminHallsAndSectionsPage() {
           <DialogTrigger asChild>
             <Button onClick={() => {
               form.reset({
-                name: "",
-                itemType: "hall",
-                capacity: 50,
-                rentalCost: 1000,
-                isAvailable: true,
-                lunchServiceCost: undefined,
-                refreshmentServiceCost: undefined,
-                ledProjectorCost: undefined,
-                images: "",
-                dataAiHint: "meeting space",
-                description: ""
+                name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
+                lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+                images: "", dataAiHint: "meeting space", description: ""
               });
               setIsAddDialogOpen(true);
             }}>
@@ -256,8 +271,8 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>{t('description')} ({t('optional')})</FormLabel><FormControl><Textarea placeholder={t('enterDescriptionHere')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={addHallMutation.isPending}>
+                    {addHallMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('submit')}
                   </Button>
                 </DialogFooter>
@@ -276,9 +291,9 @@ export default function AdminHallsAndSectionsPage() {
           />
       </div>
 
-      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+      {isLoadingHalls && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
-      {!isLoading && displayedItems.length === 0 && (
+      {!isLoadingHalls && displayedItems.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p>{searchTerm ? t('noHallsMatchSearch') : t('noHallsFoundPleaseAdd')}</p>
@@ -286,7 +301,7 @@ export default function AdminHallsAndSectionsPage() {
         </Card>
       )}
 
-      {!isLoading && displayedItems.length > 0 && (
+      {!isLoadingHalls && displayedItems.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>{t('listHallsAndSections')}</CardTitle>
@@ -323,11 +338,11 @@ export default function AdminHallsAndSectionsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">{t('edit')}</span>
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => handleDelete(item.id)}>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(item.id)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">{t('delete')}</span>
                         </Button>
@@ -387,8 +402,8 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={editForm.control} name="description" render={({ field }) => ( <FormItem><FormLabel>{t('description')} ({t('optional')})</FormLabel><FormControl><Textarea placeholder={t('enterDescriptionHere')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={editHallMutation.isPending}>
+                    {editHallMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {t('saveChanges')}
                   </Button>
                 </DialogFooter>
@@ -398,7 +413,32 @@ export default function AdminHallsAndSectionsPage() {
         </DialogContent>
       </Dialog>
     </div>
+
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="mr-2 h-5 w-5 text-destructive" />
+              {t('confirmDeleteItemTitle')}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t('confirmDeleteItemMessage')}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setHallToDeleteId(null)}>{t('cancel')}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={confirmDeleteHall}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={deleteHallMutation.isPending}
+          >
+            {deleteHallMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t('delete')}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
-
     

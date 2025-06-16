@@ -10,43 +10,50 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; 
 import type { User } from "@/types";
-import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
+import { ShieldAlert, CheckCircle, XCircle, Hourglass, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, AlertTriangle } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore'; 
+import { collection, getDocs, query, where, orderBy as firestoreOrderBy } from 'firebase/firestore'; 
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+
+const COMPANIES_QUERY_KEY = "adminCompanies";
+
+const fetchCompaniesFromDb = async (): Promise<User[]> => {
+  const q = query(collection(db, "users"), where("role", "==", "company_representative"), firestoreOrderBy("companyName", "asc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
+};
 
 export default function ManageCompaniesPage() {
   const { t } = useLanguage();
   const { user, loading: authLoading, updateUserDocument } = useAuth(); 
   const router = useRouter();
   const { toast } = useToast();
-  const [allCompanies, setAllCompanies] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient: QueryClient = useQueryClient();
 
-  const fetchCompanies = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const q = query(collection(db, "users"), where("role", "==", "company_representative"));
-      const querySnapshot = await getDocs(q);
-      const companiesData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
-      setAllCompanies(companiesData);
-    } catch (error) {
-      console.error("Error fetching companies: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingCompanies') });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [t, toast]);
+  const { data: allCompaniesFromDb = [], isLoading: isLoadingCompanies, error: companiesError } = useQuery<User[], Error>({
+    queryKey: [COMPANIES_QUERY_KEY],
+    queryFn: fetchCompaniesFromDb,
+    enabled: !authLoading && (user?.role === 'admin' || user?.role === 'superadmin'), // Only fetch if authorized
+  });
 
-  useEffect(() => {
-    if (!authLoading && (user?.role === 'admin' || user?.role === 'superadmin')) {
-      fetchCompanies();
-    } else if (!authLoading) {
-      setIsLoading(false); 
-    }
-  }, [authLoading, user, fetchCompanies]);
+  const updateCompanyStatusMutation = useMutation<void, Error, { companyId: string; newStatus: 'approved' | 'rejected' }>({
+    mutationFn: async ({ companyId, newStatus }) => {
+      await updateUserDocument(companyId, { approvalStatus: newStatus });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [COMPANIES_QUERY_KEY] });
+      toast({
+        title: t('statusUpdated'),
+        description: t('companyStatusUpdated', { companyId: variables.companyId.substring(0,6)+"...", status: t(variables.newStatus) }),
+      });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('failedToUpdateStatus') });
+    },
+  });
 
   const {
     paginatedData: displayedCompanies,
@@ -61,12 +68,17 @@ export default function ManageCompaniesPage() {
     totalItems,
     requestSort,
     sortConfig,
+    setDataSource,
   } = useSimpleTable<User>({
-      initialData: allCompanies,
+      initialData: allCompaniesFromDb,
       rowsPerPage: 10,
       searchKeys: ['companyName', 'name', 'email'], 
       initialSort: { key: 'companyName', direction: 'ascending'},
   });
+  
+  useEffect(() => {
+    setDataSource(allCompaniesFromDb);
+  }, [allCompaniesFromDb, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof User) => {
     if (sortConfig?.key === columnKey) {
@@ -75,18 +87,8 @@ export default function ManageCompaniesPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handleApproval = async (companyId: string, newStatus: 'approved' | 'rejected') => {
-    try {
-      await updateUserDocument(companyId, { approvalStatus: newStatus });
-      toast({
-        title: t('statusUpdated'),
-        description: t('companyStatusUpdated', { companyId: companyId.substring(0,6)+"...", status: t(newStatus) }),
-      });
-      fetchCompanies(); 
-    } catch (error) {
-      console.error("Error updating company status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('failedToUpdateStatus') });
-    }
+  const handleApproval = (companyId: string, newStatus: 'approved' | 'rejected') => {
+    updateCompanyStatusMutation.mutate({ companyId, newStatus });
   };
 
   const getStatusBadge = (status?: User['approvalStatus']) => {
@@ -102,7 +104,7 @@ export default function ManageCompaniesPage() {
     }
   };
 
-  if (authLoading || (isLoading && !allCompanies.length)) { 
+  if (authLoading) { 
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
@@ -113,6 +115,15 @@ export default function ManageCompaniesPage() {
         <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
         <p className="text-muted-foreground">{t('adminOrSuperAdminOnlyPage')}</p>
         <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+      </div>
+    );
+  }
+
+  if (companiesError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <p className="text-lg text-destructive">{t('errorFetchingCompanies')}: {companiesError.message}</p>
       </div>
     );
   }
@@ -129,9 +140,9 @@ export default function ManageCompaniesPage() {
           />
       </div>
       
-      {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+      {isLoadingCompanies && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
-      {!isLoading && displayedCompanies.length === 0 && (
+      {!isLoadingCompanies && displayedCompanies.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
             <p>{searchTerm ? t('noCompaniesMatchSearch') : t('noCompaniesFoundAdmin')}</p>
@@ -139,7 +150,7 @@ export default function ManageCompaniesPage() {
         </Card>
       )}
 
-      {!isLoading && displayedCompanies.length > 0 && (
+      {!isLoadingCompanies && displayedCompanies.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>{t('registeredCompaniesList')}</CardTitle>
@@ -167,11 +178,25 @@ export default function ManageCompaniesPage() {
                       <TableCell className="text-right space-x-2">
                         {company.approvalStatus === 'pending' && (
                           <>
-                            <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'approved')} className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700">
-                              <CheckCircle className="mr-1 h-4 w-4" /> {t('approveButton')}
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleApproval(company.id, 'approved')} 
+                                className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
+                                disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
+                            >
+                              {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'approved' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />}
+                              {t('approveButton')}
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleApproval(company.id, 'rejected')} className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700">
-                              <XCircle className="mr-1 h-4 w-4" /> {t('rejectButton')}
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleApproval(company.id, 'rejected')} 
+                                className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+                                disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
+                            >
+                              {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'rejected' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+                              {t('rejectButton')}
                             </Button>
                           </>
                         )}
