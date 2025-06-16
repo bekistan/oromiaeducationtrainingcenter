@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import type { Dormitory } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, AlertTriangle, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +41,7 @@ const dormitorySchema = z.object({
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
   pricePerDay: z.coerce.number().min(0, { message: "Price must be a positive number." }),
   isAvailable: z.boolean().default(true),
+  buildingName: z.enum(['ifaboru', 'buuraboru'], { required_error: "Building name is required." }),
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
 });
@@ -47,13 +50,14 @@ type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 const DORMITORIES_QUERY_KEY = "dormitories";
 
 const fetchDormitoriesFromDb = async (): Promise<Dormitory[]> => {
-  const q = query(collection(db, "dormitories"), firestoreOrderBy("floor", "asc"), firestoreOrderBy("roomNumber", "asc"));
+  const q = query(collection(db, "dormitories"), firestoreOrderBy("buildingName"), firestoreOrderBy("floor", "asc"), firestoreOrderBy("roomNumber", "asc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
 };
 
 export default function AdminDormitoriesPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient: QueryClient = useQueryClient();
 
@@ -65,15 +69,26 @@ export default function AdminDormitoriesPage() {
 
   const defaultImage = `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`;
 
-  const { data: allDormitories = [], isLoading: isLoadingDormitories, error: dormitoriesError } = useQuery<Dormitory[], Error>({
+  const { data: allDormitoriesFromDb = [], isLoading: isLoadingDormitories, error: dormitoriesError } = useQuery<Dormitory[], Error>({
     queryKey: [DORMITORIES_QUERY_KEY],
     queryFn: fetchDormitoriesFromDb,
   });
+
+  const filteredDormitoriesForAdmin = useMemo(() => {
+    if (user?.role === 'superadmin') {
+      return allDormitoriesFromDb;
+    }
+    if (user?.role === 'admin' && user.buildingAssignment) {
+      return allDormitoriesFromDb.filter(dorm => dorm.buildingName === user.buildingAssignment);
+    }
+    return [];
+  }, [allDormitoriesFromDb, user]);
 
   const addDormitoryMutation = useMutation<void, Error, DormitoryFormValues>({
     mutationFn: async (values) => {
       const dormData = {
         ...values,
+        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName, // Enforce admin's building
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
@@ -85,6 +100,7 @@ export default function AdminDormitoriesPage() {
       setIsAddDialogOpen(false);
       form.reset({
         roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+        buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
       });
     },
     onError: (error) => {
@@ -98,6 +114,7 @@ export default function AdminDormitoriesPage() {
       const dormRef = doc(db, "dormitories", id);
       const updatedData = {
         ...values,
+        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName, // Enforce admin's building
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
@@ -136,6 +153,7 @@ export default function AdminDormitoriesPage() {
     resolver: zodResolver(dormitorySchema),
     defaultValues: {
       roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+      buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
     },
   });
 
@@ -158,15 +176,15 @@ export default function AdminDormitoriesPage() {
     sortConfig,
     setDataSource,
   } = useSimpleTable<Dormitory>({
-      initialData: allDormitories,
+      initialData: filteredDormitoriesForAdmin,
       rowsPerPage: 10,
-      searchKeys: ['roomNumber', 'floor'],
-      initialSort: { key: 'floor', direction: 'ascending' },
+      searchKeys: ['roomNumber', 'floor', 'buildingName'],
+      initialSort: { key: 'buildingName', direction: 'ascending' },
   });
-  
+
   useEffect(() => {
-    setDataSource(allDormitories);
-  }, [allDormitories, setDataSource]);
+    setDataSource(filteredDormitoriesForAdmin);
+  }, [filteredDormitoriesForAdmin, setDataSource]);
 
 
   const getSortIndicator = (columnKey: keyof Dormitory) => {
@@ -186,6 +204,7 @@ export default function AdminDormitoriesPage() {
         ...dorm,
         images: dorm.images?.[0] || "",
         dataAiHint: dorm.dataAiHint || "dormitory room",
+        buildingName: dorm.buildingName,
     });
     setIsEditDialogOpen(true);
   };
@@ -224,6 +243,7 @@ export default function AdminDormitoriesPage() {
             <Button onClick={() => {
               form.reset({
                 roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+                buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
               });
               setIsAddDialogOpen(true);
             }}>
@@ -237,6 +257,31 @@ export default function AdminDormitoriesPage() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField control={form.control} name="roomNumber" render={({ field }) => ( <FormItem><FormLabel>{t('roomNumber')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField
+                  control={form.control}
+                  name="buildingName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('buildingNameLabel')}</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={user?.role === 'admin' && !!user.buildingAssignment}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectBuildingNamePlaceholder')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
+                          <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={form.control} name="floor" render={({ field }) => ( <FormItem><FormLabel>{t('floor')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -270,7 +315,7 @@ export default function AdminDormitoriesPage() {
       {!isLoadingDormitories && displayedDormitories.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p>{searchTerm ? t('noDormitoriesMatchSearch') : t('noDormitoriesFoundPleaseAdd')}</p>
+            <p>{searchTerm ? t('noDormitoriesMatchSearch') : (user?.role === 'admin' && !user.buildingAssignment) ? t('adminNoBuildingAssignmentDormView') : t('noDormitoriesFoundPleaseAdd')}</p>
           </CardContent>
         </Card>
       )}
@@ -287,6 +332,7 @@ export default function AdminDormitoriesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead onClick={() => requestSort('roomNumber')} className="cursor-pointer group">{t('roomNumber')}{getSortIndicator('roomNumber')}</TableHead>
+                    <TableHead onClick={() => requestSort('buildingName')} className="cursor-pointer group">{t('buildingNameLabel')}{getSortIndicator('buildingName')}</TableHead>
                     <TableHead onClick={() => requestSort('floor')} className="cursor-pointer group">{t('floor')}{getSortIndicator('floor')}</TableHead>
                     <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
                     <TableHead onClick={() => requestSort('pricePerDay')} className="cursor-pointer group">{t('pricePerDay')}{getSortIndicator('pricePerDay')}</TableHead>
@@ -298,6 +344,7 @@ export default function AdminDormitoriesPage() {
                   {displayedDormitories.map((dorm) => (
                     <TableRow key={dorm.id}>
                       <TableCell className="font-medium">{dorm.roomNumber}</TableCell>
+                      <TableCell>{t(dorm.buildingName === 'ifaboru' ? 'ifaBoruBuilding' : 'buuraBoruBuilding')}</TableCell>
                       <TableCell>{dorm.floor}</TableCell>
                       <TableCell>{dorm.capacity}</TableCell>
                       <TableCell>{dorm.pricePerDay} {t('currencySymbol')}</TableCell>
@@ -360,6 +407,31 @@ export default function AdminDormitoriesPage() {
             <Form {...editForm}>
               <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
                 <FormField control={editForm.control} name="roomNumber" render={({ field }) => ( <FormItem><FormLabel>{t('roomNumber')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                 <FormField
+                  control={editForm.control}
+                  name="buildingName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('buildingNameLabel')}</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={user?.role === 'admin' && !!user.buildingAssignment}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectBuildingNamePlaceholder')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
+                          <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={editForm.control} name="floor" render={({ field }) => ( <FormItem><FormLabel>{t('floor')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -407,3 +479,4 @@ export default function AdminDormitoriesPage() {
     </>
   );
 }
+    

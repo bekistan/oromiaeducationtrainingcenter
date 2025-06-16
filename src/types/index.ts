@@ -16,6 +16,7 @@ export interface Dormitory {
   pricePerDay: number;
   images?: string[];
   dataAiHint?: string;
+  buildingName: 'ifaboru' | 'buuraboru'; // Added buildingName
 }
 
 export interface Hall {
@@ -66,7 +67,7 @@ export interface Booking {
   guestEmployer?: string;
   payerBankName?: string;
   payerAccountNumber?: string;
-  phone?: string; 
+  phone?: string;
   // Facility specific
   companyName?: string;
   contactPerson?: string;
@@ -75,9 +76,9 @@ export interface Booking {
   // Common
   startDate: string | import('firebase/firestore').Timestamp;
   endDate: string | import('firebase/firestore').Timestamp;
-  numberOfAttendees?: number; 
-  serviceDetails?: BookingServiceDetails; 
-  notes?: string; 
+  numberOfAttendees?: number;
+  serviceDetails?: BookingServiceDetails;
+  notes?: string;
   totalCost: number;
   paymentStatus: 'pending' | 'pending_transfer' | 'awaiting_verification' | 'paid' | 'failed';
   approvalStatus: 'pending' | 'approved' | 'rejected';
@@ -86,7 +87,7 @@ export interface Booking {
   agreementStatus?: AgreementStatus;
   agreementSentAt?: string | import('firebase/firestore').Timestamp;
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
-  signedAgreementUrl?: string; 
+  signedAgreementUrl?: string;
   keyStatus?: KeyStatus; // Added for keyholder management
 }
 
@@ -103,6 +104,7 @@ export interface User {
   phone?: string;
   createdAt?: string;
   preferredCalendarSystem?: CalendarSystem; // Optional: if stored per user
+  buildingAssignment?: 'ifaboru' | 'buuraboru'; // Added for admins
 }
 
 export interface CompanyProfile {
@@ -121,5 +123,4 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][];
 }
-
     

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +20,10 @@ const adminRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  buildingAssignment: z.enum(['ifaboru', 'buuraboru'], {
+    required_error: "Building assignment is required.",
+    invalid_type_error: "Invalid building assignment.",
+  }),
 });
 
 type AdminRegistrationValues = z.infer<typeof adminRegistrationSchema>;
@@ -36,6 +41,7 @@ export default function RegisterAdminPage() {
       name: "",
       email: "",
       password: "",
+      buildingAssignment: undefined, // Ensure it's undefined initially for the placeholder
     },
   });
 
@@ -46,6 +52,7 @@ export default function RegisterAdminPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        buildingAssignment: data.buildingAssignment,
       });
       toast({
         title: t('adminRegisteredTitle'),
@@ -103,6 +110,27 @@ export default function RegisterAdminPage() {
               <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField
+                control={form.control}
+                name="buildingAssignment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('buildingAssignment')}</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('selectBuildingAssignmentPlaceholder')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
+                        <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('registerAdminButton')}
@@ -114,3 +142,4 @@ export default function RegisterAdminPage() {
     </div>
   );
 }
+    

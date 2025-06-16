@@ -7,8 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
-import type { Booking } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown } from "lucide-react";
+import { useAuth } from '@/hooks/use-auth';
+import type { Booking, Dormitory, KeyStatus } from "@/types";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -30,64 +31,112 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
+const DORMITORY_BOOKINGS_QUERY_KEY = "dormitoryBookings";
+const ALL_DORMITORIES_QUERY_KEY_FOR_FILTERING = "allDormitoriesForBookingFiltering";
+
+const fetchAllDormitoriesForFiltering = async (): Promise<Dormitory[]> => {
+  const querySnapshot = await getDocs(collection(db, "dormitories"));
+  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
+};
+
+const fetchDormitoryBookingsFromDb = async (): Promise<Booking[]> => {
+  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "dormitory"), orderBy("bookedAt", "desc"));
+  const querySnapshot = await getDocs(q);
+  return querySnapshot.docs.map(docSnap => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      ...data,
+      bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+      startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
+      endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+    } as Booking;
+  });
+};
+
 export default function AdminManageDormitoryBookingsPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [allBookings, setAllBookings] = useState<Booking[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const fetchBookings = useCallback(async (isInitialLoad = false) => {
-    if (isInitialLoad || allBookings.length === 0) {
-      setIsLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-    try {
-      const q = query(collection(db, "bookings"), where("bookingCategory", "==", "dormitory"));
-      const querySnapshot = await getDocs(q);
-      const bookingsData = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
-        } as Booking;
+  const { data: allDormitories, isLoading: isLoadingDormsForFilter } = useQuery<Dormitory[], Error>({
+    queryKey: [ALL_DORMITORIES_QUERY_KEY_FOR_FILTERING],
+    queryFn: fetchAllDormitoriesForFiltering,
+  });
+
+  const dormIdToBuildingMap = useMemo(() => {
+    if (!allDormitories) return new Map<string, string>();
+    return new Map(allDormitories.map(dorm => [dorm.id, dorm.buildingName]));
+  }, [allDormitories]);
+
+  const { data: allBookingsFromDb = [], isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[], Error>({
+    queryKey: [DORMITORY_BOOKINGS_QUERY_KEY],
+    queryFn: fetchDormitoryBookingsFromDb,
+  });
+
+  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string }>({
+    mutationFn: async ({ bookingId, updateData }) => {
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, updateData);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [DORMITORY_BOOKINGS_QUERY_KEY] });
+      toast({ title: t('success'), description: t(variables.successMessageKey) });
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingBookingStatus') });
+    },
+  });
+
+  const deleteBookingMutation = useMutation<void, Error, string>({
+    mutationFn: async (bookingId) => {
+      await deleteDoc(doc(db, "bookings", bookingId));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [DORMITORY_BOOKINGS_QUERY_KEY] });
+      toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
+      setIsDeleteDialogOpen(false);
+      setBookingToDeleteId(null);
+    },
+    onError: (error) => {
+      toast({ variant: "destructive", title: t('error'), description: error.message || t('errorDeletingBooking') });
+    },
+  });
+
+  const filteredBookingsForAdmin = useMemo(() => {
+    if (isLoadingDormsForFilter || !user) return [];
+    let bookingsToFilter = allBookingsFromDb;
+
+    if (user.role === 'admin' && user.buildingAssignment) {
+      bookingsToFilter = allBookingsFromDb.filter(booking => {
+        const firstItemId = booking.items[0]?.id;
+        if (!firstItemId) return false;
+        const buildingOfBooking = dormIdToBuildingMap.get(firstItemId);
+        return buildingOfBooking === user.buildingAssignment;
       });
-      setAllBookings(bookingsData);
-    } catch (error) {
-      console.error("Error fetching dormitory bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingBookings') });
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
     }
-  }, [t, toast, allBookings.length]);
+    // Superadmin sees all, no building filter needed for them.
 
-  useEffect(() => {
-    fetchBookings(true);
-  }, []); // Removed fetchBookings from dependency array
-
-  const filteredBookings = useMemo(() => {
-    return allBookings.filter(booking => {
+    return bookingsToFilter.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
       return approvalMatch && paymentMatch;
     });
-  }, [allBookings, approvalFilter, paymentFilter]);
+  }, [allBookingsFromDb, approvalFilter, paymentFilter, user, dormIdToBuildingMap, isLoadingDormsForFilter]);
 
   const {
     paginatedData: displayedBookings,
@@ -104,54 +153,36 @@ export default function AdminManageDormitoryBookingsPage() {
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-      initialData: filteredBookings,
+      initialData: filteredBookingsForAdmin,
       rowsPerPage: 10,
       searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'],
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
   useEffect(() => {
-    setDataSource(filteredBookings);
-  }, [filteredBookings, setDataSource]);
+    setDataSource(filteredBookingsForAdmin);
+  }, [filteredBookingsForAdmin, setDataSource]);
 
-  const getSortIndicator = (columnKey: keyof Booking) => {
+  const getSortIndicator = (columnKey: keyof Booking | 'keyStatus') => {
     if (sortConfig?.key === columnKey) {
       return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     }
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handlePaymentVerification = async (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
-    try {
-      const bookingRef = doc(db, "bookings", bookingId);
-      const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
-      if (newPaymentStatus === 'paid') {
-        updateData.approvalStatus = 'approved';
-      } else { // 'failed'
-        updateData.approvalStatus = 'rejected';
-      }
-      await updateDoc(bookingRef, updateData);
-      toast({ title: t('success'), description: t('paymentStatusUpdated') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error updating payment status: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorUpdatingPaymentStatus') });
+  const handlePaymentVerification = (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
+    const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+    if (newPaymentStatus === 'paid') {
+      updateData.approvalStatus = 'approved';
+    } else {
+      updateData.approvalStatus = 'rejected';
     }
+    updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'paymentStatusUpdated' });
   };
 
-  const confirmDeleteBooking = async () => {
+  const confirmDeleteBooking = () => {
     if (!bookingToDeleteId) return;
-    try {
-      await deleteDoc(doc(db, "bookings", bookingToDeleteId));
-      toast({ title: t('success'), description: t('bookingDeletedSuccessfully') });
-      fetchBookings();
-    } catch (error) {
-      console.error("Error deleting booking: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorDeletingBooking') });
-    } finally {
-      setIsDeleteDialogOpen(false);
-      setBookingToDeleteId(null);
-    }
+    deleteBookingMutation.mutate(bookingToDeleteId);
   };
 
   const openDeleteDialog = (bookingId: string) => {
@@ -167,7 +198,7 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
       case 'awaiting_verification':
         return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'pending': 
+      case 'pending':
         return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200">{t(status)}</Badge>;
       case 'failed':
         return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
@@ -188,6 +219,25 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
+
+  const getKeyStatusBadge = (status?: KeyStatus) => {
+    if (!status || status === 'not_issued') {
+      return <Badge variant="outline" className="border-amber-500 text-amber-600">{t('keyNotIssued')}</Badge>;
+    }
+    switch (status) {
+      case 'issued':
+        return <Badge className="bg-green-100 text-green-700 border-green-300">{t('keyIssued')}</Badge>;
+      case 'returned':
+        return <Badge className="bg-blue-100 text-blue-700 border-blue-300">{t('keyReturned')}</Badge>;
+      default:
+        return <Badge variant="secondary">{t(status)}</Badge>;
+    }
+  };
+
+
+  if (bookingsError) {
+    return <div className="flex flex-col items-center justify-center min-h-screen p-4"><AlertTriangle className="h-12 w-12 text-destructive mb-4" /><p className="text-lg text-destructive">{t('errorFetchingBookings')}: {bookingsError.message}</p></div>;
+  }
 
   return (
     <>
@@ -228,22 +278,22 @@ export default function AdminManageDormitoryBookingsPage() {
           </div>
         </div>
 
-        {isLoading && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+        {(isLoadingBookings || isLoadingDormsForFilter) && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
-        {!isLoading && displayedBookings.length === 0 && (
+        {!(isLoadingBookings || isLoadingDormsForFilter) && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noDormitoryBookingsMatchFilters') : t('noDormitoryBookingsFoundAdminCta')}</p>
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noDormitoryBookingsMatchFilters') : (user?.role === 'admin' && !user.buildingAssignment) ? t('adminNoBuildingAssignmentDormBookings') : t('noDormitoryBookingsFoundAdminCta')}</p>
             </CardContent>
           </Card>
         )}
 
-        {!isLoading && displayedBookings.length > 0 && (
+        {!(isLoadingBookings || isLoadingDormsForFilter) && displayedBookings.length > 0 && (
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{t('dormitoryBookingList')}</CardTitle>
-                {isRefreshing && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                {(updateBookingMutation.isPending || deleteBookingMutation.isPending) && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
               <CardDescription>{t('viewAndManageDormitoryBookings')}</CardDescription>
             </CardHeader>
@@ -262,6 +312,7 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                       <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
                       <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                      <TableHead onClick={() => requestSort('keyStatus' as any)} className="cursor-pointer group">{t('keyStatusColumn')}{getSortIndicator('keyStatus' as any)}</TableHead>
                       <TableHead className="text-right">{t('actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -278,10 +329,11 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                        <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" title={t('moreActions')}>
+                                  <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
                                       <MoreHorizontal className="h-4 w-4" />
                                       <span className="sr-only">{t('moreActions')}</span>
                                   </Button>
@@ -360,7 +412,9 @@ export default function AdminManageDormitoryBookingsPage() {
             <AlertDialogAction
               onClick={confirmDeleteBooking}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBookingMutation.isPending}
             >
+              {deleteBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -369,5 +423,4 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
-
-
+    
