@@ -34,7 +34,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -66,7 +66,7 @@ export default function AdminManageDormitoryBookingsPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const queryClient: QueryClient = useQueryClient();
 
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
@@ -118,7 +118,7 @@ export default function AdminManageDormitoryBookingsPage() {
   });
 
   const filteredBookingsForAdmin = useMemo(() => {
-    if (isLoadingDormsForFilter || !user) return [];
+    if (isLoadingDormsForFilter || !user || !allBookingsFromDb) return [];
     let bookingsToFilter = allBookingsFromDb;
 
     if (user.role === 'admin' && user.buildingAssignment) {
@@ -149,19 +149,15 @@ export default function AdminManageDormitoryBookingsPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
-    setDataSource,
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-      initialData: filteredBookingsForAdmin,
+      data: filteredBookingsForAdmin,
       rowsPerPage: 10,
       searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'],
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
-  useEffect(() => {
-    setDataSource(filteredBookingsForAdmin);
-  }, [filteredBookingsForAdmin, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof Booking | 'keyStatus') => {
     if (sortConfig?.key === columnKey) {
