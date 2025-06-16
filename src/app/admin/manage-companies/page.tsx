@@ -68,17 +68,13 @@ export default function ManageCompaniesPage() {
     totalItems,
     requestSort,
     sortConfig,
-    setDataSource,
   } = useSimpleTable<User>({
-      initialData: allCompaniesFromDb,
+      data: allCompaniesFromDb,
       rowsPerPage: 10,
       searchKeys: ['companyName', 'name', 'email'], 
       initialSort: { key: 'companyName', direction: 'ascending'},
   });
   
-  useEffect(() => {
-    setDataSource(allCompaniesFromDb);
-  }, [allCompaniesFromDb, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof User) => {
     if (sortConfig?.key === columnKey) {
@@ -238,5 +234,4 @@ export default function ManageCompaniesPage() {
     </div>
   );
 }
-
     
