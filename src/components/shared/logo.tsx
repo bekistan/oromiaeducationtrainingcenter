@@ -8,8 +8,8 @@ export function Logo() {
       <Image
         src="https://i.ibb.co/23Qfp0rX/logo-oroedu-removebg-preview.png" // Updated image URL
         alt="Oromia Education Training Center Logo"
-        width={140}
-        height={39}
+        width={100}
+        height={28}
         priority
       />
     </Link>
