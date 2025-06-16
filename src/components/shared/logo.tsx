@@ -6,7 +6,7 @@ export function Logo() {
   return (
     <Link href="/" className="flex items-center space-x-2" aria-label="Homepage">
       <Image
-        src="https://i.ibb.co/gMSjC2m/logo.png" // Corrected image URL
+        src="https://i.ibb.co/23Qfp0rX/logo-oroedu-removebg-preview.png" // Updated image URL
         alt="Oromia Education Training Center Logo"
         width={180} 
         height={50} 
