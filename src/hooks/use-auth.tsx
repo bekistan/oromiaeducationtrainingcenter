@@ -74,10 +74,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     const handleAuthChange = async (currentFbUser: FirebaseUser | null) => {
-      setFirebaseUser(currentFbUser);
+      setLoading(true); // Ensure loading is true at the start of processing
+      try {
+        setFirebaseUser(currentFbUser);
 
-      if (currentFbUser) {
-        try {
+        if (currentFbUser) {
           const userDocRef = doc(db, "users", currentFbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
@@ -102,7 +103,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               companyName: userDataFromDb.companyName,
               approvalStatus: userDataFromDb.approvalStatus,
               phone: userDataFromDb.phone,
-              buildingAssignment: userDataFromDb.buildingAssignment, // Include buildingAssignment
+              buildingAssignment: userDataFromDb.buildingAssignment,
               createdAt: createdAtString,
             };
             setUser(processedUserData);
@@ -111,27 +112,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             await firebaseSignOut(auth);
             setUser(null);
           }
-        } catch (error: any) {
-          console.error("Error fetching user document from Firestore in handleAuthChange:", error);
-          if (error.code === 'unavailable') {
-            console.error("Firestore offline: Could not fetch user profile. Signing out user.");
-          }
-          await firebaseSignOut(auth);
+        } else {
           setUser(null);
         }
-      } else {
-        setUser(null);
+      } catch (error: any) {
+        let processedError = error;
+        if (error === true) {
+          console.error("Internal Auth Error: Unexpected boolean 'true' caught during auth state processing. Wrapping in Error object.", error);
+          processedError = new Error("Internal Auth Error: Boolean true was caught during auth state change.");
+        }
+        console.error("Error processing auth state change in useAuth:", processedError);
+        
+        if (auth.currentUser) { 
+          try {
+            await firebaseSignOut(auth);
+          } catch (signOutError) {
+            console.error("Error during fallback sign out in useAuth (inner catch):", signOutError);
+          }
+        }
+        setUser(null); 
+        setFirebaseUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     const unsubscribe = onAuthStateChanged(auth, (fbUserInstance) => {
       handleAuthChange(fbUserInstance).catch(e => {
-        console.error("Unhandled error within handleAuthChange promise:", e);
-        setLoading(false);
-        firebaseSignOut(auth).catch(signOutError => console.error("Fallback sign out failed:", signOutError));
+        let processedError = e;
+        if (e === true) {
+          console.error("Internal Auth Error: Unexpected boolean 'true' caught from handleAuthChange promise. Wrapping in Error object.", e);
+          processedError = new Error("Internal Auth Error: Boolean true caught from handleAuthChange promise.");
+        }
+        console.error("Unhandled error from handleAuthChange promise chain in useAuth:", processedError);
+        
+        if (auth.currentUser) {
+           firebaseSignOut(auth).catch(signOutError => console.error("Fallback sign out failed on outer catch:", signOutError));
+        }
         setUser(null);
         setFirebaseUser(null);
+        setLoading(false); 
       });
     });
 
@@ -167,7 +187,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           companyName: userDataFromDb.companyName,
           approvalStatus: userDataFromDb.approvalStatus,
           phone: userDataFromDb.phone,
-          buildingAssignment: userDataFromDb.buildingAssignment, // Include buildingAssignment
+          buildingAssignment: userDataFromDb.buildingAssignment,
           createdAt: createdAtString,
         };
         setLoading(false);
@@ -245,7 +265,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           email: adminDetails.email,
           name: adminDetails.name,
           role: 'admin' as const,
-          buildingAssignment: adminDetails.buildingAssignment, // Save building assignment
+          buildingAssignment: adminDetails.buildingAssignment, 
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
@@ -343,15 +363,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               companyName: updatedDataFromDb.companyName,
               approvalStatus: updatedDataFromDb.approvalStatus,
               phone: updatedDataFromDb.phone,
-              buildingAssignment: updatedDataFromDb.buildingAssignment, // Refresh buildingAssignment
+              buildingAssignment: updatedDataFromDb.buildingAssignment,
               createdAt: createdAtString,
             };
             setUser(refreshedUser);
           }
         }
-    } catch (error) {
-        console.error("Error updating user document:", error);
-        throw error;
+    } catch (error: any) {
+        let processedError = error;
+        if (error === true) {
+            console.error("Internal Auth Error: Unexpected boolean 'true' caught during updateUserDocument. Wrapping in Error object.", error);
+            processedError = new Error("Internal Auth Error: Boolean true caught in updateUserDocument.");
+        }
+        console.error("Error updating user document:", processedError);
+        throw processedError; 
     }
   }, [user]);
 
