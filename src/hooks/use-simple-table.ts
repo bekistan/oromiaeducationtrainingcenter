@@ -10,7 +10,7 @@ interface SortConfig<T> {
 }
 
 interface UseSimpleTableProps<T> {
-  data: T[] | undefined; // Allow data to be initially undefined
+  data: T[] | undefined;
   rowsPerPage?: number;
   searchKeys: (keyof T)[];
   initialSort?: SortConfig<T>;
@@ -27,17 +27,17 @@ export function useSimpleTable<T>({
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(initialSort || null);
 
   useEffect(() => {
-    // Reset current page if data length changes, indicating a new dataset or significant filtering.
+    // Reset current page if data reference changes, indicating a new dataset or significant filtering.
     // Only run if data is defined.
-    if (data) {
+    if (data) { // Guard to ensure data is defined before trying to access its properties or reset page
       setCurrentPage(0);
     }
-  }, [data?.length]); // Depend on data?.length to re-run if data becomes defined or its length changes
+  }, [data]); // Depend on the data reference itself
 
   const filteredData = useMemo(() => {
-    if (!data) return []; // Handle undefined data
-    if (!searchTerm.trim()) return data;
-    return data.filter((item) =>
+    const currentData = data || []; // Default to empty array if data is undefined
+    if (!searchTerm.trim()) return currentData;
+    return currentData.filter((item) =>
       searchKeys.some((key) => {
         const value = item[key];
         if (typeof value === 'string' || typeof value === 'number') {
@@ -52,7 +52,7 @@ export function useSimpleTable<T>({
   }, [data, searchTerm, searchKeys]);
 
   const sortedAndFilteredData = useMemo(() => {
-    let sortableItems = [...filteredData]; // filteredData will be an array, even if empty
+    let sortableItems = [...filteredData];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key];
@@ -85,6 +85,7 @@ export function useSimpleTable<T>({
               return sortConfig.direction === 'ascending' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
             }
         }
+        // Fallback for other types or mixed types
         if (String(valA) < String(valB)) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (String(valA) > String(valB)) return sortConfig.direction === 'ascending' ? 1 : -1;
         return 0;
@@ -93,7 +94,7 @@ export function useSimpleTable<T>({
     return sortableItems;
   }, [filteredData, sortConfig]);
 
-  const pageCount = Math.ceil(sortedAndFilteredData.length / rowsPerPage);
+  const pageCount = Math.ceil(sortedAndFilteredData.length / rowsPerPage) || 1; // Ensure pageCount is at least 1
 
   const paginatedData = useMemo(() => {
     const start = currentPage * rowsPerPage;
@@ -106,15 +107,16 @@ export function useSimpleTable<T>({
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
     } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'descending') {
-      setSortConfig(null);
+      setSortConfig(null); // Toggle off sorting for this key
+      setCurrentPage(0); // Reset to first page when sort is removed
       return;
     }
     setSortConfig({ key, direction });
-    setCurrentPage(0);
+    setCurrentPage(0); // Reset to first page when sort changes
   }, [sortConfig]);
 
   const nextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, pageCount > 0 ? pageCount - 1 : 0));
+    setCurrentPage((prev) => Math.min(prev + 1, pageCount - 1));
   };
 
   const previousPage = () => {
@@ -122,10 +124,10 @@ export function useSimpleTable<T>({
   };
 
   const goToPage = (pageNumber: number) => {
-    setCurrentPage(Math.max(0, Math.min(pageNumber, pageCount > 0 ? pageCount - 1 : 0)));
+    setCurrentPage(Math.max(0, Math.min(pageNumber, pageCount - 1)));
   };
 
-  const canNextPage = currentPage < (pageCount > 0 ? pageCount - 1 : 0);
+  const canNextPage = currentPage < pageCount - 1;
   const canPreviousPage = currentPage > 0;
 
   return {
@@ -145,3 +147,4 @@ export function useSimpleTable<T>({
     sortConfig,
   };
 }
+
