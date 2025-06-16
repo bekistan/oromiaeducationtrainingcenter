@@ -36,7 +36,7 @@ export function Header() {
       <div className="container flex py-4 max-w-screen-2xl items-center justify-between">
         <Logo />
         
-        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-4 text-xs font-medium"> {/* Reduced space-x-6 to space-x-4 and text-sm to text-xs */}
           {PUBLIC_NAVS.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
             return (
@@ -145,7 +145,7 @@ export function Header() {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "transition-colors hover:text-foreground/80 text-lg",
+                        "transition-colors hover:text-foreground/80 text-sm", // Reduced text-lg to text-sm
                         isActive ? "text-primary font-semibold" : "text-foreground/60"
                       )}
                     >
@@ -157,7 +157,7 @@ export function Header() {
                   <Link 
                     href="/company/dashboard" 
                     className={cn(
-                        "transition-colors hover:text-foreground/80 text-lg",
+                        "transition-colors hover:text-foreground/80 text-sm", // Reduced text-lg to text-sm
                         pathname.startsWith("/company/dashboard") ? "text-primary font-semibold" : "text-foreground/70"
                     )}>
                       <LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}
@@ -165,16 +165,16 @@ export function Header() {
                 )}
                  {!user && !loading && (
                    <>
-                    <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
+                    <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm"> {/* Reduced text-lg to text-sm */}
                       {t('login')}
                     </Link>
-                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-lg">
+                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm"> {/* Reduced text-lg to text-sm */}
                       {t('registerCompanyButton')}
                     </Link>
                    </>
                 )}
                 {user && !loading && (
-                   <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-lg p-0">
+                   <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-sm p-0"> {/* Reduced text-lg to text-sm */}
                     <LogOutIcon className="mr-2 h-5 w-5" />{t('logout')}
                    </Button>
                 )}
