@@ -111,7 +111,7 @@ export interface User {
   companyName?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
-  createdAt?: string;
+  createdAt?: string | import('firebase/firestore').Timestamp; // Ensure Timestamp can be handled for queries
   preferredCalendarSystem?: CalendarSystem; // Optional: if stored per user
   buildingAssignment?: 'ifaboru' | 'buuraboru'; // Added for admins
 }
