@@ -10,7 +10,7 @@ interface SortConfig<T> {
 }
 
 interface UseSimpleTableProps<T> {
-  data: T[] | undefined;
+  data: T[] | undefined; // Data can be initially undefined
   rowsPerPage?: number;
   searchKeys: (keyof T)[];
   initialSort?: SortConfig<T>;
@@ -26,10 +26,10 @@ export function useSimpleTable<T>({
   const [currentPage, setCurrentPage] = useState(0);
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(initialSort || null);
 
+  // Effect to reset page to 0 when data changes (e.g., new data fetched or filtered by parent)
   useEffect(() => {
-    // Reset current page if data reference changes, indicating a new dataset or significant filtering.
-    // Only run if data is defined.
-    if (data) { // Guard to ensure data is defined before trying to access its properties or reset page
+    // Only reset if data is actually defined, allowing for initial undefined state
+    if (data !== undefined) {
       setCurrentPage(0);
     }
   }, [data]); // Depend on the data reference itself
@@ -52,7 +52,7 @@ export function useSimpleTable<T>({
   }, [data, searchTerm, searchKeys]);
 
   const sortedAndFilteredData = useMemo(() => {
-    let sortableItems = [...filteredData];
+    let sortableItems = [...(filteredData || [])]; // Ensure filteredData is also treated as potentially empty
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key];
@@ -94,7 +94,8 @@ export function useSimpleTable<T>({
     return sortableItems;
   }, [filteredData, sortConfig]);
 
-  const pageCount = Math.ceil(sortedAndFilteredData.length / rowsPerPage) || 1; // Ensure pageCount is at least 1
+  const currentDataLength = sortedAndFilteredData.length;
+  const pageCount = Math.ceil(currentDataLength / rowsPerPage) || 1;
 
   const paginatedData = useMemo(() => {
     const start = currentPage * rowsPerPage;
@@ -107,12 +108,12 @@ export function useSimpleTable<T>({
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
     } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'descending') {
-      setSortConfig(null); // Toggle off sorting for this key
-      setCurrentPage(0); // Reset to first page when sort is removed
+      setSortConfig(null); 
+      setCurrentPage(0);
       return;
     }
     setSortConfig({ key, direction });
-    setCurrentPage(0); // Reset to first page when sort changes
+    setCurrentPage(0);
   }, [sortConfig]);
 
   const nextPage = () => {
@@ -142,9 +143,8 @@ export function useSimpleTable<T>({
     canNextPage,
     canPreviousPage,
     rowsPerPage,
-    totalItems: sortedAndFilteredData.length,
+    totalItems: currentDataLength,
     requestSort,
     sortConfig,
   };
 }
-
