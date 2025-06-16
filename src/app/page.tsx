@@ -7,17 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode } from "lucide-react";
+import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle } from "lucide-react";
 import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME } from "@/constants";
-import { QRCodeDisplay } from "@/components/shared/qr-code-display"; // Import the QR code component
+import { QRCodeDisplay } from "@/components/shared/qr-code-display";
 import { useEffect, useState } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default function HomePage() {
   const { t } = useLanguage();
   const [brochureUrl, setBrochureUrl] = useState('');
 
   useEffect(() => {
-    // Ensure this runs only on the client where window is available
     if (typeof window !== 'undefined') {
       setBrochureUrl(window.location.origin + '/brochure');
     }
@@ -44,7 +49,7 @@ export default function HomePage() {
       icon: <Utensils className="h-10 w-10 text-primary" />,
       titleKey: "cateringServices",
       descriptionKey: "tagline",
-      link: "/halls#catering",
+      link: "/halls#catering", // This might need adjustment if catering isn't a direct section on halls page
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
       imageHint: "catering food"
     },
@@ -66,6 +71,16 @@ export default function HomePage() {
       titleKey: "adminPanel",
       descriptionKey: "powerfulManagement",
     },
+  ];
+
+  const faqItems = [
+    { id: "faq1", questionKey: "faqQ1Title", answerKey: "faqQ1Answer" },
+    { id: "faq2", questionKey: "faqQ2Title", answerKey: "faqQ2Answer" },
+    { id: "faq3", questionKey: "faqQ3Title", answerKey: "faqQ3Answer" },
+    { id: "faq4", questionKey: "faqQ4Title", answerKey: "faqQ4Answer" },
+    { id: "faq5", questionKey: "faqQ5Title", answerKey: "faqQ5Answer" },
+    { id: "faq6", questionKey: "faqQ6Title", answerKey: "faqQ6Answer" },
+    { id: "faq7", questionKey: "faqQ7Title", answerKey: "faqQ7Answer" },
   ];
 
   return (
@@ -149,8 +164,31 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Brochure QR Code Section */}
+      {/* FAQ Section */}
       <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto">
+          <div className="text-center mb-12">
+            <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
+            <h2 className="text-3xl font-bold text-primary">{t('faqTitle')}</h2>
+            <p className="text-muted-foreground mt-2">{t('faqSubtitle')}</p>
+          </div>
+          <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
+            {faqItems.map((item) => (
+              <AccordionItem value={item.id} key={item.id}>
+                <AccordionTrigger className="text-lg text-left hover:text-primary">
+                  {t(item.questionKey)}
+                </AccordionTrigger>
+                <AccordionContent className="text-base text-muted-foreground leading-relaxed">
+                  {t(item.answerKey)}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
+
+      {/* Brochure QR Code Section */}
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl font-bold text-primary mb-4">{t('discoverMoreTitle')}</h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">{t('discoverMoreSubtitle')}</p>

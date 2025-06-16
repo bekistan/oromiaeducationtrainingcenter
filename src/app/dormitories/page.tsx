@@ -9,10 +9,9 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarDays, AlertCircle, BedDouble } from "lucide-react";
+import { Loader2, CalendarDays, AlertCircle } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -25,7 +24,6 @@ export default function DormitoriesPage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingInitialDorms, setIsLoadingInitialDorms] = useState(true);
   const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
-  const [activeTab, setActiveTab] = useState<"available" | "all">("all");
 
   const fetchAllAdminEnabledDormitories = useCallback(async () => {
     setIsLoadingInitialDorms(true);
@@ -35,7 +33,7 @@ export default function DormitoriesPage() {
       const dormsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          isAvailable: true
+          isAvailable: true // Ensure this reflects admin-set availability for initial list
         } as Dormitory));
       setAllAdminEnabledDormitories(dormsData);
     } catch (error) {
@@ -51,13 +49,12 @@ export default function DormitoriesPage() {
   }, [fetchAllAdminEnabledDormitories]);
 
   const checkDormitoryAvailabilityForRange = useCallback(async (dorm: Dormitory, range: DateRange): Promise<boolean> => {
-    if (!range.from || !range.to) return true; // No range, assume available from admin perspective
-    if (!dorm.capacity || dorm.capacity <= 0) return false; // No capacity, assume not bookable
+    if (!range.from || !range.to) return true; 
+    if (!dorm.capacity || dorm.capacity <= 0) return false; 
 
     const fromTimestamp = Timestamp.fromDate(range.from);
     const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
 
-    // Fetch bookings that *might* conflict: start before range ends, and are for dormitories, and are approved/pending.
     const bookingsQuery = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
@@ -74,7 +71,6 @@ export default function DormitoriesPage() {
             const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
             const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
 
-            // Check for actual overlap with the selected range
             const overlaps = bookingStartDate <= range.to! && bookingEndDate >= range.from!;
 
             if (overlaps) {
@@ -88,15 +84,13 @@ export default function DormitoriesPage() {
     } catch (error) {
         console.error(`Error checking availability for dorm ${dorm.id}:`, error);
         toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
-        return false; // Assume unavailable on error
+        return false; 
     }
   }, [t, toast]);
 
   useEffect(() => {
     if (!selectedDateRange || !selectedDateRange.from || !selectedDateRange.to) {
       setAvailableDormitoriesInRange([]);
-      // If a tab was on "available", switch to "all" if no range is selected, or keep user's choice
-      // For simplicity, we won't force tab switch here, user can switch manually.
       return;
     }
 
@@ -104,7 +98,7 @@ export default function DormitoriesPage() {
       setIsCheckingRangeAvailability(true);
       const availableDorms: Dormitory[] = [];
       for (const dorm of allAdminEnabledDormitories) {
-        if (dorm.isAvailable) { // Only check admin-enabled dorms
+        if (dorm.isAvailable) { 
             const isTrulyAvailableInRange = await checkDormitoryAvailabilityForRange(dorm, selectedDateRange);
             if (isTrulyAvailableInRange) {
             availableDorms.push(dorm);
@@ -115,19 +109,13 @@ export default function DormitoriesPage() {
       setIsCheckingRangeAvailability(false);
     };
 
-    updateAvailableDorms().catch(console.error);
+    updateAvailableDorms().catch(e => {
+        console.error("Failed to update available dorms:", e);
+        setIsCheckingRangeAvailability(false);
+        // Optionally set an error state to display to the user
+    });
   }, [selectedDateRange, allAdminEnabledDormitories, checkDormitoryAvailabilityForRange]);
 
-  const handleTabChange = (value: string) => {
-    setActiveTab(value as "available" | "all");
-  };
-
-  const displayedDormitories = useMemo(() => {
-    if (activeTab === "available") {
-      return selectedDateRange?.from && selectedDateRange?.to ? availableDormitoriesInRange : [];
-    }
-    return allAdminEnabledDormitories;
-  }, [activeTab, selectedDateRange, availableDormitoriesInRange, allAdminEnabledDormitories]);
 
   const renderContent = () => {
     if (isLoadingInitialDorms) {
@@ -138,45 +126,45 @@ export default function DormitoriesPage() {
         </div>
       );
     }
-
-    if (activeTab === "available") {
-      if (!selectedDateRange?.from || !selectedDateRange?.to) {
-        return (
-          <Alert variant="default" className="max-w-md mx-auto bg-blue-50 border-blue-200">
-            <CalendarDays className="h-5 w-5 text-blue-600" />
-            <AlertTitle className="text-blue-700">{t('selectDatesTitle')}</AlertTitle>
-            <AlertDescription className="text-blue-600">
-              {t('selectDatesToSeeAvailableDorms')}
-            </AlertDescription>
-          </Alert>
-        );
-      }
-      if (isCheckingRangeAvailability) {
-        return (
-          <div className="flex flex-col justify-center items-center h-40">
-            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-            <p>{t('checkingAvailabilityForRange')}</p>
-          </div>
-        );
-      }
-      if (availableDormitoriesInRange.length === 0) {
-        return (
-          <Alert variant="destructive" className="max-w-md mx-auto">
-            <AlertCircle className="h-5 w-5" />
-            <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
-            <AlertDescription>
-              {t('noDormsAvailableInDateRange')}
-            </AlertDescription>
-          </Alert>
-        );
-      }
-    } else { // activeTab === "all"
-      if (allAdminEnabledDormitories.length === 0 && !isLoadingInitialDorms) {
+    
+    if (allAdminEnabledDormitories.length === 0 && !isLoadingInitialDorms) {
         return <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesConfigured')}</p>;
-      }
     }
 
-    return <DormitoryList dormitories={displayedDormitories} />;
+    if (!selectedDateRange?.from || !selectedDateRange?.to) {
+      return (
+        <Alert variant="default" className="max-w-md mx-auto bg-blue-50 border-blue-200">
+          <CalendarDays className="h-5 w-5 text-blue-600" />
+          <AlertTitle className="text-blue-700">{t('selectDatesTitle')}</AlertTitle>
+          <AlertDescription className="text-blue-600">
+            {t('selectDatesToSeeAvailableDorms')}
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (isCheckingRangeAvailability) {
+      return (
+        <div className="flex flex-col justify-center items-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin mb-2" />
+          <p>{t('checkingAvailabilityForRange')}</p>
+        </div>
+      );
+    }
+    
+    if (availableDormitoriesInRange.length === 0) {
+      return (
+        <Alert variant="destructive" className="max-w-md mx-auto">
+          <AlertCircle className="h-5 w-5" />
+          <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
+          <AlertDescription>
+            {t('noDormsAvailableInDateRange')}
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return <DormitoryList dormitories={availableDormitoriesInRange} />;
   };
 
 
@@ -191,25 +179,10 @@ export default function DormitoriesPage() {
         <div className="mb-8 flex justify-center">
           <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
         </div>
-
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:w-1/2 mx-auto mb-8">
-            <TabsTrigger value="available">
-              <CalendarDays className="mr-2 h-5 w-5" /> {t('availableDormitoriesTab')}
-            </TabsTrigger>
-            <TabsTrigger value="all">
-              <BedDouble className="mr-2 h-5 w-5" /> {t('allDormitoriesTab')}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="available">
+        
+        <div className="mt-8">
             {renderContent()}
-          </TabsContent>
-
-          <TabsContent value="all">
-            {renderContent()}
-          </TabsContent>
-        </Tabs>
+        </div>
       </div>
     </PublicLayout>
   );
