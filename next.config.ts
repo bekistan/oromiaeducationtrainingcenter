@@ -35,6 +35,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'i.ibb.co', // Added for the new logo provider
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
