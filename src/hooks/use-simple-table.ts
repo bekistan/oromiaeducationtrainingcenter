@@ -10,14 +10,14 @@ interface SortConfig<T> {
 }
 
 interface UseSimpleTableProps<T> {
-  data: T[]; // Changed from initialData to data
+  data: T[] | undefined; // Allow data to be initially undefined
   rowsPerPage?: number;
   searchKeys: (keyof T)[];
   initialSort?: SortConfig<T>;
 }
 
 export function useSimpleTable<T>({
-  data, // Changed from initialData
+  data,
   rowsPerPage = 10,
   searchKeys,
   initialSort,
@@ -26,13 +26,17 @@ export function useSimpleTable<T>({
   const [currentPage, setCurrentPage] = useState(0);
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(initialSort || null);
 
-  // Reset current page if data length changes, indicating a new dataset or significant filtering.
   useEffect(() => {
-    setCurrentPage(0);
-  }, [data.length]);
+    // Reset current page if data length changes, indicating a new dataset or significant filtering.
+    // Only run if data is defined.
+    if (data) {
+      setCurrentPage(0);
+    }
+  }, [data?.length]); // Depend on data?.length to re-run if data becomes defined or its length changes
 
   const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return data; // Use prop data directly
+    if (!data) return []; // Handle undefined data
+    if (!searchTerm.trim()) return data;
     return data.filter((item) =>
       searchKeys.some((key) => {
         const value = item[key];
@@ -48,7 +52,7 @@ export function useSimpleTable<T>({
   }, [data, searchTerm, searchKeys]);
 
   const sortedAndFilteredData = useMemo(() => {
-    let sortableItems = [...filteredData];
+    let sortableItems = [...filteredData]; // filteredData will be an array, even if empty
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
         const valA = a[sortConfig.key];
@@ -139,6 +143,5 @@ export function useSimpleTable<T>({
     totalItems: sortedAndFilteredData.length,
     requestSort,
     sortConfig,
-    // Removed setDataSource
   };
 }
