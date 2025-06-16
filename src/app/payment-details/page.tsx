@@ -11,9 +11,26 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSearchParams, useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import type { Booking } from '@/types';
-import { SITE_NAME } from '@/constants';
+import type { Booking, BankAccountDetails } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
+
+const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
+const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicPayment";
+
+const fetchBankDetailsPublic = async (): Promise<BankAccountDetails | null> => {
+  const docRef = doc(db, BANK_DETAILS_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      bankName: data.bankName || "",
+      accountName: data.accountName || "",
+      accountNumber: data.accountNumber || "",
+    } as BankAccountDetails;
+  }
+  return null;
+};
 
 function PaymentDetailsContent() {
   const { t } = useLanguage();
@@ -31,6 +48,11 @@ function PaymentDetailsContent() {
   const amountQuery = searchParams.get('amount');
   const categoryQuery = searchParams.get('category');
   const phoneQuery = searchParams.get('phone');
+
+  const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
+    queryKey: [BANK_DETAILS_QUERY_KEY],
+    queryFn: fetchBankDetailsPublic,
+  });
 
   useEffect(() => {
     const id = searchParams.get('bookingId');
@@ -54,7 +76,6 @@ function PaymentDetailsContent() {
         const docSnap = await getDoc(bookingRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as Booking;
-          // Validate if payment is expected for this booking's current state
           if (data.bookingCategory === 'dormitory' && data.paymentStatus !== 'pending_transfer') {
             setError(t('paymentNotExpectedOrAlreadyProcessed'));
             setBookingDetails(null);
@@ -78,11 +99,11 @@ function PaymentDetailsContent() {
     fetchBooking();
   }, [bookingId, t, userPhoneNumber]);
 
-  if (isLoadingBooking) {
+  if (isLoadingBooking || isLoadingBankDetails) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[300px]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p>{t('loadingBookingDetails')}</p>
+        <p>{isLoadingBooking ? t('loadingBookingDetails') : t('loadingPaymentInfo')}</p>
       </div>
     );
   }
@@ -102,11 +123,26 @@ function PaymentDetailsContent() {
     );
   }
 
+   if (bankDetailsError) {
+     return (
+      <Card className="w-full max-w-lg text-center">
+        <CardHeader>
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <CardTitle className="text-destructive">{t('errorLoadingPaymentDetails')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('couldNotLoadBankInfo')}</p>
+          <Button onClick={() => router.push('/')} className="mt-4">{t('goToHomepage')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const displayItemName = bookingDetails.items.map(i => i.name).join(', ') || itemNameQuery;
   const displayAmount = (bookingDetails.totalCost ?? amountQuery)?.toString();
   const displayCategory = bookingDetails.bookingCategory || categoryQuery;
   const displayPhoneNumber = userPhoneNumber || bookingDetails.phone || t('yourRegisteredPhoneNumber');
-  const telegramBotUsername = "OROTRAIN"; // Your bot's username without @
+  const telegramBotUsername = "OROTRAIN"; 
 
   return (
     <Card className="w-full max-w-lg shadow-xl">
@@ -116,14 +152,21 @@ function PaymentDetailsContent() {
         <CardDescription>{t('completeYourPaymentDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 p-4 border border-dashed border-primary/50 rounded-md bg-primary/5">
-          <h3 className="font-semibold text-primary mb-2">{t('paymentInstructionsTitle')}</h3>
-          <p className="text-sm text-foreground/80 mb-1"><strong>{t('bankNameLabel')}:</strong> {t('bankNameValue')}</p>
-          <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {t('accountNumberValue')}</p>
-          <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {SITE_NAME}</p>
-          <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {displayAmount} {t('currencySymbol')}</p>
-          <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNote', {bookingId: bookingId || 'N/A'})}</p>
-        </div>
+        {bankDetails ? (
+            <div className="mb-6 p-4 border border-dashed border-primary/50 rounded-md bg-primary/5">
+              <h3 className="font-semibold text-primary mb-2">{t('paymentInstructionsTitle')}</h3>
+              <p className="text-sm text-foreground/80 mb-1"><strong>{t('bankNameLabel')}:</strong> {bankDetails.bankName || t('notSet')}</p>
+              <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {bankDetails.accountName || t('notSet')}</p>
+              <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
+              <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {displayAmount} {t('currencySymbol')}</p>
+              <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNote', {bookingId: bookingId || 'N/A'})}</p>
+            </div>
+        ) : (
+            <div className="mb-6 p-4 border border-dashed border-destructive/50 rounded-md bg-destructive/5">
+                <h3 className="font-semibold text-destructive mb-2">{t('paymentInstructionsUnavailable')}</h3>
+                <p className="text-sm text-destructive/80">{t('bankDetailsNotConfiguredContactAdmin')}</p>
+            </div>
+        )}
 
         <div className="mb-6 space-y-2 text-sm p-4 border rounded-md">
             <h4 className="font-semibold text-foreground">{t('bookingSummary')}</h4>
@@ -166,5 +209,4 @@ export default function PaymentDetailsPage() {
     </PublicLayout>
   );
 }
-
     

@@ -7,6 +7,15 @@ export type Translations = {
 
 export type CalendarSystem = 'gregorian' | 'ethiopian'; // New type
 
+export interface BankAccountDetails {
+  id?: string; // Document ID, usually 'main_bank_account'
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
+
 export interface Dormitory {
   id: string;
   floor: number;

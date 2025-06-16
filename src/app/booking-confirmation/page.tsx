@@ -1,16 +1,37 @@
 
 "use client";
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send } from 'lucide-react';
+import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { BANK_NAME_VALUE, SITE_NAME, BANK_ACCOUNT_NUMBER_VALUE } from '@/constants';
+import { SITE_NAME } from '@/constants';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import type { BankAccountDetails } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+
+const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
+const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicConfirmation";
+
+const fetchBankDetailsPublic = async (): Promise<BankAccountDetails | null> => {
+  const docRef = doc(db, BANK_DETAILS_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      bankName: data.bankName || "",
+      accountName: data.accountName || "",
+      accountNumber: data.accountNumber || "",
+    } as BankAccountDetails;
+  }
+  return null;
+};
 
 function BookingConfirmationContent() {
   const { t } = useLanguage();
@@ -23,6 +44,12 @@ function BookingConfirmationContent() {
   const itemName = searchParams.get('itemName');
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
+
+  const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
+    queryKey: [BANK_DETAILS_QUERY_KEY],
+    queryFn: fetchBankDetailsPublic,
+    enabled: !!(status === 'booking_pending_approval' && category === 'dormitory'), // Only fetch if needed
+  });
 
   if (!bookingId || !status || !itemName || !category) {
     return (
@@ -53,13 +80,41 @@ function BookingConfirmationContent() {
       descriptionText = t('thankYouFacilityBookingWillBeReviewed');
     } else { // Dormitory
       titleText = t('dormitoryBookingRequestReceived');
-      descriptionText = t('dormitoryBookingPendingApproval'); // Updated key
+      descriptionText = t('dormitoryBookingPendingApproval');
       showDormitoryPaymentInstructions = true;
     }
     icon = <Hourglass className="w-16 h-16 text-amber-500" />;
   } else { 
     titleText = t('bookingProcessedTitle');
     descriptionText = t('yourBookingRequestHasBeenProcessed');
+  }
+
+  if (isLoadingBankDetails && showDormitoryPaymentInstructions) {
+    return (
+        <Card className="w-full max-w-lg text-center">
+            <CardHeader>
+                <CardTitle>{t('loadingPaymentDetails')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+            </CardContent>
+        </Card>
+    );
+  }
+
+  if (bankDetailsError && showDormitoryPaymentInstructions) {
+     return (
+      <Card className="w-full max-w-lg text-center">
+        <CardHeader>
+          <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <CardTitle className="text-destructive">{t('errorLoadingPaymentDetails')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('couldNotLoadBankInfo')}</p>
+          <Button onClick={() => router.push('/')} className="mt-4">{t('goToHomepage')}</Button>
+        </CardContent>
+      </Card>
+    );
   }
 
 
@@ -77,12 +132,12 @@ function BookingConfirmationContent() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 text-left">
-        {showDormitoryPaymentInstructions && amount && (
+        {showDormitoryPaymentInstructions && amount && bankDetails && (
           <div className="mb-6 p-4 border border-dashed border-primary/50 rounded-md bg-primary/5">
             <h3 className="font-semibold text-primary mb-2">{t('paymentInstructionsTitle')}</h3>
-            <p className="text-sm text-foreground/80 mb-1"><strong>{t('bankNameLabel')}:</strong> {BANK_NAME_VALUE}</p>
-            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {SITE_NAME}</p>
-            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {BANK_ACCOUNT_NUMBER_VALUE}</p>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('bankNameLabel')}:</strong> {bankDetails.bankName || t('notSet')}</p>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {bankDetails.accountName || t('notSet')}</p>
+            <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
             <Button asChild className="w-full mt-3">
               <a href={`https://t.me/oroedubot`} target="_blank" rel="noopener noreferrer">
@@ -93,6 +148,13 @@ function BookingConfirmationContent() {
              <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
           </div>
         )}
+         {showDormitoryPaymentInstructions && amount && !bankDetails && !isLoadingBankDetails && (
+            <div className="mb-6 p-4 border border-dashed border-destructive/50 rounded-md bg-destructive/5">
+                <h3 className="font-semibold text-destructive mb-2">{t('paymentInstructionsUnavailable')}</h3>
+                <p className="text-sm text-destructive/80">{t('bankDetailsNotConfiguredContactAdmin')}</p>
+            </div>
+        )}
+
 
         <div className={showDormitoryPaymentInstructions ? "pt-4" : "border-t pt-4"}>
           <h3 className="font-semibold mb-2 text-lg">{t('bookingSummary')}</h3>
@@ -108,7 +170,7 @@ function BookingConfirmationContent() {
             <span className="text-muted-foreground">{t('category')}:</span>
             <span className="font-medium capitalize">{t(category)}</span>
           </div>
-          {amount && !showDormitoryPaymentInstructions && ( // Hide amount here if shown in payment instructions
+          {amount && !showDormitoryPaymentInstructions && ( 
             <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('totalAmount')}:</span>
                 <span className="font-medium text-primary">{amount} {t('currencySymbol')}</span>

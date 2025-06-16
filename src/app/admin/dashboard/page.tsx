@@ -8,14 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData } from 'firebase/firestore';
-import type { Booking, Dormitory, Hall } from '@/types';
-import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown } from "lucide-react";
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData, doc, getDoc } from 'firebase/firestore';
+import type { Booking, Dormitory, Hall, BankAccountDetails } from '@/types';
+import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown, Settings as SettingsIcon } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
-import { BANK_ACCOUNT_NAME_VALUE, BANK_NAME_VALUE, BANK_ACCOUNT_NUMBER_VALUE, SITE_NAME } from '@/constants';
+import { useQuery } from '@tanstack/react-query';
 
+const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
+const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
 
 interface DashboardStats {
   totalBookings: number | null;
@@ -24,6 +26,21 @@ interface DashboardStats {
   availableBedsStat: { available: number; total: number } | null;
   availableHalls: { available: number; total: number } | null;
 }
+
+const fetchBankDetailsForDashboard = async (): Promise<BankAccountDetails | null> => {
+  const docRef = doc(db, BANK_DETAILS_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      bankName: data.bankName || "",
+      accountName: data.accountName || "",
+      accountNumber: data.accountNumber || "",
+    } as BankAccountDetails;
+  }
+  return null;
+};
+
 
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
@@ -38,6 +55,11 @@ export default function AdminDashboardPage() {
   const [allRecentBookings, setAllRecentBookings] = useState<Booking[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isLoadingRecentBookings, setIsLoadingRecentBookings] = useState(true);
+
+  const { data: bankDetails, isLoading: isLoadingBankDetails } = useQuery<BankAccountDetails | null, Error>({
+    queryKey: [BANK_DETAILS_QUERY_KEY],
+    queryFn: fetchBankDetailsForDashboard,
+  });
 
   const fetchDashboardData = useCallback(async () => {
     setIsLoadingStats(true);
@@ -307,18 +329,28 @@ export default function AdminDashboardPage() {
             <CardDescription>{t('bankDetailsForPaymentVerification')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t('accountName')}</p>
-              <p className="text-lg font-semibold text-foreground">{BANK_ACCOUNT_NAME_VALUE}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t('bankName')}</p>
-              <p className="text-lg font-semibold text-foreground">{BANK_NAME_VALUE}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">{t('accountNumber')}</p>
-              <p className="text-lg font-semibold text-foreground">{BANK_ACCOUNT_NUMBER_VALUE}</p>
-            </div>
+            {isLoadingBankDetails ? (
+              <div className="flex justify-center items-center h-20">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : bankDetails ? (
+              <>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('accountName')}</p>
+                  <p className="text-lg font-semibold text-foreground">{bankDetails.accountName || t('notSet')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('bankName')}</p>
+                  <p className="text-lg font-semibold text-foreground">{bankDetails.bankName || t('notSet')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{t('accountNumber')}</p>
+                  <p className="text-lg font-semibold text-foreground">{bankDetails.accountNumber || t('notSet')}</p>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t('noBankDetailsConfiguredAdmin')}</p>
+            )}
              <p className="text-xs text-muted-foreground pt-2">{t('adminPaymentReferenceNote')}</p>
           </CardContent>
         </Card>

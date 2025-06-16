@@ -25,7 +25,8 @@ import {
   UserPlus, 
   Users,
   BedDouble,
-  KeyRound // Added KeyRound
+  KeyRound,
+  Settings // Added Settings icon
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -39,7 +40,8 @@ const ICONS: Record<string, LucideIcon> = {
   reports: FileText,
   userProfile: UserCircle,
   registerAdmin: UserPlus,
-  registerKeyholder: KeyRound, // Added icon for keyholder registration
+  registerKeyholder: KeyRound, 
+  manageSettings: Settings, // Added mapping for Settings
 };
 
 export function AdminSidebarNav() {

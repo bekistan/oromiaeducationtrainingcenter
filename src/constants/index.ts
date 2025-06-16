@@ -4,10 +4,10 @@ import type { NavItem, User } from '@/types'; // Added User import
 export const SITE_NAME = "Oromia Education Training Center";
 export const SITE_DESCRIPTION = "Oromia Education Research and Training Center Rental Services";
 
-// Bank Account Details for Admin Reference
-export const BANK_NAME_VALUE = "Commercial Bank of Ethiopia (CBE)";
-export const BANK_ACCOUNT_NAME_VALUE = SITE_NAME; // Or a specific account name if different
-export const BANK_ACCOUNT_NUMBER_VALUE = "1000123456789"; // Placeholder - REPLACE WITH ACTUAL
+// Bank Account Details are now fetched from Firestore
+// export const BANK_NAME_VALUE = "Commercial Bank of Ethiopia (CBE)";
+// export const BANK_ACCOUNT_NAME_VALUE = SITE_NAME;
+// export const BANK_ACCOUNT_NUMBER_VALUE = "1000123456789";
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
@@ -36,6 +36,7 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
   { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
