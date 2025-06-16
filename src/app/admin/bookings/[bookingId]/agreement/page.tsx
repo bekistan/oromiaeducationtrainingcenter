@@ -11,7 +11,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, FileDown } from 'lucide-react'; 
+import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, FileDown, ExternalLink } from 'lucide-react'; 
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -144,6 +144,17 @@ export default function AdminBookingAgreementPage() {
                 </div>
             </div>
 
+            {booking?.signedAgreementUrl && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
+                <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
+                    <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
+                    <Button asChild variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
+                        <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
+                        </a>
+                    </Button>
+                </div>
+            )}
+
             <div className="space-y-2 mb-6 p-4 border rounded-md bg-background">
                 <label htmlFor="editableTerms" className="block text-sm font-medium text-foreground">
                 {t('editAgreementTerms')}:
@@ -158,17 +169,6 @@ export default function AdminBookingAgreementPage() {
                 />
                 <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
             </div>
-
-            {booking?.signedAgreementUrl && (
-                <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
-                    <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
-                    <Button asChild variant="outline" size="sm">
-                        <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                            <FileDown className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
-                        </a>
-                    </Button>
-                </div>
-            )}
         </div>
         <AgreementTemplate booking={booking} customTerms={editableTerms} />
     </div>
