@@ -122,19 +122,14 @@ export default function AdminManageFacilityBookingsPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
-    setDataSource,
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-      initialData: filteredBookings,
+      data: filteredBookings, // Pass filteredBookings directly
       rowsPerPage: 10,
       searchKeys: ['id', 'companyName', 'email', 'phone'],
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
-
-  useEffect(() => {
-    setDataSource(filteredBookings);
-  }, [filteredBookings, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof Booking) => {
     if (sortConfig?.key === columnKey) {
@@ -453,3 +448,4 @@ export default function AdminManageFacilityBookingsPage() {
   );
 }
     
+
