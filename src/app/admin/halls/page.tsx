@@ -171,17 +171,12 @@ export default function AdminHallsAndSectionsPage() {
     totalItems,
     requestSort,
     sortConfig,
-    setDataSource,
   } = useSimpleTable<Hall>({
-      initialData: allItemsFromDb,
+      data: allItemsFromDb, // Pass data directly
       rowsPerPage: 10,
       searchKeys: ['name', 'itemType', 'description'],
       initialSort: { key: 'name', direction: 'ascending' },
   });
-
-  useEffect(() => {
-    setDataSource(allItemsFromDb);
-  }, [allItemsFromDb, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof Hall) => {
     if (sortConfig?.key === columnKey) {
