@@ -72,91 +72,96 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const handleAuthChange = async (currentFbUser: FirebaseUser | null) => {
-      setLoading(true); // Ensure loading is true at the start of processing
-      try {
-        setFirebaseUser(currentFbUser);
+  const handleAuthChange = useCallback(async (currentFbUser: FirebaseUser | null) => {
+    // setLoading(true) is intentionally at the start of the useEffect calling this,
+    // and setLoading(false) is in the finally block here and in the .catch of its invoker.
+    try {
+      setFirebaseUser(currentFbUser);
+      if (currentFbUser) {
+        const userDocRef = doc(db, "users", currentFbUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
 
-        if (currentFbUser) {
-          const userDocRef = doc(db, "users", currentFbUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-
-          if (userDocSnap.exists()) {
-            const userDataFromDb = userDocSnap.data();
-
-            let createdAtString: string | undefined = undefined;
-            if (userDataFromDb.createdAt instanceof Timestamp) {
-              createdAtString = userDataFromDb.createdAt.toDate().toISOString();
-            } else if (typeof userDataFromDb.createdAt === 'string') {
-              createdAtString = userDataFromDb.createdAt;
-            } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number' && typeof userDataFromDb.createdAt.nanoseconds === 'number') {
-              createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
-            }
-
-            const processedUserData: AppUserType = {
-              id: currentFbUser.uid,
-              email: userDataFromDb.email || '',
-              role: userDataFromDb.role || 'individual',
-              name: userDataFromDb.name,
-              companyId: userDataFromDb.companyId,
-              companyName: userDataFromDb.companyName,
-              approvalStatus: userDataFromDb.approvalStatus,
-              phone: userDataFromDb.phone,
-              buildingAssignment: userDataFromDb.buildingAssignment,
-              createdAt: createdAtString,
-            };
-            setUser(processedUserData);
-          } else {
-            console.warn("User document not found in Firestore for UID:", currentFbUser.uid, "- Signing out to prevent inconsistent state.");
-            await firebaseSignOut(auth);
-            setUser(null);
+        if (userDocSnap.exists()) {
+          const userDataFromDb = userDocSnap.data();
+          let createdAtString: string | undefined = undefined;
+          if (userDataFromDb.createdAt instanceof Timestamp) {
+            createdAtString = userDataFromDb.createdAt.toDate().toISOString();
+          } else if (typeof userDataFromDb.createdAt === 'string') {
+            createdAtString = userDataFromDb.createdAt;
+          } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number' && typeof userDataFromDb.createdAt.nanoseconds === 'number') {
+            createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
           }
+
+          const processedUserData: AppUserType = {
+            id: currentFbUser.uid,
+            email: userDataFromDb.email || '',
+            role: userDataFromDb.role || 'individual',
+            name: userDataFromDb.name,
+            companyId: userDataFromDb.companyId,
+            companyName: userDataFromDb.companyName,
+            approvalStatus: userDataFromDb.approvalStatus,
+            phone: userDataFromDb.phone,
+            buildingAssignment: userDataFromDb.buildingAssignment,
+            createdAt: createdAtString,
+          };
+          setUser(processedUserData);
         } else {
-          setUser(null);
+          console.warn("User document not found in Firestore for UID:", currentFbUser.uid, "- Signing out to prevent inconsistent state.");
+          await firebaseSignOut(auth);
+          setUser(null); // Explicitly set user to null
         }
-      } catch (error: any) {
-        let processedError = error;
-        if (error === true) {
-          console.error("Internal Auth Error: Unexpected boolean 'true' caught during auth state processing. Wrapping in Error object.", error);
-          processedError = new Error("Internal Auth Error: Boolean true was caught during auth state change.");
-        }
-        console.error("Error processing auth state change in useAuth:", processedError);
-        
-        if (auth.currentUser) { 
-          try {
-            await firebaseSignOut(auth);
-          } catch (signOutError) {
-            console.error("Error during fallback sign out in useAuth (inner catch):", signOutError);
-          }
-        }
-        setUser(null); 
-        setFirebaseUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, (fbUserInstance) => {
-      handleAuthChange(fbUserInstance).catch(e => {
-        let processedError = e;
-        if (e === true) {
-          console.error("Internal Auth Error: Unexpected boolean 'true' caught from handleAuthChange promise. Wrapping in Error object.", e);
-          processedError = new Error("Internal Auth Error: Boolean true caught from handleAuthChange promise.");
-        }
-        console.error("Unhandled error from handleAuthChange promise chain in useAuth:", processedError);
-        
-        if (auth.currentUser) {
-           firebaseSignOut(auth).catch(signOutError => console.error("Fallback sign out failed on outer catch:", signOutError));
-        }
+      } else {
         setUser(null);
-        setFirebaseUser(null);
-        setLoading(false); 
-      });
+      }
+    } catch (error: any) {
+      if (error === true) {
+        console.error("Auth Error: Caught boolean 'true' in handleAuthChange try-catch.", error);
+        throw new Error("Original error was true: handleAuthChange try-catch");
+      }
+      console.error("Error processing auth state change in handleAuthChange:", error);
+      if (auth.currentUser) {
+        try {
+          await firebaseSignOut(auth);
+        } catch (signOutError) {
+          console.error("Error during fallback sign out in handleAuthChange (inner catch):", signOutError);
+        }
+      }
+      setUser(null); 
+      setFirebaseUser(null); 
+      throw error; // Re-throw to be caught by the outer catch if necessary
+    } finally {
+      // setLoading(false) will be called by the invoker's .catch or .finally
+      // or by the outer useEffect's setLoading(false)
+    }
+  }, []);
+
+
+  useEffect(() => {
+    setLoading(true); // Initial loading state for auth setup
+    const unsubscribe = onAuthStateChanged(auth, (fbUserInstance) => {
+      handleAuthChange(fbUserInstance)
+        .catch(e => {
+          if (e === true) {
+            console.error("Auth Error: Caught boolean 'true' from handleAuthChange promise in onAuthStateChanged.", e);
+            // Potentially re-throw new Error("Original error was true: onAuthStateChanged") if needed for global error handlers
+          } else {
+            console.error("Unhandled error from handleAuthChange promise chain in onAuthStateChanged:", e);
+          }
+          // Ensure user state is cleared on error during auth change
+          setUser(null);
+          setFirebaseUser(null);
+        })
+        .finally(() => {
+          setLoading(false); // Always set loading to false after auth processing is complete
+        });
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+      setLoading(false); // Clean up loading state on unmount
+    }
+  }, [handleAuthChange]);
+
 
   const login = useCallback(async (email: string, pass: string): Promise<AppUserType | null> => {
     setLoading(true);
@@ -190,18 +195,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           buildingAssignment: userDataFromDb.buildingAssignment,
           createdAt: createdAtString,
         };
-        setLoading(false);
-        return appUserData;
+        return appUserData; // setUser will be handled by onAuthStateChanged
       } else {
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth);
-        setLoading(false);
+        await firebaseSignOut(auth); // Sign out if user doc is missing
         throw new Error("userDataMissing");
       }
     } catch (error: any) {
+      if (error === true) {
+        console.error("Auth Error: Caught boolean 'true' in login.", error);
+        throw new Error("Original error was true: login");
+      }
       console.error("Login error in useAuth:", error);
-      setLoading(false);
       throw error;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -211,9 +219,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
         const fbUserInstance = userCredential.user;
-
         const companyId = `comp_${fbUserInstance.uid.substring(0, 10)}_${Date.now().toString(36)}`;
-
         const newCompanyUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: companyDetails.email,
           name: companyDetails.name,
@@ -224,10 +230,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           companyId: companyId,
           createdAt: serverTimestamp(),
         };
-
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
-
-        const registeredUser: AppUserType = {
+        return {
             id: fbUserInstance.uid,
             email: companyDetails.email,
             name: companyDetails.name,
@@ -238,12 +242,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             companyId: companyId,
             createdAt: new Date().toISOString(),
         };
-        setLoading(false);
-        return registeredUser;
-      } catch (error) {
+      } catch (error: any) {
+        if (error === true) {
+            console.error("Auth Error: Caught boolean 'true' in signupCompany.", error);
+            throw new Error("Original error was true: signupCompany");
+        }
         console.error("Company signup error:", error);
-        setLoading(false);
         throw error;
+      } finally {
+        setLoading(false);
       }
     },
     []
@@ -251,16 +258,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const signupAdmin = useCallback(
     async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
-      if (user?.role !== 'superadmin') {
-        console.error("Unauthorized attempt to sign up admin by user:", user?.email, "with role:", user?.role);
-        setLoading(false);
-        throw new Error("Only superadmins can register new admins.");
-      }
       setLoading(true);
       try {
+        if (user?.role !== 'superadmin') {
+          console.error("Unauthorized attempt to sign up admin by user:", user?.email, "with role:", user?.role);
+          throw new Error("Only superadmins can register new admins.");
+        }
         const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
         const fbUserInstance = userCredential.user;
-
         const newAdminUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: adminDetails.email,
           name: adminDetails.name,
@@ -269,8 +274,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
-
-        const registeredAdmin: AppUserType = {
+        return {
             id: fbUserInstance.uid,
             email: adminDetails.email,
             name: adminDetails.name,
@@ -278,29 +282,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             buildingAssignment: adminDetails.buildingAssignment,
             createdAt: new Date().toISOString(),
         };
-        setLoading(false);
-        return registeredAdmin;
-      } catch (error) {
+      } catch (error: any) {
+        if (error === true) {
+            console.error("Auth Error: Caught boolean 'true' in signupAdmin.", error);
+            throw new Error("Original error was true: signupAdmin");
+        }
         console.error("Admin signup error:", error);
-        setLoading(false);
         throw error;
+      } finally {
+        setLoading(false);
       }
     },
-    [user?.role]
+    [user?.role] // Dependency on user role to check authorization
   );
 
   const signupKeyholder = useCallback(
     async (keyholderDetails: KeyholderDetails): Promise<AppUserType | null> => {
-      if (user?.role !== 'admin' && user?.role !== 'superadmin') {
-        console.error("Unauthorized attempt to sign up keyholder by user:", user?.email, "with role:", user?.role);
-        setLoading(false);
-        throw new Error("Only admins or superadmins can register new keyholders.");
-      }
       setLoading(true);
       try {
+        if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+          console.error("Unauthorized attempt to sign up keyholder by user:", user?.email, "with role:", user?.role);
+          throw new Error("Only admins or superadmins can register new keyholders.");
+        }
         const userCredential = await createUserWithEmailAndPassword(auth, keyholderDetails.email, keyholderDetails.password);
         const fbUserInstance = userCredential.user;
-
         const newKeyholderUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: keyholderDetails.email,
           name: keyholderDetails.name,
@@ -308,30 +313,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newKeyholderUserDocData);
-
-        const registeredKeyholder: AppUserType = {
+        return {
             id: fbUserInstance.uid,
             email: keyholderDetails.email,
             name: keyholderDetails.name,
             role: 'keyholder',
             createdAt: new Date().toISOString(),
         };
-        setLoading(false);
-        return registeredKeyholder;
-      } catch (error) {
+      } catch (error: any) {
+        if (error === true) {
+            console.error("Auth Error: Caught boolean 'true' in signupKeyholder.", error);
+            throw new Error("Original error was true: signupKeyholder");
+        }
         console.error("Keyholder signup error:", error);
-        setLoading(false);
         throw error;
+      } finally {
+        setLoading(false);
       }
     },
-    [user?.role]
+    [user?.role] // Dependency on user role
   );
 
   const logout = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       await firebaseSignOut(auth);
-    } catch (error) {
+      // setUser and setFirebaseUser will be handled by onAuthStateChanged
+    } catch (error: any) {
+      if (error === true) {
+        console.error("Auth Error: Caught boolean 'true' in logout.", error);
+        // No need to throw here as logout doesn't typically propagate errors
+      }
       console.error("Logout error:", error);
     } finally {
       setLoading(false);
@@ -342,7 +354,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const userDocRef = doc(db, "users", userId);
     try {
         await updateDoc(userDocRef, data);
-        if (user && user.id === userId) {
+        if (user && user.id === userId) { // If updating the currently logged-in user, refresh local state
           const updatedUserSnapshot = await getDoc(userDocRef);
           if (updatedUserSnapshot.exists()) {
             const updatedDataFromDb = updatedUserSnapshot.data();
@@ -370,15 +382,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         }
     } catch (error: any) {
-        let processedError = error;
         if (error === true) {
-            console.error("Internal Auth Error: Unexpected boolean 'true' caught during updateUserDocument. Wrapping in Error object.", error);
-            processedError = new Error("Internal Auth Error: Boolean true caught in updateUserDocument.");
+            console.error("Auth Error: Caught boolean 'true' in updateUserDocument.", error);
+            throw new Error("Original error was true: updateUserDocument");
         }
-        console.error("Error updating user document:", processedError);
-        throw processedError; 
+        console.error("Error updating user document:", error);
+        throw error; 
     }
-  }, [user]);
+  }, [user]); // Dependency on 'user' to ensure it's the latest when checking user.id
 
   const contextValue = useMemo<AuthState>(() => ({
     user,
