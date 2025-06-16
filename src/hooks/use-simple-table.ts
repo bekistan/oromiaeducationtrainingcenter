@@ -10,30 +10,29 @@ interface SortConfig<T> {
 }
 
 interface UseSimpleTableProps<T> {
-  initialData: T[];
+  data: T[]; // Changed from initialData to data
   rowsPerPage?: number;
   searchKeys: (keyof T)[];
-  initialSort?: SortConfig<T>; // Optional initial sort configuration
+  initialSort?: SortConfig<T>;
 }
 
 export function useSimpleTable<T>({
-  initialData,
+  data, // Changed from initialData
   rowsPerPage = 10,
   searchKeys,
   initialSort,
 }: UseSimpleTableProps<T>) {
-  const [data, setData] = useState<T[]>(initialData);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [sortConfig, setSortConfig] = useState<SortConfig<T> | null>(initialSort || null);
 
+  // Reset current page if data length changes, indicating a new dataset or significant filtering.
   useEffect(() => {
-    setData(initialData);
-    setCurrentPage(0); // Reset to first page when initialData changes
-  }, [initialData]);
+    setCurrentPage(0);
+  }, [data.length]);
 
   const filteredData = useMemo(() => {
-    if (!searchTerm.trim()) return data;
+    if (!searchTerm.trim()) return data; // Use prop data directly
     return data.filter((item) =>
       searchKeys.some((key) => {
         const value = item[key];
@@ -55,7 +54,6 @@ export function useSimpleTable<T>({
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
 
-        // Handle different data types for comparison
         if (valA === null || valA === undefined) return sortConfig.direction === 'ascending' ? 1 : -1;
         if (valB === null || valB === undefined) return sortConfig.direction === 'ascending' ? -1 : 1;
 
@@ -69,22 +67,20 @@ export function useSimpleTable<T>({
         }
         if (typeof valA === 'boolean' && typeof valB === 'boolean') {
            return sortConfig.direction === 'ascending'
-              ? (valA === valB ? 0 : valA ? -1 : 1) // true comes first when ascending
-              : (valA === valB ? 0 : valA ? 1 : -1); // false comes first when descending
+              ? (valA === valB ? 0 : valA ? -1 : 1)
+              : (valA === valB ? 0 : valA ? 1 : -1);
         }
-        // Date handling
-        const isDateType = (v: any): v is string | Date | Timestamp => 
+        const isDateType = (v: any): v is string | Date | Timestamp =>
             v instanceof Date || (v && typeof (v as Timestamp).toDate === 'function') || typeof v === 'string';
 
         if (isDateType(valA) && isDateType(valB)) {
             const dateA = valA instanceof Date ? valA : (valA as Timestamp).toDate ? (valA as Timestamp).toDate() : new Date(valA as string);
             const dateB = valB instanceof Date ? valB : (valB as Timestamp).toDate ? (valB as Timestamp).toDate() : new Date(valB as string);
-          
+
             if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
               return sortConfig.direction === 'ascending' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
             }
         }
-        // Fallback for other types (should ideally not be reached if types are consistent)
         if (String(valA) < String(valB)) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (String(valA) > String(valB)) return sortConfig.direction === 'ascending' ? 1 : -1;
         return 0;
@@ -106,11 +102,11 @@ export function useSimpleTable<T>({
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
     } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'descending') {
-      setSortConfig(null); // Third click removes sort
+      setSortConfig(null);
       return;
     }
     setSortConfig({ key, direction });
-    setCurrentPage(0); // Reset to first page on sort change
+    setCurrentPage(0);
   }, [sortConfig]);
 
   const nextPage = () => {
@@ -120,7 +116,7 @@ export function useSimpleTable<T>({
   const previousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 0));
   };
-  
+
   const goToPage = (pageNumber: number) => {
     setCurrentPage(Math.max(0, Math.min(pageNumber, pageCount > 0 ? pageCount - 1 : 0)));
   };
@@ -141,10 +137,8 @@ export function useSimpleTable<T>({
     canPreviousPage,
     rowsPerPage,
     totalItems: sortedAndFilteredData.length,
-    setDataSource: setData,
     requestSort,
     sortConfig,
+    // Removed setDataSource
   };
 }
-
-    

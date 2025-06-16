@@ -75,6 +75,7 @@ export default function AdminDormitoriesPage() {
   });
 
   const filteredDormitoriesForAdmin = useMemo(() => {
+    if (isLoadingDormitories || !allDormitoriesFromDb) return [];
     if (user?.role === 'superadmin') {
       return allDormitoriesFromDb;
     }
@@ -82,13 +83,13 @@ export default function AdminDormitoriesPage() {
       return allDormitoriesFromDb.filter(dorm => dorm.buildingName === user.buildingAssignment);
     }
     return [];
-  }, [allDormitoriesFromDb, user]);
+  }, [allDormitoriesFromDb, user, isLoadingDormitories]);
 
   const addDormitoryMutation = useMutation<void, Error, DormitoryFormValues>({
     mutationFn: async (values) => {
       const dormData = {
         ...values,
-        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName, // Enforce admin's building
+        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
@@ -114,7 +115,7 @@ export default function AdminDormitoriesPage() {
       const dormRef = doc(db, "dormitories", id);
       const updatedData = {
         ...values,
-        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName, // Enforce admin's building
+        buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
       };
@@ -174,18 +175,12 @@ export default function AdminDormitoriesPage() {
     totalItems,
     requestSort,
     sortConfig,
-    setDataSource,
   } = useSimpleTable<Dormitory>({
-      initialData: filteredDormitoriesForAdmin,
+      data: filteredDormitoriesForAdmin, // Pass data directly
       rowsPerPage: 10,
       searchKeys: ['roomNumber', 'floor', 'buildingName'],
       initialSort: { key: 'buildingName', direction: 'ascending' },
   });
-
-  useEffect(() => {
-    setDataSource(filteredDormitoriesForAdmin);
-  }, [filteredDormitoriesForAdmin, setDataSource]);
-
 
   const getSortIndicator = (columnKey: keyof Dormitory) => {
     if (sortConfig?.key === columnKey) {
@@ -479,4 +474,3 @@ export default function AdminDormitoriesPage() {
     </>
   );
 }
-    
