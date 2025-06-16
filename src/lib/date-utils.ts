@@ -1,6 +1,6 @@
 
 import { format as formatGregorian, parseISO as parseISOGregorian } from 'date-fns';
-import * as EthiopianDateModule from 'ethiopian-date';
+import { EthiopianDate, toEthiopian, format as formatEthiopianDateInternalFn } from 'ethiopian-date';
 import type { Timestamp } from 'firebase/firestore';
 import type { CalendarSystem } from '@/types';
 
@@ -44,9 +44,9 @@ export const formatEthiopianDateInternal = (
     formatStr: string = 'MMMM D, YYYY ERA' // Default format
   ): string => {
   try {
-    const [year, month, day] = EthiopianDateModule.toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
-    const ethiopianDateInstance = new EthiopianDateModule.EthiopianDate(year, month, day);
-    return EthiopianDateModule.format(ethiopianDateInstance, formatStr);
+    const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+    const ethiopianDateInstance = new EthiopianDate(year, month, day);
+    return formatEthiopianDateInternalFn(ethiopianDateInstance, formatStr);
   } catch (error) {
     console.error("Error formatting Ethiopian date internally:", error, "Date Object:", dateObj);
     return "N/A";
@@ -117,3 +117,4 @@ export const formatEthiopianCalendarDate = (
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
   return formatEthiopianDateInternal(dateObj, formatStr);
 };
+
