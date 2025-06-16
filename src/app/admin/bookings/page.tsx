@@ -69,7 +69,7 @@ export default function AdminBookingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
-  const { data: allBookings = [], isLoading: isLoadingBookings, error: bookingsError, refetch: refetchBookings } = useQuery<Booking[], Error>({
+  const { data: allBookings = [], isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[], Error>({
     queryKey: [BOOKINGS_QUERY_KEY],
     queryFn: fetchBookingsFromDb,
   });
@@ -133,19 +133,14 @@ export default function AdminBookingsPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
-    setDataSource,
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-      initialData: filteredBookings,
+      data: filteredBookings,
       rowsPerPage: 10,
       searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory', 'email', 'phone'],
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
-
-  useEffect(() => {
-    setDataSource(filteredBookings);
-  }, [filteredBookings, setDataSource]);
 
   const getSortIndicator = (columnKey: keyof Booking) => {
     if (sortConfig?.key === columnKey) {
@@ -179,7 +174,7 @@ export default function AdminBookingsPage() {
   
   const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
     const bookingRef = doc(db, "bookings", bookingId);
-    const bookingSnap = await getFirestoreDoc(bookingRef); // Still need to fetch current for logic
+    const bookingSnap = await getFirestoreDoc(bookingRef); 
     if (!bookingSnap.exists()) {
       toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
       return;
@@ -332,7 +327,7 @@ export default function AdminBookingsPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{t('activeBookingList')}</CardTitle>
-                 {updateBookingMutation.isPending || deleteBookingMutation.isPending && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
+                 {(updateBookingMutation.isPending || deleteBookingMutation.isPending) && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
               <CardDescription>{t('viewAndManageActiveBookings')}</CardDescription>
             </CardHeader>

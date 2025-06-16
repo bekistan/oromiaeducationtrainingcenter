@@ -56,13 +56,13 @@ export default function KeyholderAssignKeysPage() {
             const bookingEndDate = toDateObject(booking.endDate);
             if (!bookingEndDate) return false;
             bookingEndDate.setHours(23, 59, 59, 999);
-            return bookingEndDate >= today; // Only show active or upcoming bookings
+            return bookingEndDate >= today; 
         })
         .sort((a,b) => {
             const dateA = toDateObject(a.startDate);
             const dateB = toDateObject(b.startDate);
             if (!dateA || !dateB) return 0;
-            return dateA.getTime() - dateB.getTime(); // Sort by start date, earliest first
+            return dateA.getTime() - dateB.getTime(); 
         });
 
       setAllPaidBookings(bookingsData);
@@ -78,7 +78,7 @@ export default function KeyholderAssignKeysPage() {
     if (user?.role === 'keyholder') {
       fetchPaidDormitoryBookings();
     } else if (!authLoading) {
-      setIsLoadingBookings(false); // Not a keyholder or not loading auth
+      setIsLoadingBookings(false); 
     }
   }, [user, authLoading, fetchPaidDormitoryBookings]);
 
@@ -94,7 +94,7 @@ export default function KeyholderAssignKeysPage() {
     canPreviousPage,
     totalItems,
   } = useSimpleTable<Booking>({
-      initialData: allPaidBookings,
+      data: allPaidBookings,
       rowsPerPage: 10,
       searchKeys: ['guestName', 'phone', 'id'], 
   });
@@ -105,7 +105,7 @@ export default function KeyholderAssignKeysPage() {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, { keyStatus: newStatus });
       toast({ title: t('success'), description: t('keyStatusUpdatedTo', { status: t(newStatus) }) });
-      fetchPaidDormitoryBookings(); // Refresh list
+      fetchPaidDormitoryBookings(); 
     } catch (error) {
       console.error("Error updating key status: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('failedToUpdateKeyStatus') });
@@ -246,6 +246,5 @@ export default function KeyholderAssignKeysPage() {
     </div>
   );
 }
-
 
     

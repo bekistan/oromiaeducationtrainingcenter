@@ -39,7 +39,7 @@ export default function CompanyDashboardPage() {
       const querySnapshot = await getDocs(q);
       
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Start of today for comparison
+      today.setHours(0, 0, 0, 0); 
 
       const bookingsData = querySnapshot.docs
         .map(docSnap => {
@@ -93,7 +93,7 @@ export default function CompanyDashboardPage() {
     canPreviousPage,
     totalItems,
   } = useSimpleTable<Booking>({
-      initialData: allBookings,
+      data: allBookings,
       rowsPerPage: 10,
       searchKeys: ['id'], 
   });

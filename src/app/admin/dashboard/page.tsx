@@ -174,7 +174,7 @@ export default function AdminDashboardPage() {
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-    initialData: allRecentBookings,
+    data: allRecentBookings,
     rowsPerPage: 5,
     searchKeys: ['id', 'guestName', 'companyName', 'bookingCategory'],
     initialSort: { key: 'bookedAt', direction: 'descending' },
