@@ -33,6 +33,9 @@ export default function ContactUsPage() {
     },
   ];
 
+  // Replace this with the actual Google Maps embed URL for your location
+  const googleMapsEmbedUrl = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d252231.7314988568!2d38.61332471060792!3d9.005401249999999!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x164b8f913a515955%3A0x166e629084840434!2sAddis%20Ababa!5e0!3m2!1sen!2set!4v1716816862654!5m2!1sen!2set";
+
   return (
     <PublicLayout>
       <div className="container mx-auto py-12 px-4">
@@ -116,17 +119,27 @@ export default function ContactUsPage() {
           </Card>
         </div>
         
-        {/* Optional: Google Maps Embed */}
         <div className="mt-12">
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl text-center">{t('findUsOnMap')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video bg-muted rounded-md flex items-center justify-center">
-                {/* Replace with your Google Maps iframe embed code */}
-                <p className="text-muted-foreground">{t('mapPlaceholder')}</p>
+              <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                <iframe
+                  src={googleMapsEmbedUrl}
+                  width="100%"
+                  height="100%"
+                  style={{ border:0 }}
+                  allowFullScreen={true}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={t('googleMapsEmbedTitle')}
+                ></iframe>
               </div>
+              <p className="text-xs text-center text-muted-foreground mt-2">
+                {t('mapEmbedNote')}
+              </p>
             </CardContent>
           </Card>
         </div>
