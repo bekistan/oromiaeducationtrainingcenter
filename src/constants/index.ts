@@ -78,6 +78,14 @@ export const ETHIOPIAN_BANKS = [
   "Sidama Bank",
 ];
 
+export const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
+export const SITE_SETTINGS_DOC_PATH = "site_configuration/general_settings";
+
+export const DEFAULT_SITE_SETTINGS = {
+  siteAnnouncementMessage: "",
+  isAnnouncementVisible: false,
+};
+
 export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
 export const DEFAULT_PRICING_SETTINGS = {
   defaultDormitoryPricePerDay: 500,

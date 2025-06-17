@@ -15,6 +15,13 @@ export interface BankAccountDetails {
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
 
+export interface SiteSettings {
+  id?: string;
+  siteAnnouncementMessage?: string;
+  isAnnouncementVisible?: boolean;
+  lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
 export interface PricingSettings {
   id?: string; // Typically 'global_pricing' or similar
   defaultDormitoryPricePerDay: number;
