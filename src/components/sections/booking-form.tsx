@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType } from "@/types";
+import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType, AdminNotification } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2, Building, BedDouble, Film } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -400,6 +400,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
         toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
+        
+        // Create notification for admin
+        const notificationMessageDorm = t('notificationNewDormBooking', {
+            guestName: dormData.fullName,
+            itemName: itemNameForConfirmation
+        });
+        const adminNotificationDorm: Omit<AdminNotification, 'id'> = {
+            message: notificationMessageDorm,
+            type: 'new_dormitory_booking',
+            relatedId: docRef.id,
+            recipientRole: 'admin',
+            isRead: false,
+            createdAt: serverTimestamp(),
+            link: `/admin/manage-dormitory-bookings#${docRef.id}`
+        };
+        await addDoc(collection(db, "notifications"), adminNotificationDorm);
+
         const queryParams = new URLSearchParams({
             status: 'booking_pending_approval', 
             bookingId: docRef.id,
@@ -499,6 +516,23 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+        
+        // Create notification for admin
+        const notificationMessageFacility = t('notificationNewFacilityBooking', {
+            companyName: facilityData.companyName,
+            itemName: itemNameForConfirmation
+        });
+        const adminNotificationFacility: Omit<AdminNotification, 'id'> = {
+            message: notificationMessageFacility,
+            type: 'new_facility_booking',
+            relatedId: docRef.id,
+            recipientRole: 'admin',
+            isRead: false,
+            createdAt: serverTimestamp(),
+            link: `/admin/manage-facility-bookings#${docRef.id}`
+        };
+        await addDoc(collection(db, "notifications"), adminNotificationFacility);
+
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
 
         const queryParams = new URLSearchParams({

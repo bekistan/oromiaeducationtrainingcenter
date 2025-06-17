@@ -144,4 +144,17 @@ export interface NavItem {
   authRequired?: boolean;
   roles?: User['role'][];
 }
+
+export type NotificationType = 'new_facility_booking' | 'new_dormitory_booking' | 'company_registration' | 'payment_verification_needed';
+
+export interface AdminNotification {
+    id: string;
+    message: string;
+    type: NotificationType;
+    relatedId?: string; // e.g., bookingId, userId
+    recipientRole: 'admin' | 'superadmin'; // Could be expanded
+    isRead: boolean;
+    createdAt: import('firebase/firestore').Timestamp | Date | string;
+    link?: string; // Optional direct link for the notification
+}
     

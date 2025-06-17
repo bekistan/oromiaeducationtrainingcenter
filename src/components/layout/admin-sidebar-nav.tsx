@@ -27,19 +27,21 @@ import {
   BedDouble,
   KeyRound,
   Settings,
-  DollarSign // Added DollarSign for financial management
+  DollarSign,
+  Bell // Added Bell for notifications
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
+  notifications: Bell, // Added Bell icon for notifications
   manageDormitories: Bed,
   manageHalls: Building,
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks,
   manageCompanies: Users,
   reports: FileText,
-  financialManagement: DollarSign, // New Icon for financial management
+  financialManagement: DollarSign,
   userProfile: UserCircle,
   registerAdmin: UserPlus,
   registerKeyholder: KeyRound, 
