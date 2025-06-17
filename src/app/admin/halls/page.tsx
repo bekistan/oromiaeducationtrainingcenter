@@ -30,20 +30,19 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as ShadFormDescription } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+// lunchServiceCost and refreshmentServiceCost removed as they are now global tiered prices
 const hallSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }),
   itemType: z.enum(["hall", "section"], { required_error: "Item type is required."}),
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
-  rentalCost: z.coerce.number().min(0, { message: "Rental cost must be a positive number." }),
+  rentalCost: z.coerce.number().nonnegative({ message: "Rental cost must be zero or positive."}).optional().or(z.literal('')), // Made optional
   isAvailable: z.boolean().default(true),
-  lunchServiceCost: z.coerce.number().nonnegative({ message: "Cost must be zero or positive." }).optional().or(z.literal('')),
-  refreshmentServiceCost: z.coerce.number().nonnegative({ message: "Cost must be zero or positive." }).optional().or(z.literal('')),
-  ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')),
+  ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')), // Remains optional
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
   description: z.string().max(300, { message: "Description cannot exceed 300 characters." }).optional(),
@@ -82,9 +81,8 @@ export default function AdminHallsAndSectionsPage() {
         ...values,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
-        lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
-        refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
-        ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
+        rentalCost: values.rentalCost === '' ? null : Number(values.rentalCost),
+        ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) : null,
       };
       await addDoc(collection(db, "halls"), itemData);
     },
@@ -93,8 +91,8 @@ export default function AdminHallsAndSectionsPage() {
       toast({ title: t('success'), description: t('itemAddedSuccessfully') });
       setIsAddDialogOpen(false);
       form.reset({
-        name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
-        lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+        name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
+        ledProjectorCost: undefined,
         images: "", dataAiHint: "meeting space", description: ""
       });
     },
@@ -110,9 +108,8 @@ export default function AdminHallsAndSectionsPage() {
           ...values,
           images: values.images ? [values.images] : [defaultImage],
           dataAiHint: values.dataAiHint || (values.itemType === 'hall' ? "conference hall" : "meeting section"),
-          lunchServiceCost: values.lunchServiceCost === '' ? null : Number(values.lunchServiceCost) || null,
-          refreshmentServiceCost: values.refreshmentServiceCost === '' ? null : Number(values.refreshmentServiceCost) || null,
-          ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) || null : null,
+          rentalCost: values.rentalCost === '' ? null : Number(values.rentalCost),
+          ledProjectorCost: values.itemType === 'section' && values.ledProjectorCost !== '' ? Number(values.ledProjectorCost) : null,
       };
       await updateDoc(itemRef, updatedData);
     },
@@ -145,8 +142,8 @@ export default function AdminHallsAndSectionsPage() {
   const form = useForm<HallFormValues>({
     resolver: zodResolver(hallSchema),
     defaultValues: {
-      name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
-      lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+      name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
+      ledProjectorCost: undefined,
       images: "", dataAiHint: "meeting space", description: ""
     },
   });
@@ -172,7 +169,7 @@ export default function AdminHallsAndSectionsPage() {
     requestSort,
     sortConfig,
   } = useSimpleTable<Hall>({
-      data: allItemsFromDb, // Pass data directly
+      data: allItemsFromDb, 
       rowsPerPage: 10,
       searchKeys: ['name', 'itemType', 'description'],
       initialSort: { key: 'name', direction: 'ascending' },
@@ -193,10 +190,9 @@ export default function AdminHallsAndSectionsPage() {
     setCurrentItem(item);
     editForm.reset({
         ...item,
+        rentalCost: item.rentalCost ?? undefined,
         images: item.images?.[0] || "",
         dataAiHint: item.dataAiHint || (item.itemType === 'hall' ? "conference hall" : "meeting section"),
-        lunchServiceCost: item.lunchServiceCost ?? undefined,
-        refreshmentServiceCost: item.refreshmentServiceCost ?? undefined,
         ledProjectorCost: item.ledProjectorCost ?? undefined,
         description: item.description || "",
     });
@@ -236,8 +232,8 @@ export default function AdminHallsAndSectionsPage() {
           <DialogTrigger asChild>
             <Button onClick={() => {
               form.reset({
-                name: "", itemType: "hall", capacity: 50, rentalCost: 1000, isAvailable: true,
-                lunchServiceCost: undefined, refreshmentServiceCost: undefined, ledProjectorCost: undefined,
+                name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
+                ledProjectorCost: undefined,
                 images: "", dataAiHint: "meeting space", description: ""
               });
               setIsAddDialogOpen(true);
@@ -254,11 +250,10 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="itemType" render={({ field }) => ( <FormItem><FormLabel>{t('type')}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger></FormControl><SelectContent><SelectItem value="hall">{t('hall')}</SelectItem><SelectItem value="section">{t('section')}</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="lunchServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostLunch')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="refreshmentServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostRefreshment')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                {/* Removed lunchServiceCost and refreshmentServiceCost fields */}
                 {watchedItemType === 'section' && (
-                  <FormField control={form.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostProjector')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -322,8 +317,8 @@ export default function AdminHallsAndSectionsPage() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="capitalize">{t(item.itemType)}</TableCell>
                       <TableCell>{item.capacity}</TableCell>
-                      <TableCell>{item.rentalCost} {t('currencySymbol')}</TableCell>
-                      <TableCell>{item.itemType === 'section' && item.ledProjectorCost ? `${item.ledProjectorCost} ${t('currencySymbol')}` : t('notApplicableShort')}</TableCell>
+                      <TableCell>{item.rentalCost ? `${item.rentalCost} ${t('currencySymbol')}` : t('usesDefaultPrice')}</TableCell>
+                      <TableCell>{item.itemType === 'section' && item.ledProjectorCost ? `${item.ledProjectorCost} ${t('currencySymbol')}` : (item.itemType === 'section' ? t('usesDefaultPrice') : t('notApplicableShort'))}</TableCell>
                       <TableCell>
                         <Badge
                             variant={item.isAvailable ? "default" : "destructive"}
@@ -385,11 +380,10 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={editForm.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('name')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="itemType" render={({ field }) => ( <FormItem><FormLabel>{t('type')}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger></FormControl><SelectContent><SelectItem value="hall">{t('hall')}</SelectItem><SelectItem value="section">{t('section')}</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="lunchServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostLunch')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="refreshmentServiceCost" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostRefreshment')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={editForm.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                 {/* Removed lunchServiceCost and refreshmentServiceCost fields */}
                 {watchedEditItemType === 'section' && (
-                  <FormField control={editForm.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('exampleCostProjector')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem> )} />
+                  <FormField control={editForm.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
-import { useAuth } from "@/hooks/use-auth"; // Import useAuth
+import { useAuth } from "@/hooks/use-auth"; 
 import { ADMIN_NAVS } from "@/constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -26,7 +26,8 @@ import {
   Users,
   BedDouble,
   KeyRound,
-  Settings // Added Settings icon
+  Settings,
+  DollarSign // Added DollarSign for financial management
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -38,10 +39,11 @@ const ICONS: Record<string, LucideIcon> = {
   manageFacilityBookings: ListChecks,
   manageCompanies: Users,
   reports: FileText,
+  financialManagement: DollarSign, // New Icon for financial management
   userProfile: UserCircle,
   registerAdmin: UserPlus,
   registerKeyholder: KeyRound, 
-  manageSettings: Settings, // Added mapping for Settings
+  manageSettings: Settings, 
 };
 
 export function AdminSidebarNav() {
@@ -62,7 +64,7 @@ export function AdminSidebarNav() {
               if (!item.roles || item.roles.length === 0) return true; 
               return item.roles.includes(user?.role as never); 
             }).map((item) => {
-              const Icon = ICONS[item.labelKey] || LayoutDashboard; // Fallback to LayoutDashboard
+              const Icon = ICONS[item.labelKey] || LayoutDashboard; 
               return (
                 <SidebarMenuItem key={item.href}>
                   <Link href={item.href} passHref legacyBehavior>

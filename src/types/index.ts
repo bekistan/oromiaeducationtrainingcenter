@@ -5,13 +5,26 @@ export type Translations = {
   [key: string]: string | Translations;
 };
 
-export type CalendarSystem = 'gregorian' | 'ethiopian'; // New type
+export type CalendarSystem = 'gregorian' | 'ethiopian'; 
 
 export interface BankAccountDetails {
-  id?: string; // Document ID, usually 'main_bank_account'
+  id?: string; 
   bankName: string;
   accountName: string;
   accountNumber: string;
+  lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
+export interface PricingSettings {
+  id?: string; // Typically 'global_pricing' or similar
+  defaultDormitoryPricePerDay: number;
+  defaultHallRentalCostPerDay: number;
+  defaultSectionRentalCostPerDay: number;
+  lunchServiceCostLevel1: number;
+  lunchServiceCostLevel2: number;
+  refreshmentServiceCostLevel1: number;
+  refreshmentServiceCostLevel2: number;
+  defaultLedProjectorCostPerDay: number; // For sections
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
 
@@ -22,10 +35,10 @@ export interface Dormitory {
   roomNumber: string;
   capacity: number;
   isAvailable: boolean;
-  pricePerDay: number;
+  pricePerDay?: number; // Made optional
   images?: string[];
   dataAiHint?: string;
-  buildingName: 'ifaboru' | 'buuraboru'; // Added buildingName
+  buildingName: 'ifaboru' | 'buuraboru'; 
 }
 
 export interface Hall {
@@ -33,10 +46,9 @@ export interface Hall {
   name: string;
   capacity: number;
   isAvailable: boolean;
-  rentalCost: number;
-  lunchServiceCost?: number | null;
-  refreshmentServiceCost?: number | null;
-  ledProjectorCost?: number | null;
+  rentalCost?: number; // Made optional
+  // lunchServiceCost and refreshmentServiceCost removed, will use global tiered pricing
+  ledProjectorCost?: number | null; // Remains optional, for sections
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -53,9 +65,9 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number;
-  rentalCost?: number;
-  ledProjectorCost?: number | null;
+  pricePerDay?: number; // Price used at time of booking
+  rentalCost?: number; // Price used at time of booking
+  ledProjectorCost?: number | null; // Cost applied at time of booking
   capacity?: number;
 };
 
@@ -68,7 +80,7 @@ export type AgreementStatus =
 export interface Booking {
   id: string;
   bookingCategory: 'dormitory' | 'facility';
-  items: BookingItem[];
+  items: BookingItem[]; // These items should store the actual price used at booking
   userId?: string;
   companyId?: string;
   // Dormitory specific
@@ -97,10 +109,10 @@ export interface Booking {
   agreementSentAt?: string | import('firebase/firestore').Timestamp;
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
   signedAgreementUrl?: string;
-  keyStatus?: KeyStatus; // Added for keyholder management
+  keyStatus?: KeyStatus; 
 }
 
-export type KeyStatus = 'not_issued' | 'issued' | 'returned'; // Added for keyholder
+export type KeyStatus = 'not_issued' | 'issued' | 'returned'; 
 
 export interface User {
   id: string;
@@ -111,9 +123,9 @@ export interface User {
   companyName?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
-  createdAt?: string | import('firebase/firestore').Timestamp; // Ensure Timestamp can be handled for queries
-  preferredCalendarSystem?: CalendarSystem; // Optional: if stored per user
-  buildingAssignment?: 'ifaboru' | 'buuraboru'; // Added for admins
+  createdAt?: string | import('firebase/firestore').Timestamp; 
+  preferredCalendarSystem?: CalendarSystem; 
+  buildingAssignment?: 'ifaboru' | 'buuraboru'; 
 }
 
 export interface CompanyProfile {

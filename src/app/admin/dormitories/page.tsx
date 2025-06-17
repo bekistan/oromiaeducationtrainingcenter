@@ -30,7 +30,7 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as ShadFormDescription } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { PLACEHOLDER_THUMBNAIL_SIZE } from '@/constants';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -39,7 +39,7 @@ const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
   floor: z.coerce.number().min(0, { message: "Floor must be a positive number." }),
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
-  pricePerDay: z.coerce.number().min(0, { message: "Price must be a positive number." }),
+  pricePerDay: z.coerce.number().nonnegative({ message: "Price must be zero or positive."}).optional().or(z.literal('')), // Made optional
   isAvailable: z.boolean().default(true),
   buildingName: z.enum(['ifaboru', 'buuraboru'], { required_error: "Building name is required." }),
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
@@ -92,6 +92,7 @@ export default function AdminDormitoriesPage() {
         buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
+        pricePerDay: values.pricePerDay === '' ? null : Number(values.pricePerDay), // Store as number or null
       };
       await addDoc(collection(db, "dormitories"), dormData);
     },
@@ -100,7 +101,7 @@ export default function AdminDormitoriesPage() {
       toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       setIsAddDialogOpen(false);
       form.reset({
-        roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+        roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
         buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
       });
     },
@@ -118,6 +119,7 @@ export default function AdminDormitoriesPage() {
         buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
+        pricePerDay: values.pricePerDay === '' ? null : Number(values.pricePerDay), // Store as number or null
       };
       await updateDoc(dormRef, updatedData);
     },
@@ -153,7 +155,7 @@ export default function AdminDormitoriesPage() {
   const form = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
     defaultValues: {
-      roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+      roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
       buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
     },
   });
@@ -176,7 +178,7 @@ export default function AdminDormitoriesPage() {
     requestSort,
     sortConfig,
   } = useSimpleTable<Dormitory>({
-      data: filteredDormitoriesForAdmin, // Pass data directly
+      data: filteredDormitoriesForAdmin, 
       rowsPerPage: 10,
       searchKeys: ['roomNumber', 'floor', 'buildingName'],
       initialSort: { key: 'buildingName', direction: 'ascending' },
@@ -197,6 +199,7 @@ export default function AdminDormitoriesPage() {
     setCurrentDormitory(dorm);
     editForm.reset({
         ...dorm,
+        pricePerDay: dorm.pricePerDay ?? undefined, // Handle null/undefined for optional field
         images: dorm.images?.[0] || "",
         dataAiHint: dorm.dataAiHint || "dormitory room",
         buildingName: dorm.buildingName,
@@ -237,7 +240,7 @@ export default function AdminDormitoriesPage() {
           <DialogTrigger asChild>
             <Button onClick={() => {
               form.reset({
-                roomNumber: "", floor: 1, capacity: 2, pricePerDay: 500, isAvailable: true, images: "", dataAiHint: "dormitory room",
+                roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
                 buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
               });
               setIsAddDialogOpen(true);
@@ -279,7 +282,7 @@ export default function AdminDormitoriesPage() {
                 />
                 <FormField control={form.control} name="floor" render={({ field }) => ( <FormItem><FormLabel>{t('floor')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfo')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
@@ -342,7 +345,7 @@ export default function AdminDormitoriesPage() {
                       <TableCell>{t(dorm.buildingName === 'ifaboru' ? 'ifaBoruBuilding' : 'buuraBoruBuilding')}</TableCell>
                       <TableCell>{dorm.floor}</TableCell>
                       <TableCell>{dorm.capacity}</TableCell>
-                      <TableCell>{dorm.pricePerDay} {t('currencySymbol')}</TableCell>
+                      <TableCell>{dorm.pricePerDay ? `${dorm.pricePerDay} ${t('currencySymbol')}` : t('usesDefaultPrice')}</TableCell>
                       <TableCell>
                         <Badge
                             variant={dorm.isAvailable ? "default" : "destructive"}
@@ -429,7 +432,7 @@ export default function AdminDormitoriesPage() {
                 />
                 <FormField control={editForm.control} name="floor" render={({ field }) => ( <FormItem><FormLabel>{t('floor')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfo')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />

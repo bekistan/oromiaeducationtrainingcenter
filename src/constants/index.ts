@@ -1,13 +1,9 @@
 
-import type { NavItem, User } from '@/types'; // Added User import
+import type { NavItem, User } from '@/types'; 
 
 export const SITE_NAME = "Oromia Education Training Center";
 export const SITE_DESCRIPTION = "together we can";
 
-// Bank Account Details are now fetched from Firestore
-// export const BANK_NAME_VALUE = "Commercial Bank of Ethiopia (CBE)";
-// export const BANK_ACCOUNT_NAME_VALUE = SITE_NAME;
-// export const BANK_ACCOUNT_NUMBER_VALUE = "1000123456789";
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
@@ -16,7 +12,7 @@ export const SUPPORTED_LOCALES = [
 ] as const;
 
 export const DEFAULT_LOCALE = 'en';
-export const DEFAULT_CALENDAR_SYSTEM = 'gregorian'; // New constant
+export const DEFAULT_CALENDAR_SYSTEM = 'gregorian'; 
 
 export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },
@@ -34,6 +30,7 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin'] }, // New
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
   { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'] },
@@ -77,5 +74,18 @@ export const ETHIOPIAN_BANKS = [
   "Tsehay Bank",
   "Hijra Bank",
   "ZamZam Bank",
-  "Sidama Bank", // Corrected line
+  "Sidama Bank",
 ];
+
+export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
+export const DEFAULT_PRICING_SETTINGS = {
+  defaultDormitoryPricePerDay: 500,
+  defaultHallRentalCostPerDay: 3000,
+  defaultSectionRentalCostPerDay: 1500,
+  lunchServiceCostLevel1: 150,
+  lunchServiceCostLevel2: 250,
+  refreshmentServiceCostLevel1: 50,
+  refreshmentServiceCostLevel2: 100,
+  defaultLedProjectorCostPerDay: 500,
+};
+
