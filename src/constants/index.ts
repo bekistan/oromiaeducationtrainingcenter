@@ -2,7 +2,7 @@
 import type { NavItem, User } from '@/types'; // Added User import
 
 export const SITE_NAME = "Oromia Education Training Center";
-export const SITE_DESCRIPTION = "Oromia Education Research and Training Center Rental Services";
+export const SITE_DESCRIPTION = "together we can";
 
 // Bank Account Details are now fetched from Firestore
 // export const BANK_NAME_VALUE = "Commercial Bank of Ethiopia (CBE)";
@@ -77,10 +77,5 @@ export const ETHIOPIAN_BANKS = [
   "Tsehay Bank",
   "Hijra Bank",
   "ZamZam Bank",
-  "Siinqee Bank",
-  "Ahadu Bank",
-  "Other",
+  "Sidama Bank", // Corrected line
 ];
-
-
-    
