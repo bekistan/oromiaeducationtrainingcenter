@@ -27,18 +27,14 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType, AdminNotification } from "@/types";
+import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType, AdminNotification, PricingSettings } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2, Building, BedDouble, Film } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { ETHIOPIAN_BANKS } from '@/constants';
-
-const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 };
-const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
-
+import { ETHIOPIAN_BANKS, PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -87,6 +83,32 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [showLedProjectorOption, setShowLedProjectorOption] = useState(false);
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
+
+  useEffect(() => {
+    const fetchPricing = async () => {
+      setIsLoadingPricing(true);
+      try {
+        const pricingDocRef = doc(db, PRICING_SETTINGS_DOC_PATH);
+        const pricingDocSnap = await getDoc(pricingDocRef);
+        if (pricingDocSnap.exists()) {
+          setPricingSettings(pricingDocSnap.data() as PricingSettings);
+        } else {
+          console.warn("Global pricing settings not found, using defaults.");
+          setPricingSettings(DEFAULT_PRICING_SETTINGS);
+        }
+      } catch (error) {
+        console.error("Error fetching pricing settings:", error);
+        setPricingSettings(DEFAULT_PRICING_SETTINGS);
+        toast({ variant: "destructive", title: t('error'), description: t('errorFetchingPricingSettings') });
+      } finally {
+        setIsLoadingPricing(false);
+      }
+    };
+    fetchPricing();
+  }, [t, toast]);
+
 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
@@ -121,8 +143,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   useEffect(() => {
     if (bookingCategory === 'facility') {
-      const hasProjectorOption = itemsToBook.some(item => item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0);
-      setShowLedProjectorOption(hasProjectorOption);
+      // Check if any of the selected items are 'section' type to decide if LED projector option should be shown.
+      // The actual cost of the LED projector is global or per-section specific if overridden.
+      const hasSectionItem = itemsToBook.some(item => item.itemType === 'section');
+      setShowLedProjectorOption(hasSectionItem);
     }
   }, [itemsToBook, bookingCategory]);
 
@@ -355,14 +379,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return; 
       }
 
-      if (item && typeof item.pricePerDay === 'number') {
-        totalCost = numberOfDays * item.pricePerDay;
-      } else {
-        toast({ title: t('error'), description: t('couldNotCalculatePrice'), variant: "destructive" });
-        setIsSubmitting(false);
-        return;
-      }
-
+      // Use item.pricePerDay if available, otherwise global default
+      const pricePerDayToUse = typeof item.pricePerDay === 'number' ? item.pricePerDay : pricingSettings.defaultDormitoryPricePerDay;
+      totalCost = numberOfDays * pricePerDayToUse;
+      
       if (isNaN(totalCost)) {
         toast({ variant: "destructive", title: t('error'), description: t('errorCalculatingTotalCostNaN') });
         setIsSubmitting(false);
@@ -376,7 +396,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           itemType: i.itemType,
         };
         if (i.capacity !== undefined) mappedItem.capacity = i.capacity;
-        if (i.pricePerDay !== undefined) mappedItem.pricePerDay = i.pricePerDay;
+        mappedItem.pricePerDay = pricePerDayToUse; // Store actual price used
         return mappedItem as BookingItem;
       });
 
@@ -401,7 +421,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
         toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
         
-        // Create notification for admin
         const notificationMessageDorm = t('notificationNewDormBooking', {
             guestName: dormData.fullName,
             itemName: itemNameForConfirmation
@@ -426,9 +445,13 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             phone: dormData.phone,
         });
         router.push(`/booking-confirmation?${queryParams.toString()}`);
-      } catch (error) {
+      } catch (error: any) {
           console.error("Error saving dormitory booking:", error);
-          toast({ variant: "destructive", title: t('error'), description: t('errorSavingBooking') });
+          let toastMessage = t('errorSavingBooking');
+          if (error.code === 'permission-denied') {
+            toastMessage = t('bookingPermissionDeniedError');
+          }
+          toast({ variant: "destructive", title: t('error'), description: toastMessage });
           setIsSubmitting(false);
           return;
       }
@@ -436,26 +459,43 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     } else { // Facility Booking
       const facilityData = data as FacilityBookingValues;
       let rentalCostComponent = 0;
-      itemsToBook.forEach(item => {
-        rentalCostComponent += (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
+      const mappedItemsForFacility = itemsToBook.map(item => {
+        const itemRentalCost = typeof item.rentalCost === 'number' 
+            ? item.rentalCost 
+            : (item.itemType === 'hall' ? pricingSettings.defaultHallRentalCostPerDay : pricingSettings.defaultSectionRentalCostPerDay);
+        rentalCostComponent += itemRentalCost * (numberOfDays > 0 ? numberOfDays : 1);
+        
+        let itemLedProjectorCostApplied = null;
+        if (item.itemType === 'section' && facilityData.services.ledProjector) {
+            itemLedProjectorCostApplied = typeof item.ledProjectorCost === 'number' ? item.ledProjectorCost : pricingSettings.defaultLedProjectorCostPerDay;
+        }
+
+        return {
+          id: item.id,
+          name: item.name,
+          itemType: item.itemType,
+          rentalCost: itemRentalCost, // Store actual rental cost used
+          ...(item.capacity !== undefined && { capacity: item.capacity }),
+          ...(itemLedProjectorCostApplied !== null && { ledProjectorCost: itemLedProjectorCostApplied }), // Store actual LED cost used
+        } as BookingItem;
       });
 
       let lunchCostComponent = 0;
       if (facilityData.services.lunch !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
-        const pricePerDay = LUNCH_PRICES_PER_DAY[facilityData.services.lunch];
+        const pricePerDay = facilityData.services.lunch === 'level1' ? pricingSettings.lunchServiceCostLevel1 : pricingSettings.lunchServiceCostLevel2;
         lunchCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
 
       let refreshmentCostComponent = 0;
       if (facilityData.services.refreshment !== 'none' && facilityData.numberOfAttendees > 0 && numberOfDays > 0) {
-        const pricePerDay = REFRESHMENT_PRICES_PER_DAY[facilityData.services.refreshment];
+        const pricePerDay = facilityData.services.refreshment === 'level1' ? pricingSettings.refreshmentServiceCostLevel1 : pricingSettings.refreshmentServiceCostLevel2;
         refreshmentCostComponent = pricePerDay * facilityData.numberOfAttendees * numberOfDays;
       }
 
       let ledProjectorCostComponent = 0;
       if (facilityData.services.ledProjector) {
-        itemsToBook.forEach(item => {
-          if (item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0) {
+        mappedItemsForFacility.forEach(item => {
+          if (item.itemType === 'section' && typeof item.ledProjectorCost === 'number') {
             ledProjectorCostComponent += item.ledProjectorCost * (numberOfDays > 0 ? numberOfDays : 1);
           }
         });
@@ -480,23 +520,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.ledProjector = true;
       }
 
-
-      const mappedItems = itemsToBook.map(item => {
-        const mappedItem: Partial<BookingItem> & { id: string; name: string; itemType: BookingItem['itemType'] } = {
-          id: item.id,
-          name: item.name,
-          itemType: item.itemType,
-        };
-        if (item.rentalCost !== undefined) mappedItem.rentalCost = item.rentalCost;
-        if (item.ledProjectorCost !== undefined) mappedItem.ledProjectorCost = item.ledProjectorCost;
-        if (item.capacity !== undefined) mappedItem.capacity = item.capacity;
-        return mappedItem as BookingItem;
-      });
-
-
       const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
-        items: mappedItems,
+        items: mappedItemsForFacility,
         companyName: facilityData.companyName,
         contactPerson: facilityData.contactPerson,
         email: facilityData.email,
@@ -517,7 +543,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
         
-        // Create notification for admin
         const notificationMessageFacility = t('notificationNewFacilityBooking', {
             companyName: facilityData.companyName,
             itemName: itemNameForConfirmation
@@ -545,15 +570,19 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         });
         router.push(`/booking-confirmation?${queryParams.toString()}`);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error submitting facility booking: ", error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorSubmittingBooking') });
+        let toastMessage = t('errorSubmittingBooking');
+        if (error.code === 'permission-denied') {
+          toastMessage = t('bookingPermissionDeniedError');
+        }
+        toast({ variant: "destructive", title: t('error'), description: toastMessage });
       }
     }
     setIsSubmitting(false);
   }
 
-  if (authLoading) {
+  if (authLoading || isLoadingPricing) {
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
@@ -786,8 +815,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="notes" render={({ field }) => ( <FormItem><FormLabel>{t('notesOrSpecialRequests')}</FormLabel><FormControl><Textarea placeholder={t('anySpecialRequests')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               </>
             )}
-            <Button type="submit" className="w-full" disabled={authLoading || isSubmitting || isCheckingAvailability || !!availabilityError}>
-                {(authLoading || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={authLoading || isLoadingPricing || isSubmitting || isCheckingAvailability || !!availabilityError}>
+                {(authLoading || isLoadingPricing || isSubmitting || isCheckingAvailability) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('submitBookingRequest')}
             </Button>
           </form>
