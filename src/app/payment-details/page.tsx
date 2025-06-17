@@ -48,6 +48,8 @@ function PaymentDetailsContent() {
   const amountQuery = searchParams.get('amount');
   const categoryQuery = searchParams.get('category');
   const phoneQuery = searchParams.get('phone');
+  const telegramBotUsername = "oromiaeducationtrainingcenterbot"; // Updated bot username
+
 
   const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
@@ -142,7 +144,7 @@ function PaymentDetailsContent() {
   const displayAmount = (bookingDetails.totalCost ?? amountQuery)?.toString();
   const displayCategory = bookingDetails.bookingCategory || categoryQuery;
   const displayPhoneNumber = userPhoneNumber || bookingDetails.phone || t('yourRegisteredPhoneNumber');
-  const telegramBotUsername = "OROTRAIN"; 
+  
 
   return (
     <Card className="w-full max-w-lg shadow-xl">

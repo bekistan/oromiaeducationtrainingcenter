@@ -44,6 +44,7 @@ function BookingConfirmationContent() {
   const itemName = searchParams.get('itemName');
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
+  const telegramBotUsername = "oromiaeducationtrainingcenterbot"; // Updated bot username
 
   const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
@@ -140,9 +141,9 @@ function BookingConfirmationContent() {
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
             <Button asChild className="w-full mt-3">
-              <a href={`https://t.me/oroedubot`} target="_blank" rel="noopener noreferrer">
+              <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
                 <Send className="mr-2 h-4 w-4" />
-                {t('goToAtOroedubotButton')}
+                {t('goToAtOromoEduTrainingCenterBotButton')} 
               </a>
             </Button>
              <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
