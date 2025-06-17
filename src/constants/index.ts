@@ -89,3 +89,4 @@ export const DEFAULT_PRICING_SETTINGS = {
   defaultLedProjectorCostPerDay: 500,
 };
 
+    
