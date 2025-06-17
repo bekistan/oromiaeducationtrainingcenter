@@ -16,6 +16,7 @@ import { Loader2, Bell, Check, Eye, ExternalLink, AlertTriangle } from 'lucide-r
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { formatDualDate } from '@/lib/date-utils';
+import { cn } from '@/lib/utils'; // Added this import
 
 const NOTIFICATIONS_QUERY_KEY = "adminNotifications";
 
