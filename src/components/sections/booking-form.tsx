@@ -449,7 +449,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           console.error("Error saving dormitory booking:", error);
           let toastMessage = t('errorSavingBooking');
           if (error.code === 'permission-denied') {
-            toastMessage = t('bookingPermissionDeniedError');
+            toastMessage = t('bookingPermissionDeniedErrorDetailed'); // Use the detailed error message
           }
           toast({ variant: "destructive", title: t('error'), description: toastMessage });
           setIsSubmitting(false);
@@ -574,7 +574,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         console.error("Error submitting facility booking: ", error);
         let toastMessage = t('errorSubmittingBooking');
         if (error.code === 'permission-denied') {
-          toastMessage = t('bookingPermissionDeniedError');
+          toastMessage = t('bookingPermissionDeniedErrorDetailed'); // Use the detailed error message
         }
         toast({ variant: "destructive", title: t('error'), description: toastMessage });
       }
