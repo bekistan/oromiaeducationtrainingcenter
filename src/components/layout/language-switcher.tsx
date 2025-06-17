@@ -10,17 +10,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/hooks/use-language";
 import { SUPPORTED_LOCALES } from '@/constants';
-import { Languages } from "lucide-react"; // Changed from Globe to Languages
+import { ChevronDown } from "lucide-react"; // Changed from Languages
+import { useMemo } from "react";
 
 export function LanguageSwitcher() {
-  const { locale, setLocale } = useLanguage();
+  const { locale, setLocale, t } = useLanguage();
+
+  const currentLanguageDisplay = useMemo(() => {
+    const current = SUPPORTED_LOCALES.find(l => l.code === locale);
+    return current ? current.code.toUpperCase() : locale.toUpperCase();
+  }, [locale]);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Languages className="h-5 w-5" /> {/* Changed from Globe to Languages */}
-          <span className="sr-only">Change language</span>
+        <Button variant="ghost" size="sm" className="flex items-center gap-1 px-2">
+          <span>{currentLanguageDisplay}</span>
+          <ChevronDown className="h-4 w-4 opacity-70" />
+          <span className="sr-only">{t('changeLanguage')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -29,12 +36,12 @@ export function LanguageSwitcher() {
             key={supportedLocale.code}
             disabled={locale === supportedLocale.code}
             onClick={() => setLocale(supportedLocale.code)}
+            className={locale === supportedLocale.code ? "bg-accent text-accent-foreground" : ""}
           >
-            {supportedLocale.name}
+            {supportedLocale.name} ({supportedLocale.code.toUpperCase()})
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
