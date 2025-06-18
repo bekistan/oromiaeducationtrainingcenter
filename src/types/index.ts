@@ -42,7 +42,7 @@ export interface Dormitory {
   roomNumber: string;
   capacity: number;
   isAvailable: boolean;
-  pricePerDay?: number; // Made optional
+  pricePerDay?: number; 
   images?: string[];
   dataAiHint?: string;
   buildingName: 'ifaboru' | 'buuraboru'; 
@@ -53,9 +53,8 @@ export interface Hall {
   name: string;
   capacity: number;
   isAvailable: boolean;
-  rentalCost?: number; // Made optional
-  // lunchServiceCost and refreshmentServiceCost removed, will use global tiered pricing
-  ledProjectorCost?: number | null; // Remains optional, for sections
+  rentalCost?: number; 
+  ledProjectorCost?: number | null; 
   images?: string[];
   description?: string;
   dataAiHint?: string;
@@ -72,9 +71,9 @@ export type BookingItem = {
   id: string;
   name: string;
   itemType: 'dormitory' | 'hall' | 'section';
-  pricePerDay?: number; // Price used at time of booking
-  rentalCost?: number; // Price used at time of booking
-  ledProjectorCost?: number | null; // Cost applied at time of booking
+  pricePerDay?: number; 
+  rentalCost?: number; 
+  ledProjectorCost?: number | null; 
   capacity?: number;
 };
 
@@ -87,7 +86,7 @@ export type AgreementStatus =
 export interface Booking {
   id: string;
   bookingCategory: 'dormitory' | 'facility';
-  items: BookingItem[]; // These items should store the actual price used at booking
+  items: BookingItem[]; 
   userId?: string;
   companyId?: string;
   // Dormitory specific
@@ -132,7 +131,7 @@ export interface User {
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 
   preferredCalendarSystem?: CalendarSystem; 
-  buildingAssignment?: 'ifaboru' | 'buuraboru'; 
+  buildingAssignment?: 'ifaboru' | 'buuraboru' | null; // Made optional/nullable
 }
 
 export interface CompanyProfile {
@@ -158,10 +157,10 @@ export interface AdminNotification {
     id: string;
     message: string;
     type: NotificationType;
-    relatedId?: string; // e.g., bookingId, userId
-    recipientRole: 'admin' | 'superadmin'; // Could be expanded
+    relatedId?: string; 
+    recipientRole: 'admin' | 'superadmin'; 
     isRead: boolean;
     createdAt: import('firebase/firestore').Timestamp | Date | string;
-    link?: string; // Optional direct link for the notification
+    link?: string; 
 }
     

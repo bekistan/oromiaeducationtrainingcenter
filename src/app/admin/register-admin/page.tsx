@@ -20,10 +20,7 @@ const adminRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  buildingAssignment: z.enum(['ifaboru', 'buuraboru'], {
-    required_error: "Building assignment is required.",
-    invalid_type_error: "Invalid building assignment.",
-  }),
+  buildingAssignment: z.enum(['ifaboru', 'buuraboru', 'none']).optional(), // 'none' or allow undefined
 });
 
 type AdminRegistrationValues = z.infer<typeof adminRegistrationSchema>;
@@ -41,7 +38,7 @@ export default function RegisterAdminPage() {
       name: "",
       email: "",
       password: "",
-      buildingAssignment: undefined, // Ensure it's undefined initially for the placeholder
+      buildingAssignment: undefined, 
     },
   });
 
@@ -52,7 +49,7 @@ export default function RegisterAdminPage() {
         name: data.name,
         email: data.email,
         password: data.password,
-        buildingAssignment: data.buildingAssignment,
+        buildingAssignment: data.buildingAssignment === 'none' ? undefined : data.buildingAssignment,
       });
       toast({
         title: t('adminRegisteredTitle'),
@@ -116,13 +113,14 @@ export default function RegisterAdminPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t('buildingAssignment')}</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder={t('selectBuildingAssignmentPlaceholder')} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="none">{t('generalAdminNoSpecificBuilding')}</SelectItem>
                         <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
                         <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
                       </SelectContent>
