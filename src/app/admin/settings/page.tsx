@@ -14,12 +14,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Save, Loader2, AlertCircle, Megaphone } from "lucide-react";
+import { Settings, Save, Loader2, AlertCircle, Megaphone, ShieldAlert } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { BankAccountDetails, SiteSettings } from '@/types';
 import { BANK_DETAILS_DOC_PATH, SITE_SETTINGS_DOC_PATH, DEFAULT_SITE_SETTINGS } from '@/constants';
+import { useRouter } from 'next/navigation';
 
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
 const SITE_SETTINGS_QUERY_KEY = "siteSettings";
@@ -84,16 +85,25 @@ export default function AdminSettingsPage() {
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
+
+  const canAccessSettings = useMemo(() => {
+    if (!user) return false;
+    return user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment);
+  }, [user]);
+
 
   const { data: currentBankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
     queryFn: fetchBankDetails,
+    enabled: !authLoading && canAccessSettings,
   });
 
   const { data: currentSiteSettings, isLoading: isLoadingSiteSettings, error: siteSettingsError } = useQuery<SiteSettings, Error>({
     queryKey: [SITE_SETTINGS_QUERY_KEY],
     queryFn: fetchSiteSettings,
+    enabled: !authLoading && canAccessSettings,
   });
 
   const bankDetailsForm = useForm<BankDetailsFormValues>({
@@ -155,13 +165,28 @@ export default function AdminSettingsPage() {
     siteSettingsMutation.mutate(values);
   }
 
-  if (authLoading || isLoadingBankDetails || isLoadingSiteSettings) {
+  if (authLoading) {
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
-
-  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
-    return <p>{t('accessDenied')}</p>; 
+  
+  if (!canAccessSettings) {
+    return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('buildingAdminAccessSettingsDenied')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
   }
+  
+  if ((isLoadingBankDetails && !bankDetailsError) || (isLoadingSiteSettings && !siteSettingsError)) {
+     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
 
   return (
     <div className="space-y-6">

@@ -21,8 +21,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import type { Hall } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, AlertTriangle } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy } from 'firebase/firestore';
@@ -34,15 +35,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
-// lunchServiceCost and refreshmentServiceCost removed as they are now global tiered prices
+
 const hallSchema = z.object({
   name: z.string().min(1, { message: "Name is required." }),
   itemType: z.enum(["hall", "section"], { required_error: "Item type is required."}),
   capacity: z.coerce.number().min(1, { message: "Capacity must be at least 1." }),
-  rentalCost: z.coerce.number().nonnegative({ message: "Rental cost must be zero or positive."}).optional().or(z.literal('')), // Made optional
+  rentalCost: z.coerce.number().nonnegative({ message: "Rental cost must be zero or positive."}).optional().or(z.literal('')), 
   isAvailable: z.boolean().default(true),
-  ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')), // Remains optional
+  ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')), 
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
   description: z.string().max(300, { message: "Description cannot exceed 300 characters." }).optional(),
@@ -59,6 +61,8 @@ const fetchHallsFromDb = async (): Promise<Hall[]> => {
 
 export default function AdminHallsAndSectionsPage() {
   const { t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const queryClient: QueryClient = useQueryClient();
 
@@ -73,6 +77,7 @@ export default function AdminHallsAndSectionsPage() {
   const { data: allItemsFromDb = [], isLoading: isLoadingHalls, error: hallsError } = useQuery<Hall[], Error>({
     queryKey: [HALLS_QUERY_KEY],
     queryFn: fetchHallsFromDb,
+    enabled: !authLoading && user != null && (user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment)),
   });
 
   const addHallMutation = useMutation<void, Error, HallFormValues>({
@@ -214,6 +219,24 @@ export default function AdminHallsAndSectionsPage() {
     deleteHallMutation.mutate(hallToDeleteId);
   };
 
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
+  }
+
+  if (user?.role === 'admin' && user.buildingAssignment) {
+    return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('buildingAdminAccessHallsDenied')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (hallsError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -251,7 +274,6 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={form.control} name="itemType" render={({ field }) => ( <FormItem><FormLabel>{t('type')}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger></FormControl><SelectContent><SelectItem value="hall">{t('hall')}</SelectItem><SelectItem value="section">{t('section')}</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                {/* Removed lunchServiceCost and refreshmentServiceCost fields */}
                 {watchedItemType === 'section' && (
                   <FormField control={form.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}
@@ -381,7 +403,6 @@ export default function AdminHallsAndSectionsPage() {
                 <FormField control={editForm.control} name="itemType" render={({ field }) => ( <FormItem><FormLabel>{t('type')}</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder={t('selectType')} /></SelectTrigger></FormControl><SelectContent><SelectItem value="hall">{t('hall')}</SelectItem><SelectItem value="section">{t('section')}</SelectItem></SelectContent></Select><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="capacity" render={({ field }) => ( <FormItem><FormLabel>{t('capacity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="rentalCost" render={({ field }) => ( <FormItem><FormLabel>{t('rentalCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                 {/* Removed lunchServiceCost and refreshmentServiceCost fields */}
                 {watchedEditItemType === 'section' && (
                   <FormField control={editForm.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}

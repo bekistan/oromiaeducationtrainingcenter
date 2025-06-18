@@ -12,12 +12,13 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { DollarSign, Save, Loader2, AlertCircle, Info } from "lucide-react";
+import { DollarSign, Save, Loader2, AlertCircle, Info, ShieldAlert } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { PricingSettings } from '@/types';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
+import { useRouter } from 'next/navigation';
 
 const PRICING_SETTINGS_QUERY_KEY = "pricingSettings";
 
@@ -41,11 +42,10 @@ const fetchPricingSettings = async (): Promise<PricingSettings> => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
-      ...DEFAULT_PRICING_SETTINGS, // Ensure all keys from default are present
-      ...data, // Override with fetched data
+      ...DEFAULT_PRICING_SETTINGS, 
+      ...data, 
     } as PricingSettings;
   }
-  // If no settings exist, return defaults and they will be saved on first submit
   return { ...DEFAULT_PRICING_SETTINGS, id: 'pricing_settings' }; 
 };
 
@@ -58,6 +58,7 @@ export default function FinancialManagementPage() {
   const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const { data: currentPricingSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery<PricingSettings, Error>({
@@ -68,7 +69,7 @@ export default function FinancialManagementPage() {
 
   const form = useForm<PricingSettingsFormValues>({
     resolver: zodResolver(pricingSettingsSchema),
-    defaultValues: DEFAULT_PRICING_SETTINGS, // Use imported defaults
+    defaultValues: DEFAULT_PRICING_SETTINGS, 
   });
 
   useEffect(() => {
@@ -101,7 +102,7 @@ export default function FinancialManagementPage() {
     mutation.mutate(values);
   }
 
-  if (authLoading || (user?.role === 'superadmin' && isLoadingSettings)) {
+  if (authLoading) {
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
@@ -109,13 +110,18 @@ export default function FinancialManagementPage() {
     return (
          <Card className="w-full max-w-md mx-auto my-8">
             <CardHeader>
-                <CardTitle className="text-destructive flex items-center"><AlertCircle className="mr-2"/>{t('accessDenied')}</CardTitle>
+                <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
             </CardHeader>
             <CardContent>
                 <p>{t('superAdminOnlyPage')}</p>
+                 <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
             </CardContent>
          </Card>
     );
+  }
+  
+  if (isLoadingSettings && user?.role === 'superadmin') {
+     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (

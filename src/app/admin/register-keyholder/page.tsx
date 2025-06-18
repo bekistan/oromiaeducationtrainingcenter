@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { KeyRound, ShieldAlert, Loader2 } from "lucide-react"; // Changed icon to KeyRound
+import { KeyRound, ShieldAlert, Loader2 } from "lucide-react"; 
 import { useRouter } from 'next/navigation';
 
 const keyholderRegistrationSchema = z.object({
@@ -42,7 +42,7 @@ export default function RegisterKeyholderPage() {
   async function onSubmit(data: KeyholderRegistrationValues) {
     setIsSubmitting(true);
     try {
-      await signupKeyholder({ // Use the new signupKeyholder function
+      await signupKeyholder({ 
         name: data.name,
         email: data.email,
         password: data.password,
@@ -74,12 +74,12 @@ export default function RegisterKeyholderPage() {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
-  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+  if (user?.role !== 'superadmin') { // Changed from admin/superadmin to superadmin only
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-4">
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
-        <p className="text-muted-foreground">{t('adminOrSuperAdminOnlyKeyholderPage')}</p>
+        <p className="text-muted-foreground">{t('superAdminOnlyPage')}</p> {/* Updated message */}
         <Button onClick={() => router.push(user ? '/admin/dashboard' : '/auth/login')} className="mt-4">
           {user ? t('backToDashboard') : t('login')}
         </Button>

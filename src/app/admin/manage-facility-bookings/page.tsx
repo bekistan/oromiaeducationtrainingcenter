@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -35,6 +36,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -60,6 +62,8 @@ const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
 
 export default function AdminManageFacilityBookingsPage() {
   const { t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const queryClient: QueryClient = useQueryClient();
 
@@ -71,6 +75,7 @@ export default function AdminManageFacilityBookingsPage() {
   const { data: allBookingsFromDb = [], isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[], Error>({
     queryKey: [FACILITY_BOOKINGS_QUERY_KEY],
     queryFn: fetchFacilityBookingsFromDb,
+    enabled: !authLoading && user != null && (user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment)),
   });
 
   const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string }>({
@@ -125,7 +130,7 @@ export default function AdminManageFacilityBookingsPage() {
     requestSort,
     sortConfig,
   } = useSimpleTable<Booking>({
-      data: filteredBookings, // Pass filteredBookings directly
+      data: filteredBookings, 
       rowsPerPage: 10,
       searchKeys: ['id', 'companyName', 'email', 'phone'],
       initialSort: { key: 'bookedAt', direction: 'descending' },
@@ -149,7 +154,7 @@ export default function AdminManageFacilityBookingsPage() {
   };
 
   const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
-    const bookingSnap = await getFirestoreDoc(doc(db, "bookings", bookingId)); // Fetch current booking for logic
+    const bookingSnap = await getFirestoreDoc(doc(db, "bookings", bookingId)); 
     if (!bookingSnap.exists()) {
       toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
       return;
@@ -234,6 +239,24 @@ export default function AdminManageFacilityBookingsPage() {
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
+
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
+  }
+
+  if (user?.role === 'admin' && user.buildingAssignment) {
+    return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('buildingAdminAccessFacilityBookingsDenied')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (bookingsError) {
     return (
@@ -448,4 +471,3 @@ export default function AdminManageFacilityBookingsPage() {
   );
 }
     
-

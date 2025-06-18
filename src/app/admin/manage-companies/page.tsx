@@ -36,7 +36,7 @@ export default function ManageCompaniesPage() {
   const { data: allCompaniesFromDb = [], isLoading: isLoadingCompanies, error: companiesError } = useQuery<User[], Error>({
     queryKey: [COMPANIES_QUERY_KEY],
     queryFn: fetchCompaniesFromDb,
-    enabled: !authLoading && (user?.role === 'admin' || user?.role === 'superadmin'), // Only fetch if authorized
+    enabled: !authLoading && user != null && (user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment)),
   });
 
   const updateCompanyStatusMutation = useMutation<void, Error, { companyId: string; newStatus: 'approved' | 'rejected' }>({
@@ -104,16 +104,33 @@ export default function ManageCompaniesPage() {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
-  if (user?.role !== 'admin' && user?.role !== 'superadmin') {
+  if (user?.role === 'admin' && user.buildingAssignment) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen text-center p-4">
-        <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
-        <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
-        <p className="text-muted-foreground">{t('adminOrSuperAdminOnlyPage')}</p>
-        <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
-      </div>
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('buildingAdminAccessCompaniesDenied')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
     );
   }
+   if (user?.role !== 'superadmin' && !(user?.role === 'admin' && !user.buildingAssignment)) {
+     return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('accessRestrictedToSuperAdminOrGeneralAdmin')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
 
   if (companiesError) {
     return (

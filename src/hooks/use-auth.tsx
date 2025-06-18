@@ -270,11 +270,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           name: adminDetails.name,
           role: 'admin' as const,
           createdAt: serverTimestamp(),
-          ...(adminDetails.buildingAssignment && { buildingAssignment: adminDetails.buildingAssignment }),
+          buildingAssignment: adminDetails.buildingAssignment || null, // Store null if undefined
         };
-        if (!adminDetails.buildingAssignment) {
-          (newAdminUserDocData as AppUserType).buildingAssignment = null; // Explicitly set to null for general admin
-        }
 
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
         
@@ -307,9 +304,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
          const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
          if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
          const currentUserDocSnap = await getDoc(currentUserDocRef);
-         if (!currentUserDocSnap.exists() || !['admin', 'superadmin'].includes(currentUserDocSnap.data()?.role)) {
+         if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') { // Changed to superadmin only
           console.error("Unauthorized attempt to sign up keyholder by user:", auth.currentUser?.email);
-          throw new Error("Only admins or superadmins can register new keyholders.");
+          throw new Error("Only superadmins can register new keyholders.");
         }
 
         const userCredential = await createUserWithEmailAndPassword(auth, keyholderDetails.email, keyholderDetails.password);
@@ -359,12 +356,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const updateUserDocument = useCallback(async (userId: string, data: Partial<AppUserType>): Promise<void> => {
     const userDocRef = doc(db, "users", userId);
     try {
-        // If buildingAssignment is explicitly set to undefined in data, it means "remove it" or "set to null"
-        // Firestore update treats 'undefined' as 'delete field', which is what we want for optional.
-        // If data.buildingAssignment is null, it will store null.
         const updateData = { ...data };
         if (data.hasOwnProperty('buildingAssignment') && data.buildingAssignment === undefined) {
-            (updateData as any).buildingAssignment = null; // Set to null explicitly if 'undefined' was intended to clear it
+            (updateData as any).buildingAssignment = null; 
         }
 
         await updateDoc(userDocRef, updateData);

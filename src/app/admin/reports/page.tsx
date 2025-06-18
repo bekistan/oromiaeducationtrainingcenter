@@ -5,14 +5,16 @@ import React, { useState, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Download, FileSpreadsheet, FileText, CalendarDays, Printer, Loader2, BarChart3, Users, Building } from "lucide-react";
+import { Download, FileSpreadsheet, FileText, CalendarDays, Printer, Loader2, BarChart3, Users, Building, ShieldAlert } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer } from 'firebase/firestore';
-import type { Booking, User as AppUserType } from '@/types'; // Added AppUserType
+import type { Booking, User as AppUserType } from '@/types';
 import { formatDualDate, formatDateForDisplay } from '@/lib/date-utils';
+import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
   filename: string;
@@ -23,6 +25,8 @@ interface ReportOutput {
 
 export default function AdminReportsPage() {
   const { t, preferredCalendarSystem } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -52,7 +56,7 @@ export default function AdminReportsPage() {
           if (cellValue === null || cellValue === undefined) {
             cellValue = '';
           } else if (typeof cellValue === 'string') {
-            cellValue = `"${cellValue.replace(/"/g, '""')}"`; // Escape double quotes
+            cellValue = `"${cellValue.replace(/"/g, '""')}"`; 
           }
           return cellValue;
         }).join(',')
@@ -251,7 +255,7 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
 
   const handleGenerateReport = useCallback(async (reportFn: () => Promise<ReportOutput>, reportId: string) => {
     if (!dateRange?.from || !dateRange?.to) {
-        if (reportId !== 'overall_company_stats') { // Allow overall stats without date range
+        if (reportId !== 'overall_company_stats') { 
             toast({ variant: "destructive", title: t('error'), description: t('selectDateRangeFirst') });
             return;
         }
@@ -293,6 +297,37 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
     { id: "weekly_facility_bookings", nameKey: "weeklyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "weekly_facility_bookings") },
     { id: "monthly_facility_bookings", nameKey: "monthlyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "monthly_facility_bookings") },
   ];
+
+  if (authLoading) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
+  }
+
+  if (user?.role === 'admin' && user.buildingAssignment) {
+    return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('buildingAdminAccessReportsDenied')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
+   if (user?.role !== 'superadmin' && !(user?.role === 'admin' && !user.buildingAssignment)) {
+     return (
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('accessRestrictedToSuperAdminOrGeneralAdmin')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
 
   return (
