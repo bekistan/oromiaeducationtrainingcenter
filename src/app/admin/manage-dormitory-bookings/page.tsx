@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Dormitory, KeyStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { formatDualDate } from '@/lib/date-utils';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -129,7 +130,6 @@ export default function AdminManageDormitoryBookingsPage() {
         return buildingOfBooking === user.buildingAssignment;
       });
     }
-    // Superadmin sees all, no building filter needed for them.
 
     return bookingsToFilter.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
@@ -154,12 +154,12 @@ export default function AdminManageDormitoryBookingsPage() {
   } = useSimpleTable<Booking>({
       data: filteredBookingsForAdmin,
       rowsPerPage: 10,
-      searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'],
+      searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'], // ID kept for search
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
 
-  const getSortIndicator = (columnKey: keyof Booking | 'keyStatus') => {
+  const getSortIndicator = (columnKey: keyof Booking | 'keyStatus' | 'bookedAt') => {
     if (sortConfig?.key === columnKey) {
       return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     }
@@ -298,7 +298,7 @@ export default function AdminManageDormitoryBookingsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                      <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
                       <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
                       <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
@@ -315,7 +315,7 @@ export default function AdminManageDormitoryBookingsPage() {
                   <TableBody>
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
-                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0,8)}...</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>

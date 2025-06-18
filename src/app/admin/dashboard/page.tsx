@@ -11,11 +11,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData, doc, getDoc } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall, BankAccountDetails } from '@/types';
-import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown, Settings as SettingsIcon } from "lucide-react";
+import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown, Settings as SettingsIcon, CalendarClock } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
+import { formatDualDate } from '@/lib/date-utils';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
@@ -141,7 +142,7 @@ export default function AdminDashboardPage() {
         });
         availableHalls = { available: availableHallCount, total: hallsSnapshot.size };
       } else {
-        availableHalls = { available: 0, total: 0}; // Building specific admin cannot see halls
+        availableHalls = { available: 0, total: 0}; 
       }
 
       setStats({
@@ -179,7 +180,7 @@ export default function AdminDashboardPage() {
 
       if (user?.role === 'admin' && user.buildingAssignment && dormIdToBuildingMap.size > 0) {
         bookingsData = bookingsData.filter(booking => {
-          if (booking.bookingCategory === 'facility') return false; // Building admins don't see facility bookings
+          if (booking.bookingCategory === 'facility') return false; 
           if (booking.bookingCategory === 'dormitory' && booking.items.length > 0) {
             const firstItemId = booking.items[0]?.id;
             if (!firstItemId) return false;
@@ -189,7 +190,6 @@ export default function AdminDashboardPage() {
           return false;
         });
       } else if (user?.role === 'admin' && user.buildingAssignment && dormIdToBuildingMap.size === 0 && !isLoadingStats) {
-        // Dorms might still be loading, or there are no dorms, result in empty bookings for building admin
         bookingsData = [];
       }
 
@@ -205,9 +205,9 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-    if (dormitoriesFromDb) { // Ensure dorm map is ready before fetching recent bookings if building admin
+    if (dormitoriesFromDb) { 
         fetchRecentBookings();
-    } else if (!user?.buildingAssignment) { // Non-building admins can fetch immediately
+    } else if (!user?.buildingAssignment) { 
         fetchRecentBookings();
     }
   }, [fetchDashboardData, fetchRecentBookings, dormitoriesFromDb, user]);
@@ -234,11 +234,11 @@ export default function AdminDashboardPage() {
 
   const statCards = useMemo(() => {
     const cards = [
-      { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, // All admins can see total bookings
-      { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `${t('currencySymbol')} ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, // All admins can see total revenue
-      { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, // General and Superadmin only
-      { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, // Filtered for building admin
-      { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, // General and Superadmin only
+      { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
+      { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `${t('currencySymbol')} ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
+      { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
+      { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
+      { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
     ];
 
     return cards.filter(card => {
@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
   }, [stats, isLoadingStats, t, user]);
 
 
-  const getSortIndicator = (columnKey: keyof Booking) => {
+  const getSortIndicator = (columnKey: keyof Booking | 'bookedAt') => {
     if (sortConfig?.key === columnKey) {
       return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
     }
@@ -271,7 +271,7 @@ export default function AdminDashboardPage() {
         case 'failed': return <Badge className={`${baseClasses} bg-red-100 text-red-700 border-red-300`}>{t(status)}</Badge>;
         default: return <Badge variant="secondary" className={baseClasses}>{t(status)}</Badge>;
       }
-    } else { // approval
+    } else { 
       switch (status) {
         case 'approved': return <Badge className={`${baseClasses} bg-blue-100 text-blue-700 border-blue-300`}>{t(status)}</Badge>;
         case 'pending': return <Badge className={`${baseClasses} bg-orange-100 text-orange-700 border-orange-300`}>{t(status)}</Badge>;
@@ -334,7 +334,7 @@ export default function AdminDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead onClick={() => requestSort('id')} className="cursor-pointer group">{t('bookingId')}{getSortIndicator('id')}</TableHead>
+                        <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
                         <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
                         <TableHead>{t('item')}</TableHead>
                         <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
@@ -344,7 +344,7 @@ export default function AdminDashboardPage() {
                     <TableBody>
                       {displayedRecentBookings.map(booking => (
                         <TableRow key={booking.id}>
-                          <TableCell className="font-mono text-xs">{booking.id.substring(0, 8)}...</TableCell>
+                          <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
                           <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                           <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
                           <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>
