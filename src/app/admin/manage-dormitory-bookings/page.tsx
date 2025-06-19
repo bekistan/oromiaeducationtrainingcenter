@@ -6,12 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Dormitory, KeyStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock, Eye } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -38,7 +36,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { formatDualDate, toDateObject } from '@/lib/date-utils';
-import { PLACEHOLDER_THUMBNAIL_SIZE } from '@/constants';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -76,10 +73,6 @@ export default function AdminManageDormitoryBookingsPage() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
-
-  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
-  const [currentPreviewImageUrl, setCurrentPreviewImageUrl] = useState<string | null>(null);
-  const [currentPreviewImageTitle, setCurrentPreviewImageTitle] = useState<string | null>(null);
 
   const { data: allDormitories, isLoading: isLoadingDormsForFilter } = useQuery<Dormitory[], Error>({
     queryKey: [ALL_DORMITORIES_QUERY_KEY_FOR_IMAGES],
@@ -161,7 +154,7 @@ export default function AdminManageDormitoryBookingsPage() {
   } = useSimpleTable<Booking>({
       data: filteredBookingsForAdmin,
       rowsPerPage: 10,
-      searchKeys: ['guestName', 'email', 'phone', 'id'], 
+      searchKeys: ['guestName', 'email', 'phone'], 
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
@@ -191,12 +184,6 @@ export default function AdminManageDormitoryBookingsPage() {
   const openDeleteDialog = (bookingId: string) => {
     setBookingToDeleteId(bookingId);
     setIsDeleteDialogOpen(true);
-  };
-
-  const openImagePreview = (imageUrl: string, title: string) => {
-    setCurrentPreviewImageUrl(imageUrl);
-    setCurrentPreviewImageTitle(title);
-    setIsImagePreviewOpen(true);
   };
 
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
@@ -338,13 +325,15 @@ export default function AdminManageDormitoryBookingsPage() {
                                 <span>{item.name}</span>
                                 {imageUrl && (
                                   <Button 
+                                    asChild
                                     variant="ghost" 
                                     size="icon" 
                                     className="h-5 w-5"
-                                    onClick={() => openImagePreview(imageUrl, `${t('roomNumber')} ${dormDetails?.roomNumber || item.name}`)}
                                     title={t('viewImageForItem', {itemName: item.name})}
                                   >
-                                    <Eye className="h-3 w-3 text-primary" />
+                                    <a href={imageUrl} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="h-3 w-3 text-primary" />
+                                    </a>
                                   </Button>
                                 )}
                               </div>
@@ -447,30 +436,11 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={isImagePreviewOpen} onOpenChange={setIsImagePreviewOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{currentPreviewImageTitle || t('imagePreview')}</DialogTitle>
-          </DialogHeader>
-          {currentPreviewImageUrl ? (
-            <div className="relative w-full aspect-video mt-4">
-              <Image 
-                src={currentPreviewImageUrl} 
-                alt={currentPreviewImageTitle || t('dormitoryImage')} 
-                fill
-                style={{ objectFit: 'contain' }}
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            </div>
-          ) : (
-            <p>{t('noImageAvailable')}</p>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
+    
+
     
 
     
