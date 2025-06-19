@@ -1,7 +1,7 @@
 
 import type { NavItem, User } from '@/types'; 
 
-export const SITE_NAME = "Oromia Education Training Center";
+export const SITE_NAME = "Oromia Education Research and Training Center";
 export const SITE_DESCRIPTION = "together we can";
 
 
@@ -26,15 +26,15 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'dashboard', href: '/admin/dashboard', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'] }, // Page component will filter for general admin/superadmin
+  { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'] }, // Page component will filter for general admin/superadmin
-  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'] }, // Page component will filter for general admin/superadmin
-  { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, // Page component will filter for general admin/superadmin
+  { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'] }, 
+  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'] }, 
+  { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin'] }, 
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
-  { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['superadmin'] }, // Changed from ['admin', 'superadmin']
-  { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'] }, // Page component will filter for general admin/superadmin
+  { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['superadmin'] }, 
+  { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
