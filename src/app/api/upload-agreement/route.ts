@@ -23,7 +23,7 @@ if (cloudName && apiKey && apiSecret) {
         isCloudinaryConfigured = true;
         console.log("Cloudinary SDK configured successfully at module level. Cloud Name:", cloudinary.config().cloud_name);
     } else {
-        cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check variable integrity.";
+        cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check variable integrity. Ensure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are correct and the server was restarted.";
         console.error(`Critical: ${cloudinaryConfigError}`);
     }
   } catch (error: any) {
@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
       cloudinary.uploader.upload_stream(
         {
           folder: 'homepage', 
-          resource_type: 'raw',
-          access_mode: 'public', // Explicitly request public access
+          resource_type: 'raw', // Changed from 'auto' to 'raw' for general file types like PDFs
+          access_mode: 'public', 
         },
         (error, result) => {
           if (error) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
             if (error.http_code === 401 || (error.message && error.message.toLowerCase().includes('authentication failed'))) {
                 console.error('Cloudinary returned an authentication error (401). This usually means your API Key, API Secret, or Cloud Name is incorrect. Please double-check these values in your .env.local file and ensure the server was restarted after any changes.');
             }
-            reject({ error });
+            reject({ error }); // Pass the error object as { error: actualError }
           } else {
             console.log('Cloudinary upload_stream successful result object:', JSON.stringify(result, null, 2));
             resolve({ secure_url: result?.secure_url, public_id: result?.public_id, full_result: result });
@@ -82,14 +82,23 @@ export async function POST(request: NextRequest) {
     });
 
     if (uploadResult.error || !uploadResult.secure_url) {
-      console.error('Failed to upload to Cloudinary or secure_url missing. Upload result error:', JSON.stringify(uploadResult.error, null, 2));
+      console.error('Failed to upload to Cloudinary or secure_url missing. Full uploadResult:', JSON.stringify(uploadResult, null, 2));
       let detailMessage = 'Unknown Cloudinary upload error';
-      if (uploadResult.error) {
-        detailMessage = typeof uploadResult.error === 'string' ? uploadResult.error : uploadResult.error.message || JSON.stringify(uploadResult.error);
-        if (uploadResult.error.http_code === 401) {
-            detailMessage = 'Cloudinary authentication failed (401). Check credentials in .env.local and restart server. ' + detailMessage;
+      
+      // Correctly access the nested error object from the promise rejection
+      const nestedError = uploadResult.error?.error; 
+
+      if (nestedError) {
+        detailMessage = typeof nestedError === 'string' 
+            ? nestedError 
+            : (nestedError.message || JSON.stringify(nestedError));
+        if (nestedError.http_code === 401) {
+            detailMessage = 'Cloudinary authentication failed (401). Check credentials in .env.local and restart server. Original error: ' + detailMessage;
         }
+      } else if (!uploadResult.secure_url) {
+        detailMessage = 'Upload succeeded but no secure_url was returned by Cloudinary.';
       }
+
       return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: detailMessage }, { status: 500 });
     }
 
