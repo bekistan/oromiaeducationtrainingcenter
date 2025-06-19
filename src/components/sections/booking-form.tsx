@@ -34,7 +34,7 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { ETHIOPIAN_BANKS, PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
+import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -48,8 +48,7 @@ const dormitoryBookingSchema = z.object({
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
-  bankName: z.string().min(1, { message: "Bank name is required." }),
-  accountNumber: z.string().min(1, { message: "Account number is required." }),
+  // Bank name and account number removed
 });
 
 const facilityBookingSchema = z.object({
@@ -117,8 +116,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     phone: "",
     employer: "",
     dateRange: undefined,
-    bankName: "",
-    accountNumber: "",
+    // bankName and accountNumber removed
   };
 
   const defaultFacilityValues: FacilityBookingValues = {
@@ -143,8 +141,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
   useEffect(() => {
     if (bookingCategory === 'facility') {
-      // Check if any of the selected items are 'section' type to decide if LED projector option should be shown.
-      // The actual cost of the LED projector is global or per-section specific if overridden.
       const hasSectionItem = itemsToBook.some(item => item.itemType === 'section');
       setShowLedProjectorOption(hasSectionItem);
     }
@@ -379,7 +375,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return; 
       }
 
-      // Use item.pricePerDay if available, otherwise global default
       const pricePerDayToUse = typeof item.pricePerDay === 'number' ? item.pricePerDay : pricingSettings.defaultDormitoryPricePerDay;
       totalCost = numberOfDays * pricePerDayToUse;
       
@@ -396,18 +391,16 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           itemType: i.itemType,
         };
         if (i.capacity !== undefined) mappedItem.capacity = i.capacity;
-        mappedItem.pricePerDay = pricePerDayToUse; // Store actual price used
+        mappedItem.pricePerDay = pricePerDayToUse; 
         return mappedItem as BookingItem;
       });
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'payerBankName' | 'payerAccountNumber'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory: 'dormitory',
         items: mappedItems,
         guestName: dormData.fullName,
         phone: dormData.phone,
         guestEmployer: dormData.employer,
-        payerBankName: dormData.bankName,
-        payerAccountNumber: dormData.accountNumber,
         startDate: Timestamp.fromDate(startDateObject),
         endDate: Timestamp.fromDate(endDateObject),
         totalCost,
@@ -449,14 +442,14 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           console.error("Error saving dormitory booking:", error);
           let toastMessage = t('errorSavingBooking');
           if (error.code === 'permission-denied') {
-            toastMessage = t('bookingPermissionDeniedErrorDetailed'); // Use the detailed error message
+            toastMessage = t('bookingPermissionDeniedErrorDetailed'); 
           }
           toast({ variant: "destructive", title: t('error'), description: toastMessage });
           setIsSubmitting(false);
           return;
       }
 
-    } else { // Facility Booking
+    } else { 
       const facilityData = data as FacilityBookingValues;
       let rentalCostComponent = 0;
       const mappedItemsForFacility = itemsToBook.map(item => {
@@ -474,9 +467,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
           id: item.id,
           name: item.name,
           itemType: item.itemType,
-          rentalCost: itemRentalCost, // Store actual rental cost used
+          rentalCost: itemRentalCost, 
           ...(item.capacity !== undefined && { capacity: item.capacity }),
-          ...(itemLedProjectorCostApplied !== null && { ledProjectorCost: itemLedProjectorCostApplied }), // Store actual LED cost used
+          ...(itemLedProjectorCostApplied !== null && { ledProjectorCost: itemLedProjectorCostApplied }), 
         } as BookingItem;
       });
 
@@ -574,7 +567,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         console.error("Error submitting facility booking: ", error);
         let toastMessage = t('errorSubmittingBooking');
         if (error.code === 'permission-denied') {
-          toastMessage = t('bookingPermissionDeniedErrorDetailed'); // Use the detailed error message
+          toastMessage = t('bookingPermissionDeniedErrorDetailed'); 
         }
         toast({ variant: "destructive", title: t('error'), description: toastMessage });
       }
@@ -682,43 +675,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneEthiopian')} {...field} /></FormControl><FormDescription>{t('phoneForTelegramIdentification')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-
-                <h3 className="text-lg font-medium pt-4 border-t">{t('paymentTransferDetails')}</h3>
-                <FormField
-                  control={form.control}
-                  name="bankName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('bankName')}</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={t('selectBankPlaceholder')} />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {ETHIOPIAN_BANKS.map(bank => (
-                            <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="accountNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('accountNumber')}</FormLabel>
-                      <FormControl>
-                        <Input placeholder={t('enterAccountNumber')} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                
+                {/* Bank details removed from here */}
               </>
             )}
 
@@ -825,5 +783,4 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-
     

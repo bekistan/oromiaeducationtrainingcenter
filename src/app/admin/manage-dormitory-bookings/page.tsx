@@ -154,7 +154,7 @@ export default function AdminManageDormitoryBookingsPage() {
   } = useSimpleTable<Booking>({
       data: filteredBookingsForAdmin,
       rowsPerPage: 10,
-      searchKeys: ['id', 'guestName', 'email', 'phone', 'payerBankName', 'payerAccountNumber'], // ID kept for search
+      searchKeys: ['guestName', 'email', 'phone'], 
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
@@ -303,8 +303,6 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
                       <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
-                      <TableHead onClick={() => requestSort('payerBankName')} className="cursor-pointer group">{t('payerBankName')}{getSortIndicator('payerBankName')}</TableHead>
-                      <TableHead onClick={() => requestSort('payerAccountNumber')} className="cursor-pointer group">{t('payerAccountNumber')}{getSortIndicator('payerAccountNumber')}</TableHead>
                       <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                       <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
                       <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
@@ -320,8 +318,6 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                         <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
-                        <TableCell className="whitespace-nowrap">{booking.payerBankName || t('notProvided')}</TableCell>
-                        <TableCell className="whitespace-nowrap">{booking.payerAccountNumber || t('notProvided')}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
