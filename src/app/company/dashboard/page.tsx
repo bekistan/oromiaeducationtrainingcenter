@@ -120,12 +120,19 @@ export default function CompanyDashboardPage() {
           body: formData,
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || result.details || t('failedToUploadToCloudinary'));
+            let serverErrorDetails = t('uploadServerError'); 
+            try {
+                const errorResult = await response.json();
+                serverErrorDetails = errorResult.error || errorResult.details || serverErrorDetails;
+            } catch (jsonError) {
+                serverErrorDetails = response.statusText || serverErrorDetails;
+                console.warn("Could not parse error JSON from API, using status text:", response.statusText);
+            }
+            throw new Error(serverErrorDetails);
         }
         
+        const result = await response.json();
         const cloudinaryUrl = result.url;
 
         const bookingRef = doc(db, "bookings", bookingId);
@@ -138,7 +145,15 @@ export default function CompanyDashboardPage() {
         if (user?.companyId) fetchBookings(user.companyId); 
       } catch (error: any) {
         console.error("Error uploading signed agreement:", error);
-        toast({ variant: "destructive", title: t('uploadFailedTitle'), description: error.message || t('errorUploadingAgreementActual') });
+        let errorMessage = t('errorUploadingAgreementActual'); 
+
+        if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
+            errorMessage = t('uploadApiConnectionError');
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        toast({ variant: "destructive", title: t('uploadFailedTitle'), description: errorMessage });
       } finally {
         setIsUploadingAgreementId(null);
         setCurrentBookingIdForUpload(null);
@@ -437,7 +452,4 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
-
-    
-
     
