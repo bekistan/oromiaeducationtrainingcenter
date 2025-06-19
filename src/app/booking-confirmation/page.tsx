@@ -1,13 +1,13 @@
 
 "use client";
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send, AlertCircle } from 'lucide-react';
+import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send, AlertCircle, UploadCloud, FileIcon } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { SITE_NAME } from '@/constants';
@@ -15,6 +15,8 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { BankAccountDetails } from '@/types';
 import { useQuery } from '@tanstack/react-query';
+import { Input } from '@/components/ui/input'; // Added for file input
+import { useToast } from '@/hooks/use-toast'; // Added for toast notifications
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicConfirmation";
@@ -38,19 +40,79 @@ function BookingConfirmationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const bookingId = searchParams.get('bookingId');
   const status = searchParams.get('status');
   const itemName = searchParams.get('itemName');
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
-  const telegramBotUsername = "oromiaeducationtrainingcenterbot"; // Updated bot username
+  const telegramBotUsername = "oromiaeducationtrainingcenterbot";
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
     queryFn: fetchBankDetailsPublic,
-    enabled: !!(status === 'booking_pending_approval' && category === 'dormitory'), // Only fetch if needed
+    enabled: !!(status === 'booking_pending_approval' && category === 'dormitory'),
   });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
+    } else {
+      setSelectedFile(null);
+    }
+  };
+
+  const handleUploadPaymentScreenshot = async () => {
+    if (!selectedFile) {
+      toast({
+        variant: "destructive",
+        title: t('error'),
+        description: t('pleaseSelectFileToUpload'),
+      });
+      return;
+    }
+    if (!bookingId) {
+        toast({ variant: "destructive", title: t('error'), description: t('bookingIdMissingForUpload') });
+        return;
+    }
+
+    setIsUploading(true);
+    // Simulate upload process / Placeholder for actual API call
+    console.log("Attempting to upload file:", selectedFile.name, "for booking ID:", bookingId);
+    toast({
+        title: t('featureUnderDevelopment'),
+        description: t('paymentScreenshotUploadBackendNeeded'),
+        duration: 5000,
+    });
+    // Example of how you might call your backend API:
+    // const formData = new FormData();
+    // formData.append('file', selectedFile);
+    // formData.append('bookingId', bookingId);
+    // try {
+    //   const response = await fetch('/api/upload-payment-screenshot', { // Replace with your actual API endpoint
+    //     method: 'POST',
+    //     body: formData,
+    //   });
+    //   const result = await response.json();
+    //   if (!response.ok) throw new Error(result.error || 'Upload failed');
+    //   toast({ title: t('success'), description: t('paymentScreenshotUploaded') });
+    //   setSelectedFile(null);
+    // } catch (uploadError: any) {
+    //   toast({ variant: "destructive", title: t('error'), description: uploadError.message || t('failedToUploadScreenshot') });
+    // }
+
+    // For now, just simulate and reset
+    setTimeout(() => {
+        setIsUploading(false);
+        // setSelectedFile(null); // Optionally clear file after "upload"
+    }, 2000);
+  };
+
 
   if (!bookingId || !status || !itemName || !category) {
     return (
@@ -85,7 +147,7 @@ function BookingConfirmationContent() {
       showDormitoryPaymentInstructions = true;
     }
     icon = <Hourglass className="w-16 h-16 text-amber-500" />;
-  } else { 
+  } else {
     titleText = t('bookingProcessedTitle');
     descriptionText = t('yourBookingRequestHasBeenProcessed');
   }
@@ -118,6 +180,7 @@ function BookingConfirmationContent() {
     );
   }
 
+  const showUploadButton = showDormitoryPaymentInstructions && bankDetails && !isLoadingBankDetails;
 
   return (
     <Card className="w-full max-w-lg text-center shadow-xl">
@@ -140,13 +203,41 @@ function BookingConfirmationContent() {
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {bankDetails.accountName || t('notSet')}</p>
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
-            <Button asChild className="w-full mt-3">
+            <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
+
+            <div className="mt-4 space-y-3">
+                <h4 className="font-medium text-sm text-primary">{t('submitPaymentProof')}</h4>
+                <Input
+                    id="paymentScreenshot"
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="text-sm"
+                    accept="image/png, image/jpeg, image/jpg, application/pdf"
+                />
+                {selectedFile && (
+                    <div className="text-xs text-muted-foreground flex items-center">
+                        <FileIcon className="w-3 h-3 mr-1" />
+                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                )}
+                <Button
+                    onClick={handleUploadPaymentScreenshot}
+                    disabled={isUploading || !selectedFile}
+                    className="w-full"
+                    variant="outline"
+                >
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+                    {t('uploadPaymentScreenshotButton')}
+                </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 text-center">{t('or')}</p>
+            <Button asChild className="w-full mt-2">
               <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
                 <Send className="mr-2 h-4 w-4" />
-                {t('goToAtOromoEduTrainingCenterBotButton')} 
+                {t('goToAtOromoEduTrainingCenterBotButton')}
               </a>
             </Button>
-             <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
           </div>
         )}
          {showDormitoryPaymentInstructions && amount && !bankDetails && !isLoadingBankDetails && (
@@ -155,7 +246,6 @@ function BookingConfirmationContent() {
                 <p className="text-sm text-destructive/80">{t('bankDetailsNotConfiguredContactAdmin')}</p>
             </div>
         )}
-
 
         <div className={showDormitoryPaymentInstructions ? "pt-4" : "border-t pt-4"}>
           <h3 className="font-semibold mb-2 text-lg">{t('bookingSummary')}</h3>
@@ -171,7 +261,7 @@ function BookingConfirmationContent() {
             <span className="text-muted-foreground">{t('category')}:</span>
             <span className="font-medium capitalize">{t(category)}</span>
           </div>
-          {amount && !showDormitoryPaymentInstructions && ( 
+          {amount && !showDormitoryPaymentInstructions && (
             <div className="flex justify-between">
                 <span className="text-muted-foreground">{t('totalAmount')}:</span>
                 <span className="font-medium text-primary">{amount} {t('currencySymbol')}</span>
@@ -190,7 +280,6 @@ function BookingConfirmationContent() {
   );
 }
 
-
 export default function BookingConfirmationPage() {
   const { t } = useLanguage();
   return (
@@ -203,4 +292,3 @@ export default function BookingConfirmationPage() {
     </PublicLayout>
   );
 }
-
