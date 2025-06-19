@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import Image from 'next/image';
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Dormitory, KeyStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -35,15 +37,16 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { PLACEHOLDER_THUMBNAIL_SIZE } from '@/constants';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
 const DORMITORY_BOOKINGS_QUERY_KEY = "dormitoryBookings";
-const ALL_DORMITORIES_QUERY_KEY_FOR_FILTERING = "allDormitoriesForBookingFiltering";
+const ALL_DORMITORIES_QUERY_KEY_FOR_IMAGES = "allDormitoriesForBookingImages";
 
-const fetchAllDormitoriesForFiltering = async (): Promise<Dormitory[]> => {
+const fetchAllDormitoriesForImages = async (): Promise<Dormitory[]> => {
   const querySnapshot = await getDocs(collection(db, "dormitories"));
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
 };
@@ -74,14 +77,18 @@ export default function AdminManageDormitoryBookingsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [currentPreviewImageUrl, setCurrentPreviewImageUrl] = useState<string | null>(null);
+  const [currentPreviewImageTitle, setCurrentPreviewImageTitle] = useState<string | null>(null);
+
   const { data: allDormitories, isLoading: isLoadingDormsForFilter } = useQuery<Dormitory[], Error>({
-    queryKey: [ALL_DORMITORIES_QUERY_KEY_FOR_FILTERING],
-    queryFn: fetchAllDormitoriesForFiltering,
+    queryKey: [ALL_DORMITORIES_QUERY_KEY_FOR_IMAGES],
+    queryFn: fetchAllDormitoriesForImages,
   });
 
-  const dormIdToBuildingMap = useMemo(() => {
-    if (!allDormitories) return new Map<string, string>();
-    return new Map(allDormitories.map(dorm => [dorm.id, dorm.buildingName]));
+  const dormDataMap = useMemo(() => {
+    if (!allDormitories) return new Map<string, { buildingName: string, imageUrl?: string, roomNumber: string }>();
+    return new Map(allDormitories.map(dorm => [dorm.id, { buildingName: dorm.buildingName, imageUrl: dorm.images?.[0], roomNumber: dorm.roomNumber }]));
   }, [allDormitories]);
 
   const { data: allBookingsFromDb = [], isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[], Error>({
@@ -126,8 +133,8 @@ export default function AdminManageDormitoryBookingsPage() {
       bookingsToFilter = allBookingsFromDb.filter(booking => {
         const firstItemId = booking.items[0]?.id;
         if (!firstItemId) return false;
-        const buildingOfBooking = dormIdToBuildingMap.get(firstItemId);
-        return buildingOfBooking === user.buildingAssignment;
+        const dormDetails = dormDataMap.get(firstItemId);
+        return dormDetails?.buildingName === user.buildingAssignment;
       });
     }
 
@@ -136,7 +143,7 @@ export default function AdminManageDormitoryBookingsPage() {
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
       return approvalMatch && paymentMatch;
     });
-  }, [allBookingsFromDb, approvalFilter, paymentFilter, user, dormIdToBuildingMap, isLoadingDormsForFilter]);
+  }, [allBookingsFromDb, approvalFilter, paymentFilter, user, dormDataMap, isLoadingDormsForFilter]);
 
   const {
     paginatedData: displayedBookings,
@@ -154,7 +161,7 @@ export default function AdminManageDormitoryBookingsPage() {
   } = useSimpleTable<Booking>({
       data: filteredBookingsForAdmin,
       rowsPerPage: 10,
-      searchKeys: ['guestName', 'email', 'phone'], 
+      searchKeys: ['guestName', 'email', 'phone', 'id'], 
       initialSort: { key: 'bookedAt', direction: 'descending' },
   });
 
@@ -184,6 +191,12 @@ export default function AdminManageDormitoryBookingsPage() {
   const openDeleteDialog = (bookingId: string) => {
     setBookingToDeleteId(bookingId);
     setIsDeleteDialogOpen(true);
+  };
+
+  const openImagePreview = (imageUrl: string, title: string) => {
+    setCurrentPreviewImageUrl(imageUrl);
+    setCurrentPreviewImageTitle(title);
+    setIsImagePreviewOpen(true);
   };
 
   const getPaymentStatusBadge = (status: Booking['paymentStatus']) => {
@@ -316,7 +329,29 @@ export default function AdminManageDormitoryBookingsPage() {
                         <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
-                        <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
+                        <TableCell className="min-w-[200px]">
+                          {booking.items.map(item => {
+                            const dormDetails = dormDataMap.get(item.id);
+                            const imageUrl = dormDetails?.imageUrl;
+                            return (
+                              <div key={item.id} className="flex items-center space-x-2 py-1">
+                                <span>{item.name}</span>
+                                {imageUrl && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-5 w-5"
+                                    onClick={() => openImagePreview(imageUrl, `${t('roomNumber')} ${dormDetails?.roomNumber || item.name}`)}
+                                    title={t('viewImageForItem', {itemName: item.name})}
+                                  >
+                                    <Eye className="h-3 w-3 text-primary" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          ({booking.items.length})
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
@@ -412,7 +447,30 @@ export default function AdminManageDormitoryBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isImagePreviewOpen} onOpenChange={setIsImagePreviewOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{currentPreviewImageTitle || t('imagePreview')}</DialogTitle>
+          </DialogHeader>
+          {currentPreviewImageUrl ? (
+            <div className="relative w-full aspect-video mt-4">
+              <Image 
+                src={currentPreviewImageUrl} 
+                alt={currentPreviewImageTitle || t('dormitoryImage')} 
+                fill
+                style={{ objectFit: 'contain' }}
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+            </div>
+          ) : (
+            <p>{t('noImageAvailable')}</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+    
+
     
