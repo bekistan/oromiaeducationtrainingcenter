@@ -15,8 +15,8 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { BankAccountDetails } from '@/types';
 import { useQuery } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input'; // Added for file input
-import { useToast } from '@/hooks/use-toast'; // Added for toast notifications
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicConfirmation";
@@ -82,35 +82,37 @@ function BookingConfirmationContent() {
     }
 
     setIsUploading(true);
-    // Simulate upload process / Placeholder for actual API call
-    console.log("Attempting to upload file:", selectedFile.name, "for booking ID:", bookingId);
-    toast({
-        title: t('featureUnderDevelopment'),
-        description: t('paymentScreenshotUploadBackendNeeded'),
-        duration: 5000,
-    });
-    // Example of how you might call your backend API:
-    // const formData = new FormData();
-    // formData.append('file', selectedFile);
-    // formData.append('bookingId', bookingId);
-    // try {
-    //   const response = await fetch('/api/upload-payment-screenshot', { // Replace with your actual API endpoint
-    //     method: 'POST',
-    //     body: formData,
-    //   });
-    //   const result = await response.json();
-    //   if (!response.ok) throw new Error(result.error || 'Upload failed');
-    //   toast({ title: t('success'), description: t('paymentScreenshotUploaded') });
-    //   setSelectedFile(null);
-    // } catch (uploadError: any) {
-    //   toast({ variant: "destructive", title: t('error'), description: uploadError.message || t('failedToUploadScreenshot') });
-    // }
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('bookingId', bookingId);
 
-    // For now, just simulate and reset
-    setTimeout(() => {
-        setIsUploading(false);
-        // setSelectedFile(null); // Optionally clear file after "upload"
-    }, 2000);
+    try {
+      // The API endpoint for Airtable upload will need to be created by the user.
+      const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.details || t('failedToUploadScreenshotAirtable'));
+      }
+
+      toast({ title: t('success'), description: t('paymentScreenshotUploadedSuccessfullyAirtable') });
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""; // Clear the file input
+      }
+    } catch (uploadError: any) {
+      toast({ 
+        variant: "destructive", 
+        title: t('uploadFailedTitle'), 
+        description: uploadError.message || t('failedToUploadScreenshotAirtable') 
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 
