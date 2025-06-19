@@ -45,6 +45,7 @@ export interface Dormitory {
   pricePerDay?: number; 
   images?: string[];
   dataAiHint?: string;
+  imageAirtableRecordId?: string; // Added for Airtable integration
   buildingName: 'ifaboru' | 'buuraboru'; 
 }
 
@@ -92,8 +93,9 @@ export interface Booking {
   // Dormitory specific
   guestName?: string;
   guestEmployer?: string;
-  payerBankName?: string;
-  payerAccountNumber?: string;
+  // payerBankName and payerAccountNumber are now effectively unused for dorms
+  // payerBankName?: string; 
+  // payerAccountNumber?: string;
   phone?: string;
   // Facility specific
   companyName?: string;
@@ -131,7 +133,7 @@ export interface User {
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 
   preferredCalendarSystem?: CalendarSystem; 
-  buildingAssignment?: 'ifaboru' | 'buuraboru' | null; // Made optional/nullable
+  buildingAssignment?: 'ifaboru' | 'buuraboru' | null; 
 }
 
 export interface CompanyProfile {
