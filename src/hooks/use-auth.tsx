@@ -38,7 +38,7 @@ interface AdminDetails {
   name: string;
   email: string;
   password: string;
-  buildingAssignment?: 'ifaboru' | 'buuraboru'; 
+  buildingAssignment?: 'ifaboru' | 'buuraboru';
 }
 
 interface KeyholderDetails {
@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   const handleAuthChange = useCallback(async (currentFbUser: FirebaseUser | null) => {
+    setLoading(true); // Ensure loading is true at the start of handling
     try {
       setFirebaseUser(currentFbUser);
       if (currentFbUser) {
@@ -99,59 +100,76 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             companyName: userDataFromDb.companyName,
             approvalStatus: userDataFromDb.approvalStatus,
             phone: userDataFromDb.phone,
-            buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment, // Handle null from DB
+            buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
             createdAt: createdAtString,
           };
           setUser(processedUserData);
         } else {
           console.warn("User document not found in Firestore for UID:", currentFbUser.uid, "- Signing out to prevent inconsistent state.");
           await firebaseSignOut(auth);
-          setUser(null); 
+          setUser(null);
         }
       } else {
         setUser(null);
       }
     } catch (error: any) {
+      let errorToReport;
       if (error === true) {
-        console.error("Auth Error: Caught boolean 'true' in handleAuthChange try-catch.", error);
-        throw new Error("Original error was true: handleAuthChange try-catch");
+        console.error("handleAuthChange Internal Error: Caught boolean `true` during auth processing. This is unconventional.");
+        errorToReport = new Error("Authentication processing failed with an unconventional boolean true error.");
+      } else if (error instanceof Error) {
+        console.error("handleAuthChange Internal Error:", error.message, error.stack);
+        errorToReport = error;
+      } else {
+        console.error("handleAuthChange Internal Error: Caught non-Error value:", error);
+        errorToReport = new Error(`Authentication processing failed with non-Error value: ${String(error)}`);
       }
-      console.error("Error processing auth state change in handleAuthChange:", error);
-      if (auth.currentUser) {
+
+      if (auth.currentUser) { // Attempt to sign out if there's a current user, to prevent inconsistent states
         try {
           await firebaseSignOut(auth);
-        } catch (signOutError) {
-          console.error("Error during fallback sign out in handleAuthChange (inner catch):", signOutError);
+        } catch (signOutError: any) {
+          const signOutErrorMessage = signOutError instanceof Error ? signOutError.message : String(signOutError);
+          console.error("handleAuthChange: Error during fallback sign out:", signOutErrorMessage, signOutError instanceof Error ? signOutError.stack : '');
         }
       }
-      setUser(null); 
-      setFirebaseUser(null); 
-      throw error; 
-    } 
+      setUser(null);
+      setFirebaseUser(null);
+      throw errorToReport; // Re-throw a proper Error object
+    } finally {
+      setLoading(false); // Ensure loading is false after processing
+    }
   }, []);
 
 
   useEffect(() => {
-    setLoading(true); 
+    setLoading(true);
     const unsubscribe = onAuthStateChanged(auth, (fbUserInstance) => {
       handleAuthChange(fbUserInstance)
         .catch(e => {
-          if (e === true) {
-            console.error("Auth Error: Caught boolean 'true' from handleAuthChange promise in onAuthStateChanged.", e);
+          // This catch block in useEffect is for errors thrown by handleAuthChange
+          setLoading(false); // Ensure loading is reset on error
+          let errorMessage = "An unexpected authentication error occurred.";
+          if (e === true) { // This case should be less likely if handleAuthChange always throws Error objects
+            console.error("Auth State Error: Promise from handleAuthChange rejected with boolean `true`. This implies an issue in handleAuthChange's error wrapping. Forcing user to null state.");
+            errorMessage = "An unusual error occurred during authentication. Please try again.";
+          } else if (e instanceof Error) {
+            console.error("Auth State Error:", e.message, e.stack);
+            errorMessage = e.message;
           } else {
-            console.error("Unhandled error from handleAuthChange promise chain in onAuthStateChanged:", e);
+            console.error("Auth State Error: Promise from handleAuthChange rejected with non-Error value:", e);
+            errorMessage = "An unknown error occurred during authentication.";
           }
           setUser(null);
           setFirebaseUser(null);
-        })
-        .finally(() => {
-          setLoading(false); 
+          // Avoid re-throwing from here to prevent potential loops with onAuthStateChanged
         });
+      // setLoading(false) is handled by handleAuthChange's finally block on success, or by its catch block on error.
     });
 
     return () => {
       unsubscribe();
-      setLoading(false); 
+      setLoading(false);
     }
   }, [handleAuthChange]);
 
@@ -188,21 +206,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
           createdAt: createdAtString,
         };
-        return appUserData; 
+        // setUser and setFirebaseUser will be called by onAuthStateChanged -> handleAuthChange
+        return appUserData;
       } else {
         console.error("Firestore document not found for logged in user:", fbUserInstance.uid);
-        await firebaseSignOut(auth); 
+        await firebaseSignOut(auth);
         throw new Error("userDataMissing");
       }
     } catch (error: any) {
+      setLoading(false); // Ensure loading is false on error
       if (error === true) {
-        console.error("Auth Error: Caught boolean 'true' in login.", error);
-        throw new Error("Original error was true: login");
+        console.error("Login Error: Caught boolean 'true'.", error);
+        throw new Error("Login failed due to an unconventional error.");
+      } else if (error instanceof Error) {
+        console.error("Login Error:", error.message, error.stack);
+      } else {
+        console.error("Login Error: Caught non-Error value:", error);
       }
-      console.error("Login error in useAuth:", error);
-      throw error;
+      throw error; // Re-throw original or new Error
     } finally {
-      setLoading(false);
+      // setLoading(false); // setLoading is handled by onAuthStateChanged -> handleAuthChange
     }
   }, []);
 
@@ -224,6 +247,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newCompanyUserDocData);
+        // setUser and setFirebaseUser will be called by onAuthStateChanged -> handleAuthChange
         return {
             id: fbUserInstance.uid,
             email: companyDetails.email,
@@ -233,17 +257,21 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'company_representative',
             approvalStatus: 'pending',
             companyId: companyId,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Approximate
         };
       } catch (error: any) {
+        setLoading(false);
         if (error === true) {
-            console.error("Auth Error: Caught boolean 'true' in signupCompany.", error);
-            throw new Error("Original error was true: signupCompany");
+            console.error("Company Signup Error: Caught boolean 'true'.", error);
+            throw new Error("Company registration failed due to an unconventional error.");
+        } else if (error instanceof Error) {
+            console.error("Company Signup Error:", error.message, error.stack);
+        } else {
+            console.error("Company Signup Error: Caught non-Error value:", error);
         }
-        console.error("Company signup error:", error);
         throw error;
       } finally {
-        setLoading(false);
+        // setLoading(false); // Handled by onAuthStateChanged
       }
     },
     []
@@ -253,7 +281,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
       setLoading(true);
       try {
-        // Ensure the current user (performing the action) is a superadmin
         const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
         if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
         const currentUserDocSnap = await getDoc(currentUserDocRef);
@@ -261,40 +288,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           console.error("Unauthorized attempt to sign up admin by user:", auth.currentUser?.email);
           throw new Error("Only superadmins can register new admins.");
         }
-        
+
         const userCredential = await createUserWithEmailAndPassword(auth, adminDetails.email, adminDetails.password);
         const fbUserInstance = userCredential.user;
-        
+
         const newAdminUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: adminDetails.email,
           name: adminDetails.name,
           role: 'admin' as const,
           createdAt: serverTimestamp(),
-          buildingAssignment: adminDetails.buildingAssignment || null, // Store null if undefined
+          buildingAssignment: adminDetails.buildingAssignment || null,
         };
-
         await setDoc(doc(db, "users", fbUserInstance.uid), newAdminUserDocData);
-        
+        // Note: onAuthStateChanged will handle setting the user state globally
         return {
             id: fbUserInstance.uid,
             email: adminDetails.email,
             name: adminDetails.name,
             role: 'admin',
             buildingAssignment: adminDetails.buildingAssignment || null,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Approximate
         };
       } catch (error: any) {
+        setLoading(false);
         if (error === true) {
-            console.error("Auth Error: Caught boolean 'true' in signupAdmin.", error);
-            throw new Error("Original error was true: signupAdmin");
+            console.error("Admin Signup Error: Caught boolean 'true'.", error);
+            throw new Error("Admin registration failed due to an unconventional error.");
+        } else if (error instanceof Error) {
+            console.error("Admin Signup Error:", error.message, error.stack);
+        } else {
+            console.error("Admin Signup Error: Caught non-Error value:", error);
         }
-        console.error("Admin signup error:", error);
         throw error;
       } finally {
-        setLoading(false);
+        // setLoading(false); // Handled by onAuthStateChanged
       }
     },
-    [] 
+    []
   );
 
   const signupKeyholder = useCallback(
@@ -304,7 +334,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
          const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
          if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
          const currentUserDocSnap = await getDoc(currentUserDocRef);
-         if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') { // Changed to superadmin only
+         if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') {
           console.error("Unauthorized attempt to sign up keyholder by user:", auth.currentUser?.email);
           throw new Error("Only superadmins can register new keyholders.");
         }
@@ -318,38 +348,54 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAt: serverTimestamp(),
         };
         await setDoc(doc(db, "users", fbUserInstance.uid), newKeyholderUserDocData);
+        // Note: onAuthStateChanged will handle setting the user state globally
         return {
             id: fbUserInstance.uid,
             email: keyholderDetails.email,
             name: keyholderDetails.name,
             role: 'keyholder',
-            createdAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(), // Approximate
         };
       } catch (error: any) {
+        setLoading(false);
         if (error === true) {
-            console.error("Auth Error: Caught boolean 'true' in signupKeyholder.", error);
-            throw new Error("Original error was true: signupKeyholder");
+            console.error("Keyholder Signup Error: Caught boolean 'true'.", error);
+            throw new Error("Keyholder registration failed due to an unconventional error.");
+        } else if (error instanceof Error) {
+            console.error("Keyholder Signup Error:", error.message, error.stack);
+        } else {
+            console.error("Keyholder Signup Error: Caught non-Error value:", error);
         }
-        console.error("Keyholder signup error:", error);
         throw error;
       } finally {
-        setLoading(false);
+        // setLoading(false); // Handled by onAuthStateChanged
       }
     },
-    [] 
+    []
   );
 
   const logout = useCallback(async (): Promise<void> => {
-    setLoading(true);
+    setLoading(true); // Indicate loading state during logout process
     try {
       await firebaseSignOut(auth);
+      // setUser(null) and setFirebaseUser(null) will be handled by onAuthStateChanged -> handleAuthChange
+      // handleAuthChange's finally block will set loading to false.
     } catch (error: any) {
+      setLoading(false); // Ensure loading is false if signout itself fails
+      let errorMessage = "Logout failed.";
       if (error === true) {
-        console.error("Auth Error: Caught boolean 'true' in logout.", error);
+        console.error("Logout Error: Caught boolean 'true'.", error);
+        errorMessage = "Logout failed due to an unconventional error.";
+      } else if (error instanceof Error) {
+        console.error("Logout Error:", error.message, error.stack);
+        errorMessage = error.message;
+      } else {
+        console.error("Logout Error: Caught non-Error value:", error);
       }
-      console.error("Logout error:", error);
-    } finally {
-      setLoading(false);
+      // Optionally, inform the user via toast, though logout errors are often handled silently
+      // or by redirecting to login.
+      // toast({ variant: "destructive", title: "Logout Failed", description: errorMessage });
+      throw error; // Re-throw if the consuming component needs to act on logout failure
     }
   }, []);
 
@@ -358,11 +404,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
         const updateData = { ...data };
         if (data.hasOwnProperty('buildingAssignment') && data.buildingAssignment === undefined) {
-            (updateData as any).buildingAssignment = null; 
+            (updateData as any).buildingAssignment = null;
         }
 
         await updateDoc(userDocRef, updateData);
-        if (user && user.id === userId) { 
+        if (user && user.id === userId) {
+          // Refresh local user state if the currently logged-in user's document was updated
           const updatedUserSnapshot = await getDoc(userDocRef);
           if (updatedUserSnapshot.exists()) {
             const updatedDataFromDb = updatedUserSnapshot.data();
@@ -391,13 +438,16 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
     } catch (error: any) {
         if (error === true) {
-            console.error("Auth Error: Caught boolean 'true' in updateUserDocument.", error);
-            throw new Error("Original error was true: updateUserDocument");
+            console.error("Update User Doc Error: Caught boolean 'true'.", error);
+            throw new Error("Updating user document failed due to an unconventional error.");
+        } else if (error instanceof Error) {
+            console.error("Update User Doc Error:", error.message, error.stack);
+        } else {
+            console.error("Update User Doc Error: Caught non-Error value:", error);
         }
-        console.error("Error updating user document:", error);
-        throw error; 
+        throw error;
     }
-  }, [user]); 
+  }, [user]);
 
   const contextValue = useMemo<AuthState>(() => ({
     user,
