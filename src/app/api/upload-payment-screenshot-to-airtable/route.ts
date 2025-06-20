@@ -113,11 +113,9 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
     // 2. Create Airtable record with the Cloudinary URL
-    // Ensure the field names here EXACTLY match your Airtable table's field names.
-    // Especially check "Booking ID". If your Airtable field is named differently (e.g., "booking_id"),
-    // you MUST change it here.
+    // **** IMPORTANT: Adjust the keys in this object to MATCH your Airtable field names ****
     const airtableRecordFields = {
-      "Booking ID": bookingId, // THIS IS THE CRITICAL FIELD NAME TO CHECK
+      "Booking ID": bookingId,             // Example: If your field is "booking_id", change this line
       "Screenshot": [{ url: cloudinaryUrl }], // For Airtable "Attachment" field type
       "Original Filename": file.name,
       "Uploaded At": new Date().toISOString(), // Ensure "Uploaded At" is a Date field in Airtable
@@ -161,3 +159,5 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return NextResponse.json({ message: 'Payment screenshot upload API route (Airtable integration) is active. Use POST method to upload files.' });
 }
+
+    
