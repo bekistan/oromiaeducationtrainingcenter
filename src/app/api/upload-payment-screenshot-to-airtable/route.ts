@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
 
-  if (!isAirtableConfigured || !airtableBase) {
+  if (!isAirtableConfigured || !airtableBase || !airtableTableName) {
     const serverConfigErrorMessage = airtableConfigErrorMsg || 'Airtable is not configured for screenshot uploads.';
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Database (Airtable) not configured for screenshots. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
@@ -113,14 +113,15 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
     // 2. Create Airtable record with the Cloudinary URL
-    // Ensure your Airtable field names match these keys.
-    // For "Uploaded At", it's recommended to use an Airtable "Created Time" field type,
+    // Ensure your Airtable field names exactly match these keys.
+    // The "Uploaded At" field in Airtable should be of type "Created Time"
     // so Airtable automatically sets the timestamp.
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
-      // "Uploaded At": new Date().toISOString(), // Removed: Let Airtable handle this with a "Created Time" field.
+      // "Uploaded At" field is intentionally omitted here.
+      // Airtable will populate it if the field type is "Created Time".
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
