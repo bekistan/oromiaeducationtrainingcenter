@@ -61,7 +61,32 @@ function BookingConfirmationContent() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+      const file = event.target.files[0];
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: t('error'),
+          description: t('invalidFileTypeForScreenshot'),
+        });
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      if (file.size > maxSize) {
+        toast({
+          variant: "destructive",
+          title: t('error'),
+          description: t('fileTooLargeForScreenshot', { maxSize: '5MB' }),
+        });
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      setSelectedFile(file);
     } else {
       setSelectedFile(null);
     }
@@ -87,28 +112,40 @@ function BookingConfirmationContent() {
     formData.append('bookingId', bookingId);
 
     try {
-      // The API endpoint for Airtable upload will need to be created by the user.
       const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
         method: 'POST',
         body: formData,
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || result.details || t('failedToUploadScreenshotAirtable'));
+        const contentType = response.headers.get("content-type");
+        let errorData;
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          errorData = await response.json();
+        } else {
+          // If not JSON, it might be HTML (like a 404 page or server error page)
+          const textResponse = await response.text();
+          if (textResponse.toLowerCase().includes("<!doctype html>")) {
+             throw new Error(t('apiReturnedHtmlError'));
+          }
+          throw new Error(t('uploadApiNonJsonError', { statusText: response.statusText || 'Unknown error' }));
+        }
+        throw new Error(errorData.error || errorData.details || t('failedToUploadScreenshotAirtable'));
       }
+
+      // Only attempt to parse as JSON if response.ok is true and content type is expected
+      const result = await response.json();
 
       toast({ title: t('success'), description: t('paymentScreenshotUploadedSuccessfullyAirtable') });
       setSelectedFile(null);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ""; // Clear the file input
+        fileInputRef.current.value = "";
       }
     } catch (uploadError: any) {
-      toast({ 
-        variant: "destructive", 
-        title: t('uploadFailedTitle'), 
-        description: uploadError.message || t('failedToUploadScreenshotAirtable') 
+      toast({
+        variant: "destructive",
+        title: t('uploadFailedTitle'),
+        description: uploadError.message || t('failedToUploadScreenshotAirtable')
       });
     } finally {
       setIsUploading(false);
@@ -182,8 +219,6 @@ function BookingConfirmationContent() {
     );
   }
 
-  const showUploadButton = showDormitoryPaymentInstructions && bankDetails && !isLoadingBankDetails;
-
   return (
     <Card className="w-full max-w-lg text-center shadow-xl">
       <CardHeader>
@@ -232,6 +267,7 @@ function BookingConfirmationContent() {
                     {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
                     {t('uploadPaymentScreenshotButton')}
                 </Button>
+                 <p className="text-xs text-muted-foreground">{t('fileUploadLimitNote', { maxSize: '5MB'})}</p>
             </div>
             <p className="text-xs text-muted-foreground mt-3 text-center">{t('or')}</p>
             <Button asChild className="w-full mt-2">
@@ -294,3 +330,5 @@ export default function BookingConfirmationPage() {
     </PublicLayout>
   );
 }
+
+    
