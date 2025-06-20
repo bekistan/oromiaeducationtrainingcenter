@@ -113,12 +113,14 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
     // 2. Create Airtable record with the Cloudinary URL
-    // **** IMPORTANT: Adjust the keys in this object to MATCH your Airtable field names ****
+    // Ensure your Airtable field names match these keys.
+    // For "Uploaded At", it's recommended to use an Airtable "Created Time" field type,
+    // so Airtable automatically sets the timestamp.
     const airtableRecordFields = {
-      "Booking ID": bookingId,             // Example: If your field is "booking_id", change this line
-      "Screenshot": [{ url: cloudinaryUrl }], // For Airtable "Attachment" field type
+      "Booking ID": bookingId,             
+      "Screenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
-      "Uploaded At": new Date().toISOString(), // Ensure "Uploaded At" is a Date field in Airtable
+      // "Uploaded At": new Date().toISOString(), // Removed: Let Airtable handle this with a "Created Time" field.
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
@@ -143,7 +145,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error processing payment screenshot upload to Airtable API route:', error);
     let errorMessage = 'Failed to process screenshot upload on server.';
-    // Attempt to extract a more specific error message from Airtable or Cloudinary errors
     if (error.message) {
         errorMessage = error.message;
     } else if (error.error && typeof error.error === 'object' && error.error.message) {
