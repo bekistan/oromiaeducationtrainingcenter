@@ -1,106 +1,156 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable from 'airtable'; // You'll need this for Airtable integration
+import Airtable from 'airtable';
+import { v2 as cloudinary } from 'cloudinary';
 
-// Ensure your environment variables are set in .env.local or your hosting environment
-// AIRTABLE_API_KEY (or AIRTABLE_PAT)
-// AIRTABLE_BASE_ID
-// AIRTABLE_TABLE_NAME (for screenshots)
+// --- Cloudinary Configuration ---
+let isCloudinaryConfigured = false;
+let cloudinaryConfigError: string | null = null;
+
+const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
+const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
+
+if (cloudName && cloudinaryApiKeyEnv && cloudinaryApiSecretEnv) {
+  try {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: cloudinaryApiKeyEnv,
+      api_secret: cloudinaryApiSecretEnv,
+      secure: true,
+    });
+    if (cloudinary.config().api_key && cloudinary.config().api_secret && cloudinary.config().cloud_name) {
+        isCloudinaryConfigured = true;
+    } else {
+        cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.";
+        console.error(`Critical: ${cloudinaryConfigError}`);
+    }
+  } catch (error: any) {
+    cloudinaryConfigError = `Error during Cloudinary SDK configuration: ${error.message || JSON.stringify(error)}`;
+    console.error(`Critical: ${cloudinaryConfigError}`);
+  }
+} else {
+  cloudinaryConfigError = "Cloudinary environment variables for screenshot upload are not fully set (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET).";
+  console.error(`Critical: ${cloudinaryConfigError}`);
+}
+
+// --- Airtable Configuration ---
+const airtableApiKey = process.env.AIRTABLE_API_KEY;
+const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
+
+let isAirtableConfigured = false;
+let airtableConfigErrorMsg: string | null = null; // Renamed to avoid conflict
+let airtableBase: Airtable.Base | null = null;
+
+if (airtableApiKey && airtableBaseId && airtableTableName) {
+    try {
+        airtableBase = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+        isAirtableConfigured = true;
+    } catch (error: any) {
+        airtableConfigErrorMsg = `Error during Airtable SDK configuration: ${error.message || JSON.stringify(error)}`;
+        console.error(`Critical: ${airtableConfigErrorMsg}`);
+    }
+} else {
+    airtableConfigErrorMsg = "Airtable environment variables (AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME) are not fully set.";
+    console.error(`Critical: ${airtableConfigErrorMsg}`);
+}
+
 
 export async function POST(req: NextRequest) {
+  if (!isCloudinaryConfigured) {
+    const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured for screenshot uploads.';
+    console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
+    return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
+  }
+
+  if (!isAirtableConfigured || !airtableBase) {
+    const serverConfigErrorMessage = airtableConfigErrorMsg || 'Airtable is not configured for screenshot uploads.';
+    console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
+    return NextResponse.json({ error: 'Database (Airtable) not configured for screenshots. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
+      return NextResponse.json({ error: 'No file provided for screenshot upload.' }, { status: 400 });
     }
     if (!bookingId) {
-      return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
+      return NextResponse.json({ error: 'Booking ID is required for screenshot upload.' }, { status: 400 });
     }
 
-    // --- Airtable Upload Logic (To Be Implemented by User) ---
-    // 1. Configure Airtable base
-    //    const apiKey = process.env.AIRTABLE_API_KEY;
-    //    const baseId = process.env.AIRTABLE_BASE_ID;
-    //    const tableName = process.env.AIRTABLE_TABLE_NAME; // Should be your 'Screenshots' table
-    //
-    //    if (!apiKey || !baseId || !tableName) {
-    //      console.error('Airtable environment variables for screenshot upload are not fully set.');
-    //      return NextResponse.json({ error: 'Airtable configuration is missing on the server for screenshots.' }, { status: 500 });
-    //    }
-    //    const base = new Airtable({ apiKey }).base(baseId);
+    // 1. Upload to Cloudinary
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    // 2. Convert file to buffer or data URL if needed by Airtable SDK for attachments
-    //    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any }>((resolve, reject) => {
+      cloudinary.uploader.upload_stream(
+        {
+          folder: 'payment_screenshots', 
+          resource_type: 'image',
+          access_mode: 'public',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary upload_stream error for payment screenshot:', JSON.stringify(error, null, 2));
+            reject({ error });
+          } else {
+            resolve({ secure_url: result?.secure_url, public_id: result?.public_id });
+          }
+        }
+      ).end(buffer);
+    });
 
-    // 3. Find the relevant booking record (or create a new one in 'Screenshots' table)
-    //    You might need to query your existing bookings table or the 'Screenshots' table
-    //    to find where to attach this screenshot.
-    //    For example, if 'Screenshots' table has a field linking to 'bookingId':
-    //
-    //    const records = await base(tableName).select({
-    //      filterByFormula: `{Booking ID} = "${bookingId}"`, // Adjust field name as per your Airtable
-    //      maxRecords: 1
-    //    }).firstPage();
-    //
-    //    let recordIdToUpdate;
-    //    if (records && records.length > 0) {
-    //        recordIdToUpdate = records[0].id;
-    //    } else {
-    //        // Optionally create a new record if one doesn't exist for this bookingId
-    //        const createdRecord = await base(tableName).create([{
-    //            fields: {
-    //                "Booking ID": bookingId, // Adjust field name
-    //                // ... other fields for the new screenshot record
-    //            }
-    //        }]);
-    //        recordIdToUpdate = createdRecord[0].id;
-    //    }
+    if (cloudinaryUploadResult.error || !cloudinaryUploadResult.secure_url) {
+      const details = cloudinaryUploadResult.error?.error?.message || cloudinaryUploadResult.error?.message || 'Cloudinary upload failed or did not return a URL.';
+      console.error('Failed to upload payment screenshot to Cloudinary:', details, 'Full error object:', JSON.stringify(cloudinaryUploadResult.error, null, 2));
+      return NextResponse.json({ error: 'Failed to upload screenshot to image server.', details }, { status: 500 });
+    }
 
-    // 4. Upload the file as an attachment to the Airtable record
-    //    if (recordIdToUpdate) {
-    //        await base(tableName).update(recordIdToUpdate, {
-    //            "Payment Screenshot": [ // Adjust field name for your attachment field
-    //                {
-    //                    filename: file.name,
-    //                    // url: 'DIRECT_UPLOAD_TO_AIRTABLE_CDN_NOT_TYPICALLY_DONE_THIS_WAY'
-    //                    // For Airtable attachments, you usually provide the file content or a public URL
-    //                    // if you've uploaded it elsewhere first.
-    //                    // The 'airtable' JS client might handle Buffers directly or require specific formats.
-    //                    // Consult Airtable JS client documentation for attaching local files/buffers.
-    //                    // One common pattern is to upload to a service like Cloudinary first,
-    //                    // then link the Cloudinary URL in Airtable. But if Airtable's API supports direct
-    //                    // upload of the file buffer via their SDK, use that.
-    //                    // This part needs careful implementation based on Airtable's API capabilities for attachments.
-    //                }
-    //            ]
-    //        });
-    //    } else {
-    //        throw new Error("Could not find or create a record in Airtable for this booking ID.");
-    //    }
+    const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
-    // For now, returning a placeholder success response.
-    // Replace this with actual Airtable upload logic and response.
-    console.log(`Received payment screenshot for booking ID: ${bookingId}, File: ${file.name}`);
-    const airtableRecordUrl = `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_NAME}/some-record-id-placeholder`; // Placeholder
+    // 2. Create Airtable record with the Cloudinary URL
+    // Adjust field names "Booking ID", "Screenshot", "Original Filename", "Uploaded At" if your Airtable table uses different names.
+    const airtableRecordFields = {
+      "Booking ID": bookingId,
+      "Screenshot": [{ url: cloudinaryUrl }], // For Airtable "Attachment" field type
+      "Original Filename": file.name,
+      "Uploaded At": new Date().toISOString(),
+    };
+
+    const createdRecords = await airtableBase(airtableTableName).create([
+      { fields: airtableRecordFields }
+    ]);
+
+    if (!createdRecords || createdRecords.length === 0) {
+        console.error('Failed to create record in Airtable for screenshot. Booking ID:', bookingId, 'Cloudinary URL:', cloudinaryUrl);
+        return NextResponse.json({ error: 'Failed to save screenshot information to Airtable database after successful image upload.' }, { status: 500 });
+    }
+    
+    const airtableRecordId = createdRecords[0].id;
 
     return NextResponse.json({
-      message: "File received by server. Airtable upload logic needs implementation.",
+      message: "Payment screenshot uploaded and linked in Airtable successfully.",
       fileName: file.name,
       bookingId: bookingId,
-      // airtableRecordUrl: airtableRecordUrl, // Uncomment and use actual URL after upload
+      cloudinaryUrl: cloudinaryUrl,
+      airtableRecordId: airtableRecordId,
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Error processing payment screenshot upload:', error);
-    return NextResponse.json({ error: 'Failed to process screenshot upload on server.', details: error.message }, { status: 500 });
+    console.error('Error processing payment screenshot upload to Airtable API route:', error);
+    let errorMessage = 'Failed to process screenshot upload on server.';
+    if (error.message) errorMessage = error.message;
+    else if (error.error && typeof error.error === 'object' && error.error.message) errorMessage = error.error.message;
+    else if (typeof error.error === 'string') errorMessage = error.error;
+    
+    return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
 }
 
-// Optional: Add a GET handler if you want to test the route endpoint presence
-export async function GET() {
-  return NextResponse.json({ message: 'Payment screenshot upload API route is active. Use POST method to upload files.' });
+export async function GET(req: NextRequest) {
+  return NextResponse.json({ message: 'Payment screenshot upload API route (Airtable integration) is active. Use POST method to upload files.' });
 }
-    
