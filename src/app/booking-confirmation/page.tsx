@@ -119,23 +119,28 @@ function BookingConfirmationContent() {
 
       if (!response.ok) {
         const contentType = response.headers.get("content-type");
-        let errorData;
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-          errorData = await response.json();
-        } else {
-          // If not JSON, it might be HTML (like a 404 page or server error page)
-          const textResponse = await response.text();
-          if (textResponse.toLowerCase().includes("<!doctype html>")) {
-             throw new Error(t('apiReturnedHtmlError'));
+        let errorDetailMessage;
+        if (contentType && contentType.includes("application/json")) {
+          try {
+            const errorData = await response.json();
+            errorDetailMessage = errorData.error || errorData.details || t('uploadApiJsonErrorNoDetails', { status: response.status });
+          } catch (jsonError) {
+            console.error("Failed to parse JSON error response:", jsonError);
+            errorDetailMessage = t('uploadApiJsonErrorNoDetails', { status: response.status });
           }
-          throw new Error(t('uploadApiNonJsonError', { statusText: response.statusText || 'Unknown error' }));
+        } else {
+          const textResponse = await response.text();
+          console.error("Raw non-JSON error response from server for /api/upload-payment-screenshot-to-airtable:", textResponse);
+          if (textResponse.toLowerCase().includes("<!doctype html>")) {
+             errorDetailMessage = t('apiReturnedHtmlError');
+          } else {
+             errorDetailMessage = t('uploadApiNonJsonError', { statusText: response.statusText || `Status ${response.status}` });
+          }
         }
-        throw new Error(errorData.error || errorData.details || t('failedToUploadScreenshotAirtable'));
+        throw new Error(errorDetailMessage);
       }
 
-      // Only attempt to parse as JSON if response.ok is true and content type is expected
-      const result = await response.json();
-
+      const result = await response.json(); // Assuming success means JSON response with details
       toast({ title: t('success'), description: t('paymentScreenshotUploadedSuccessfullyAirtable') });
       setSelectedFile(null);
       if (fileInputRef.current) {
@@ -330,5 +335,4 @@ export default function BookingConfirmationPage() {
     </PublicLayout>
   );
 }
-
     
