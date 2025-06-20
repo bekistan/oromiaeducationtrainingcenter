@@ -40,7 +40,7 @@ const airtableBaseId = process.env.AIRTABLE_BASE_ID;
 const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
 let isAirtableConfigured = false;
-let airtableConfigErrorMsg: string | null = null; // Renamed to avoid conflict
+let airtableConfigErrorMsg: string | null = null;
 let airtableBase: Airtable.Base | null = null;
 
 if (airtableApiKey && airtableBaseId && airtableTableName) {
@@ -113,12 +113,14 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
     // 2. Create Airtable record with the Cloudinary URL
-    // Adjust field names "Booking ID", "Screenshot", "Original Filename", "Uploaded At" if your Airtable table uses different names.
+    // Ensure the field names here EXACTLY match your Airtable table's field names.
+    // Especially check "Booking ID". If your Airtable field is named differently (e.g., "booking_id"),
+    // you MUST change it here.
     const airtableRecordFields = {
-      "Booking ID": bookingId,
+      "Booking ID": bookingId, // THIS IS THE CRITICAL FIELD NAME TO CHECK
       "Screenshot": [{ url: cloudinaryUrl }], // For Airtable "Attachment" field type
       "Original Filename": file.name,
-      "Uploaded At": new Date().toISOString(),
+      "Uploaded At": new Date().toISOString(), // Ensure "Uploaded At" is a Date field in Airtable
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
@@ -143,9 +145,14 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('Error processing payment screenshot upload to Airtable API route:', error);
     let errorMessage = 'Failed to process screenshot upload on server.';
-    if (error.message) errorMessage = error.message;
-    else if (error.error && typeof error.error === 'object' && error.error.message) errorMessage = error.error.message;
-    else if (typeof error.error === 'string') errorMessage = error.error;
+    // Attempt to extract a more specific error message from Airtable or Cloudinary errors
+    if (error.message) {
+        errorMessage = error.message;
+    } else if (error.error && typeof error.error === 'object' && error.error.message) {
+        errorMessage = error.error.message;
+    } else if (typeof error.error === 'string') {
+        errorMessage = error.error;
+    }
     
     return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
