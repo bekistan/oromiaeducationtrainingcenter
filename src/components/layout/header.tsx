@@ -30,6 +30,17 @@ export function Header() {
 
   const isCompanyRep = user?.role === 'company_representative';
   const isAdminOrSuper = user?.role === 'admin' || user?.role === 'superadmin';
+  const isKeyholder = user?.role === 'keyholder';
+
+  // Determine the correct dashboard path based on user role
+  let dashboardPath: string | null = null;
+  if (isAdminOrSuper) {
+    dashboardPath = '/admin/dashboard';
+  } else if (isCompanyRep && user?.approvalStatus === 'approved') {
+    dashboardPath = '/company/dashboard';
+  } else if (isKeyholder) {
+    dashboardPath = '/keyholder/dashboard';
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,12 +63,13 @@ export function Header() {
               </Link>
             );
           })}
-           {isCompanyRep && user.approvalStatus === 'approved' && !pathname.startsWith('/company/dashboard') && (
+           {/* Unified Dashboard Link */}
+           {dashboardPath && !pathname.startsWith(dashboardPath) && (
             <Link
-              href="/company/dashboard"
+              href={dashboardPath}
               className={cn(
                 "transition-colors hover:text-foreground/80",
-                 pathname.startsWith("/company/dashboard") ? "text-primary font-semibold" : "text-foreground/70"
+                 pathname.startsWith(dashboardPath) ? "text-primary font-semibold" : "text-foreground/70"
               )}
             >
               <LayoutDashboard className="mr-1 h-4 w-4 inline-block" />{t('dashboard')}
@@ -92,23 +104,16 @@ export function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {isAdminOrSuper && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/admin/dashboard">
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      <span>{t('adminDashboard')}</span>
-                    </Link>
-                  </DropdownMenuItem>
-                )}
-                {isCompanyRep && user.approvalStatus === 'approved' && (
-                  <DropdownMenuItem asChild>
-                    <Link href="/company/dashboard">
+                {/* Unified Dashboard link in dropdown */}
+                {dashboardPath && (
+                   <DropdownMenuItem asChild>
+                    <Link href={dashboardPath}>
                       <LayoutDashboard className="mr-2 h-4 w-4" />
                       <span>{t('dashboard')}</span>
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {(isAdminOrSuper || (isCompanyRep && user.approvalStatus === 'approved')) && <DropdownMenuSeparator />}
+                {dashboardPath && <DropdownMenuSeparator />}
                 <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                   <LogOutIcon className="mr-2 h-4 w-4" />
                   <span>{t('logout')}</span>
@@ -153,12 +158,13 @@ export function Header() {
                     </Link>
                   );
                 })}
-                {isCompanyRep && user?.approvalStatus === 'approved' && (
+                {/* Unified Dashboard link in mobile sheet */}
+                {dashboardPath && (
                   <Link 
-                    href="/company/dashboard" 
+                    href={dashboardPath} 
                     className={cn(
-                        "transition-colors hover:text-foreground/80 text-sm", // Reduced text-lg to text-sm
-                        pathname.startsWith("/company/dashboard") ? "text-primary font-semibold" : "text-foreground/70"
+                        "transition-colors hover:text-foreground/80 text-sm",
+                        pathname.startsWith(dashboardPath) ? "text-primary font-semibold" : "text-foreground/70"
                     )}>
                       <LayoutDashboard className="mr-2 h-5 w-5 inline-block" />{t('dashboard')}
                   </Link>
