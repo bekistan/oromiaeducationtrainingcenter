@@ -97,6 +97,8 @@ export interface Booking {
   // payerBankName?: string; 
   // payerAccountNumber?: string;
   phone?: string;
+  paymentScreenshotUrl?: string; // For admin verification
+  paymentScreenshotAirtableRecordId?: string; // For admin verification
   // Facility specific
   companyName?: string;
   contactPerson?: string;

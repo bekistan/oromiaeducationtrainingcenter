@@ -303,6 +303,7 @@ export default function AdminManageDormitoryBookingsPage() {
                       <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
                       <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
                       <TableHead>{t('itemsBooked')}</TableHead>
+                      <TableHead>{t('paymentProof')}</TableHead>
                       <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
                       <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                       <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
@@ -339,6 +340,23 @@ export default function AdminManageDormitoryBookingsPage() {
                             );
                           })}
                           ({booking.items.length})
+                        </TableCell>
+                        <TableCell>
+                          {booking.paymentScreenshotUrl ? (
+                              <a href={booking.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" title={t('viewPaymentProof')}>
+                                  <Image
+                                      src={booking.paymentScreenshotUrl}
+                                      alt={t('paymentProofForBooking', { bookingId: booking.id })}
+                                      width={50}
+                                      height={50}
+                                      className="rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  />
+                              </a>
+                          ) : (
+                              (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') 
+                              ? <span className="text-xs text-muted-foreground italic">{t('notProvided')}</span>
+                              : <span className="text-xs text-muted-foreground italic">{t('notApplicableShort')}</span>
+                          )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
@@ -438,10 +456,3 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
-    
-
-    
-
-    
-
-    

@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // --- Cloudinary Configuration ---
 let isCloudinaryConfigured = false;
@@ -113,15 +115,10 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
 
     // 2. Create Airtable record with the Cloudinary URL
-    // Ensure your Airtable field names exactly match these keys.
-    // The "Uploaded At" field in Airtable should be of type "Created Time"
-    // so Airtable automatically sets the timestamp.
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
-      // "Uploaded At" field is intentionally omitted here.
-      // Airtable will populate it if the field type is "Created Time".
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
@@ -134,6 +131,25 @@ export async function POST(req: NextRequest) {
     }
     
     const airtableRecordId = createdRecords[0].id;
+    
+    // 3. Update the Firestore booking document with the screenshot URL and new status
+    try {
+        const bookingRef = doc(db, "bookings", bookingId);
+        await updateDoc(bookingRef, {
+            paymentScreenshotUrl: cloudinaryUrl,
+            paymentScreenshotAirtableRecordId: airtableRecordId,
+            paymentStatus: 'awaiting_verification', // Update status to show it's ready for verification
+        });
+    } catch (firestoreError) {
+        console.error('Failed to update Firestore booking document:', firestoreError);
+        // This is tricky. The file is in Cloudinary/Airtable but not linked in Firebase.
+        // For now, we'll return an error to the user so they know something went wrong.
+        // A more robust solution might involve a cleanup function or a retry mechanism.
+        return NextResponse.json({
+            error: 'screenshotUploadedButLinkFailed',
+        }, { status: 500 });
+    }
+
 
     return NextResponse.json({
       message: "Payment screenshot uploaded and linked in Airtable successfully.",
@@ -161,5 +177,3 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return NextResponse.json({ message: 'Payment screenshot upload API route (Airtable integration) is active. Use POST method to upload files.' });
 }
-
-    
