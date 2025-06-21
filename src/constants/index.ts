@@ -30,7 +30,7 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
-  { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+  { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin', 'admin'], generalAdminOnly: true }, 
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
   { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['superadmin'] }, 
@@ -41,6 +41,7 @@ export const ADMIN_NAVS: NavItem[] = [
 export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'keyholderDashboard', href: '/keyholder/dashboard', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
+  { labelKey: 'reports', href: '/keyholder/reports', authRequired: true, roles: ['keyholder'] },
 ];
 
 

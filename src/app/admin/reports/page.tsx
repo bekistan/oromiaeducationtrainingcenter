@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
@@ -11,8 +11,8 @@ import { Download, FileSpreadsheet, FileText, CalendarDays, Printer, Loader2, Ba
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer } from 'firebase/firestore';
-import type { Booking, User as AppUserType } from '@/types';
+import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer, doc, documentId } from 'firebase/firestore';
+import type { Booking, User as AppUserType, Dormitory } from '@/types';
 import { formatDualDate, formatDateForDisplay } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
@@ -65,18 +65,36 @@ export default function AdminReportsPage() {
     return csvRows.join('\r\n');
   };
 
+  const getBuildingDormIds = async (buildingName: string): Promise<string[]> => {
+      const dormsQuery = query(collection(db, "dormitories"), where("buildingName", "==", buildingName));
+      const dormsSnapshot = await getDocs(dormsQuery);
+      return dormsSnapshot.docs.map(doc => doc.id);
+  }
 
-  const generateUserDormReport = async (range?: DateRange): Promise<ReportOutput> => {
+
+  const generateUserDormReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
-    const q = query(
+    
+    let baseQuery = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "dormitory"),
       where("startDate", ">=", Timestamp.fromDate(range.from)),
       where("startDate", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))), 
       orderBy("startDate", "desc")
     );
-    const snapshot = await getDocs(q);
-    const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+
+    const snapshot = await getDocs(baseQuery);
+    let bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+
+    if (currentUser.role === 'admin' && currentUser.buildingAssignment) {
+        const buildingDormIds = await getBuildingDormIds(currentUser.buildingAssignment);
+        if (buildingDormIds.length > 0) {
+            bookings = bookings.filter(b => b.items.some(item => buildingDormIds.includes(item.id)));
+        } else {
+            bookings = [];
+        }
+    }
+
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8), 
       [t('guestName')]: b.guestName || t('notAvailable'), 
@@ -94,7 +112,7 @@ export default function AdminReportsPage() {
     };
   };
 
-  const generateFinancialSummary = async (range?: DateRange): Promise<ReportOutput> => {
+  const generateFinancialSummary = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
      const q = query(
       collection(db, "bookings"),
@@ -103,16 +121,28 @@ export default function AdminReportsPage() {
       where("bookedAt", "<=", Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)))) 
     );
     const snapshot = await getDocs(q);
+    let bookingsForReport = snapshot.docs.map(doc => doc.data() as Booking);
+
+    if (currentUser.role === 'admin' && currentUser.buildingAssignment) {
+        const buildingDormIds = await getBuildingDormIds(currentUser.buildingAssignment);
+        if (buildingDormIds.length > 0) {
+             bookingsForReport = bookingsForReport.filter(b => b.bookingCategory === 'dormitory' && b.items.some(item => buildingDormIds.includes(item.id)));
+        } else {
+            bookingsForReport = [];
+        }
+    }
+
     let totalRevenue = 0;
-    snapshot.docs.forEach(doc => {
-      totalRevenue += (doc.data() as Booking).totalCost;
+    bookingsForReport.forEach(booking => {
+      totalRevenue += booking.totalCost;
     });
+
     const summaryText = `
-${t('financialSummaryReport')}
+${t('financialSummaryReport')} (${currentUser.role === 'admin' && currentUser.buildingAssignment ? currentUser.buildingAssignment : t('allBuildings')})
 ---------------------------------
 ${t('period')}: ${formatDateForDisplay(range.from, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD')} - ${formatDateForDisplay(range.to, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD')}
 ${t('totalRevenue')}: ${totalRevenue.toLocaleString()} ${t('currencySymbol')}
-${t('bookingsCount')}: ${snapshot.size}
+${t('bookingsCount')}: ${bookingsForReport.length}
     `;
     return {
       filename: `${t('financialSummaryReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.txt`,
@@ -121,7 +151,7 @@ ${t('bookingsCount')}: ${snapshot.size}
     };
   };
   
-  const generateHallUtilizationReport = async (range?: DateRange): Promise<ReportOutput> => {
+  const generateHallUtilizationReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const q = query(
       collection(db, "bookings"),
@@ -149,7 +179,7 @@ ${t('bookingsCount')}: ${snapshot.size}
     };
   };
 
-  const generateOccupancyAnalytics = async (range?: DateRange): Promise<ReportOutput> => {
+  const generateOccupancyAnalytics = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const startTimestamp = Timestamp.fromDate(range.from);
     const endTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
@@ -170,7 +200,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     };
   };
 
-  const generatePeriodicBookingsReport = async (category: 'dormitory' | 'facility', periodTitleKey: string, range?: DateRange): Promise<ReportOutput> => {
+  const generatePeriodicBookingsReport = async (currentUser: AppUserType, category: 'dormitory' | 'facility', periodTitleKey: string, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const q = query(
       collection(db, "bookings"),
@@ -181,7 +211,17 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
       limit(100) 
     );
     const snapshot = await getDocs(q);
-    const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+    let bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+
+     if (currentUser.role === 'admin' && currentUser.buildingAssignment && category === 'dormitory') {
+        const buildingDormIds = await getBuildingDormIds(currentUser.buildingAssignment);
+        if (buildingDormIds.length > 0) {
+            bookings = bookings.filter(b => b.items.some(item => buildingDormIds.includes(item.id)));
+        } else {
+            bookings = [];
+        }
+    }
+
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
       [category === 'dormitory' ? t('guestName') : t('companyName')]: category === 'dormitory' ? b.guestName : b.companyName || t('notAvailable'), 
@@ -198,7 +238,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     };
   };
 
-  const generateCompanyRegistrationReport = async (range?: DateRange): Promise<ReportOutput> => {
+  const generateCompanyRegistrationReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const companiesQuery = query(
       collection(db, "users"), 
@@ -224,7 +264,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     };
   };
   
-  const generateOverallCompanyStatsReport = async (): Promise<ReportOutput> => {
+  const generateOverallCompanyStatsReport = async (currentUser: AppUserType): Promise<ReportOutput> => {
     const companiesQuery = query(collection(db, "users"), where("role", "==", "company_representative"));
     const snapshot = await getDocs(companiesQuery);
     const companies = snapshot.docs.map(doc => doc.data() as AppUserType);
@@ -253,7 +293,11 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
   };
 
 
-  const handleGenerateReport = useCallback(async (reportFn: () => Promise<ReportOutput>, reportId: string) => {
+  const handleGenerateReport = useCallback(async (reportFn: (user: AppUserType) => Promise<ReportOutput>, reportId: string) => {
+    if (!user) {
+      toast({ variant: "destructive", title: t('error'), description: t('userNotAuthenticated')});
+      return;
+    }
     if (!dateRange?.from || !dateRange?.to) {
         if (reportId !== 'overall_company_stats') { 
             toast({ variant: "destructive", title: t('error'), description: t('selectDateRangeFirst') });
@@ -263,7 +307,7 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
     setIsLoadingReport(true);
     setCurrentGeneratingReportId(reportId);
     try {
-      const output = await reportFn();
+      const output = await reportFn(user);
       downloadFile(output);
       toast({ title: t('reportGeneratedSuccess'), description: t('downloadShouldStart')});
     } catch (error: any) {
@@ -277,45 +321,34 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
       setIsLoadingReport(false);
       setCurrentGeneratingReportId(null);
     }
-  }, [dateRange, t, toast, preferredCalendarSystem]);
+  }, [dateRange, t, toast, user, preferredCalendarSystem]);
 
 
   const generalReportTypes = [
-    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: () => handleGenerateReport(() => generateUserDormReport(dateRange), "user_dorm_report") },
-    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: () => handleGenerateReport(() => generateFinancialSummary(dateRange), "financial_summary") },
-    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <Building className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: () => handleGenerateReport(() => generateHallUtilizationReport(dateRange), "hall_utilization") },
-    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <BarChart3 className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: () => handleGenerateReport(() => generateOccupancyAnalytics(dateRange), "occupancy_analytics") },
-    { id: "company_registration", nameKey: "companyRegistrationReport", icon: <Users className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: () => handleGenerateReport(() => generateCompanyRegistrationReport(dateRange), "company_registration") },
-    { id: "overall_company_stats", nameKey: "overallCompanyStatsReport", icon: <Users className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: () => handleGenerateReport(generateOverallCompanyStatsReport, "overall_company_stats") },
+    { id: "user_dorm_report", nameKey: "userDormReport", icon: <FileSpreadsheet className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateUserDormReport(currentUser, dateRange), "user_dorm_report"), generalAdminOnly: false },
+    { id: "financial_summary", nameKey: "financialSummaryReport", icon: <FileText className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateFinancialSummary(currentUser, dateRange), "financial_summary"), generalAdminOnly: false },
+    { id: "hall_utilization", nameKey: "hallUtilizationReport", icon: <Building className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateHallUtilizationReport(currentUser, dateRange), "hall_utilization"), generalAdminOnly: true },
+    { id: "occupancy_analytics", nameKey: "occupancyAnalyticsReport", icon: <BarChart3 className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateOccupancyAnalytics(currentUser, dateRange), "occupancy_analytics"), generalAdminOnly: true },
+    { id: "company_registration", nameKey: "companyRegistrationReport", icon: <Users className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateCompanyRegistrationReport(currentUser, dateRange), "company_registration"), generalAdminOnly: true },
+    { id: "overall_company_stats", nameKey: "overallCompanyStatsReport", icon: <Users className="h-8 w-8 text-primary" />, format: t('downloadTxt'), action: (currentUser: AppUserType) => handleGenerateReport(() => generateOverallCompanyStatsReport(currentUser), "overall_company_stats"), generalAdminOnly: true },
   ];
 
   const periodicBookingReportTypes = [
-    { id: "daily_dorm_bookings", nameKey: "dailyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "daily_dorm_bookings") },
-    { id: "weekly_dorm_bookings", nameKey: "weeklyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "weekly_dorm_bookings") },
-    { id: "monthly_dorm_bookings", nameKey: "monthlyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "monthly_dorm_bookings") },
-    { id: "daily_facility_bookings", nameKey: "dailyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "daily_facility_bookings") },
-    { id: "weekly_facility_bookings", nameKey: "weeklyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "weekly_facility_bookings") },
-    { id: "monthly_facility_bookings", nameKey: "monthlyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(cat, titleKey, dateRange), "monthly_facility_bookings") },
+    { id: "daily_dorm_bookings", nameKey: "dailyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "daily_dorm_bookings"), generalAdminOnly: false },
+    { id: "weekly_dorm_bookings", nameKey: "weeklyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "weekly_dorm_bookings"), generalAdminOnly: false },
+    { id: "monthly_dorm_bookings", nameKey: "monthlyDormBookingsReport", category: "dormitory", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "monthly_dorm_bookings"), generalAdminOnly: false },
+    { id: "daily_facility_bookings", nameKey: "dailyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "daily_facility_bookings"), generalAdminOnly: true },
+    { id: "weekly_facility_bookings", nameKey: "weeklyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "weekly_facility_bookings"), generalAdminOnly: true },
+    { id: "monthly_facility_bookings", nameKey: "monthlyFacilityBookingsReport", category: "facility", icon: <CalendarDays className="h-8 w-8 text-primary" />, format: t('downloadCsv'), action: (currentUser: AppUserType, cat: 'dormitory' | 'facility', titleKey: string) => handleGenerateReport(() => generatePeriodicBookingsReport(currentUser, cat, titleKey, dateRange), "monthly_facility_bookings"), generalAdminOnly: true },
   ];
 
   if (authLoading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
+  
+  const isBuildingAdmin = user?.role === 'admin' && !!user.buildingAssignment;
 
-  if (user?.role === 'admin' && user.buildingAssignment) {
-    return (
-      <Card className="w-full max-w-md mx-auto my-8">
-        <CardHeader>
-          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>{t('buildingAdminAccessReportsDenied')}</p>
-          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
-        </CardContent>
-      </Card>
-    );
-  }
-   if (user?.role !== 'superadmin' && !(user?.role === 'admin' && !user.buildingAssignment)) {
+  if (user?.role !== 'superadmin' && !user?.role === 'admin') {
      return (
       <Card className="w-full max-w-md mx-auto my-8">
         <CardHeader>
@@ -351,22 +384,24 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {generalReportTypes.map(report => (
-            <Card key={report.id} className="shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium">{t(report.nameKey)}</CardTitle>
-                {report.icon}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {t('format')}: {report.format}
-                </p>
-                <Button className="w-full" onClick={report.action} 
-                        disabled={isLoadingReport || (report.id !== 'overall_company_stats' && (!dateRange?.from || !dateRange?.to))}>
-                  {isLoadingReport && currentGeneratingReportId === report.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  {isLoadingReport && currentGeneratingReportId === report.id ? t('generatingReport') : t('generateReport')}
-                </Button>
-              </CardContent>
-            </Card>
+            (!isBuildingAdmin || !report.generalAdminOnly) && (
+                <Card key={report.id} className="shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-lg font-medium">{t(report.nameKey)}</CardTitle>
+                    {report.icon}
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                    {t('format')}: {report.format}
+                    </p>
+                    <Button className="w-full" onClick={() => user && report.action(user)} 
+                            disabled={isLoadingReport || (report.id !== 'overall_company_stats' && (!dateRange?.from || !dateRange?.to))}>
+                    {isLoadingReport && currentGeneratingReportId === report.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    {isLoadingReport && currentGeneratingReportId === report.id ? t('generatingReport') : t('generateReport')}
+                    </Button>
+                </CardContent>
+                </Card>
+            )
           ))}
         </CardContent>
       </Card>
@@ -378,27 +413,27 @@ ${t('reportGeneratedOn')}: ${formatDateForDisplay(new Date(), preferredCalendarS
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {periodicBookingReportTypes.map(report => (
-            <Card key={report.id} className="shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium">{t(report.nameKey)}</CardTitle>
-                 {report.icon}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {t('format')}: {report.format}
-                </p>
-                 <Button className="w-full" onClick={() => report.action(report.category as 'dormitory' | 'facility', report.nameKey)} 
-                        disabled={isLoadingReport || (!dateRange?.from || !dateRange?.to)}>
-                  {isLoadingReport && currentGeneratingReportId === report.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  {isLoadingReport && currentGeneratingReportId === report.id ? t('generatingReport') : t('generateReport')}
-                </Button>
-              </CardContent>
-            </Card>
+             (!isBuildingAdmin || !report.generalAdminOnly) && (
+                <Card key={report.id} className="shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-lg font-medium">{t(report.nameKey)}</CardTitle>
+                    {report.icon}
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                    {t('format')}: {report.format}
+                    </p>
+                    <Button className="w-full" onClick={() => user && report.action(user, report.category as 'dormitory' | 'facility', report.nameKey)} 
+                            disabled={isLoadingReport || (!dateRange?.from || !dateRange?.to)}>
+                    {isLoadingReport && currentGeneratingReportId === report.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    {isLoadingReport && currentGeneratingReportId === report.id ? t('generatingReport') : t('generateReport')}
+                    </Button>
+                </CardContent>
+                </Card>
+             )
           ))}
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    

@@ -304,11 +304,18 @@ export default function CompanyDashboardPage() {
                 <h1 className="text-3xl font-bold text-primary">{t('companyDashboardTitle')}</h1>
                 <p className="text-muted-foreground">{t('welcomeBack')}, {user.companyName || user.name}!</p>
             </div>
-            <Link href="/halls" passHref>
-                 <Button variant="outline">
-                    <Building className="mr-2 h-4 w-4" /> {t('bookNewFacility')}
-                 </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+                <Link href="/company/reports" passHref>
+                    <Button variant="outline">
+                        <FileText className="mr-2 h-4 w-4" /> {t('viewReports')}
+                    </Button>
+                </Link>
+                <Link href="/halls" passHref>
+                    <Button variant="outline">
+                        <Building className="mr-2 h-4 w-4" /> {t('bookNewFacility')}
+                    </Button>
+                </Link>
+            </div>
         </div>
         
         <Card>
@@ -452,4 +459,3 @@ export default function CompanyDashboardPage() {
     </PublicLayout>
   );
 }
-    

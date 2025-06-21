@@ -26,6 +26,7 @@ const ICONS: Record<string, LucideIcon> = {
   keyholderDashboard: LayoutDashboard,
   assignKeys: KeyRound,
   dailyReports: FileText,
+  reports: FileText,
 };
 
 export function KeyholderSidebarNav() {

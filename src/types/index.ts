@@ -168,4 +168,3 @@ export interface AdminNotification {
     createdAt: import('firebase/firestore').Timestamp | Date | string;
     link?: string; 
 }
-    
