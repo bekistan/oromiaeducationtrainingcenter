@@ -64,7 +64,14 @@ export function AdminSidebarNav() {
           <SidebarGroupLabel className="sr-only">{t('adminNavigation')}</SidebarGroupLabel>
             {ADMIN_NAVS.filter(item => {
               if (!item.roles || item.roles.length === 0) return true; 
-              return item.roles.includes(user?.role as never); 
+              if (!user || !item.roles.includes(user.role)) return false; 
+
+              // If user is an admin with a building assignment, hide generalAdminOnly items
+              if (user.role === 'admin' && user.buildingAssignment && item.generalAdminOnly) {
+                  return false;
+              }
+              
+              return true;
             }).map((item) => {
               const Icon = ICONS[item.labelKey] || LayoutDashboard; 
               return (

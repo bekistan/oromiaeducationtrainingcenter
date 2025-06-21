@@ -153,6 +153,7 @@ export interface NavItem {
   adminOnly?: boolean;
   authRequired?: boolean;
   roles?: User['role'][];
+  generalAdminOnly?: boolean;
 }
 
 export type NotificationType = 'new_facility_booking' | 'new_dormitory_booking' | 'company_registration' | 'payment_verification_needed';
