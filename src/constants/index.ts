@@ -31,7 +31,7 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
-  { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin'] }, 
+  { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin', 'admin'], generalAdminOnly: true }, 
   { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
   { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['superadmin'] }, 
   { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 

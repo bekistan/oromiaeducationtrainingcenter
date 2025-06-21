@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -61,10 +61,17 @@ export default function FinancialManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  const canAccessPage = useMemo(() => {
+    if (!user) return false;
+    if (user.role === 'superadmin') return true;
+    if (user.role === 'admin' && !user.buildingAssignment) return true;
+    return false;
+  }, [user]);
+
   const { data: currentPricingSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery<PricingSettings, Error>({
     queryKey: [PRICING_SETTINGS_QUERY_KEY],
     queryFn: fetchPricingSettings,
-    enabled: !authLoading && (user?.role === 'superadmin'), 
+    enabled: !authLoading && canAccessPage, 
   });
 
   const form = useForm<PricingSettingsFormValues>({
@@ -106,21 +113,21 @@ export default function FinancialManagementPage() {
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  if (user?.role !== 'superadmin') {
+  if (!canAccessPage) {
     return (
          <Card className="w-full max-w-md mx-auto my-8">
             <CardHeader>
                 <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
             </CardHeader>
             <CardContent>
-                <p>{t('superAdminOnlyPage')}</p>
+                <p>{t('financialsAccessRestricted')}</p>
                  <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
             </CardContent>
          </Card>
     );
   }
   
-  if (isLoadingSettings && user?.role === 'superadmin') {
+  if (isLoadingSettings && canAccessPage) {
      return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
