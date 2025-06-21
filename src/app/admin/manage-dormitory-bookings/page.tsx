@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Dormitory, KeyStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock, FileImage } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -343,15 +344,34 @@ export default function AdminManageDormitoryBookingsPage() {
                         </TableCell>
                         <TableCell>
                           {booking.paymentScreenshotUrl ? (
-                              <a href={booking.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" title={t('viewPaymentProof')}>
-                                  <Image
-                                      src={booking.paymentScreenshotUrl}
-                                      alt={t('paymentProofForBooking', { bookingId: booking.id })}
-                                      width={50}
-                                      height={50}
-                                      className="rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                                  />
-                              </a>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                    <Image
+                                        src={booking.paymentScreenshotUrl}
+                                        alt={t('paymentProofForBooking', { bookingId: booking.id })}
+                                        width={50}
+                                        height={50}
+                                        className="rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                    />
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="flex items-center">
+                                            <FileImage className="mr-2 h-5 w-5" />
+                                            {t('paymentProofForBooking', { bookingId: booking.id.substring(0, 8) })}
+                                        </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="mt-4">
+                                        <Image
+                                            src={booking.paymentScreenshotUrl}
+                                            alt={t('paymentProofForBooking', { bookingId: booking.id })}
+                                            width={800}
+                                            height={600}
+                                            className="rounded-lg object-contain w-full h-auto max-h-[70vh]"
+                                        />
+                                    </div>
+                                </DialogContent>
+                              </Dialog>
                           ) : (
                               (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') 
                               ? <span className="text-xs text-muted-foreground italic">{t('notProvided')}</span>
