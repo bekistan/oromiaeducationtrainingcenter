@@ -41,7 +41,6 @@ export const ADMIN_NAVS: NavItem[] = [
 export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'keyholderDashboard', href: '/keyholder/dashboard', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
-  { labelKey: 'dailyReports', href: '/keyholder/daily-reports', authRequired: true, roles: ['keyholder'] },
 ];
 
 
@@ -97,5 +96,3 @@ export const DEFAULT_PRICING_SETTINGS = {
   refreshmentServiceCostLevel2: 100,
   defaultLedProjectorCostPerDay: 500,
 };
-
-    

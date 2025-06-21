@@ -22,6 +22,7 @@ const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
 const DORMITORIES_FOR_DASHBOARD_QUERY_KEY = "dormitoriesForDashboard";
 const HALLS_FOR_DASHBOARD_QUERY_KEY = "hallsForDashboard";
+const ALL_BOOKINGS_FOR_DASHBOARD_QUERY_KEY = "allBookingsForDashboard";
 
 interface DashboardStats {
   totalBookings: number | null;
@@ -49,9 +50,24 @@ const fetchAllDormitories = async (): Promise<Dormitory[]> => {
   const querySnapshot = await getDocs(collection(db, "dormitories"));
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
 };
+
 const fetchAllHalls = async (): Promise<Hall[]> => {
   const querySnapshot = await getDocs(collection(db, "halls"));
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
+};
+
+const fetchAllBookingsForStats = async (): Promise<Booking[]> => {
+    const querySnapshot = await getDocs(collection(db, "bookings"));
+    return querySnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        return {
+          id: docSnap.id,
+          ...data,
+          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
+          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
+          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
+        } as Booking;
+    });
 };
 
 
@@ -79,6 +95,13 @@ export default function AdminDashboardPage() {
     queryKey: [DORMITORIES_FOR_DASHBOARD_QUERY_KEY],
     queryFn: fetchAllDormitories,
   });
+  
+  const { data: allBookingsFromDb } = useQuery<Booking[], Error>({
+    queryKey: [ALL_BOOKINGS_FOR_DASHBOARD_QUERY_KEY],
+    queryFn: fetchAllBookingsForStats,
+    enabled: !!user, 
+  });
+
 
   const { data: hallsFromDb } = useQuery<Hall[], Error>({
     queryKey: [HALLS_FOR_DASHBOARD_QUERY_KEY],
@@ -91,67 +114,73 @@ export default function AdminDashboardPage() {
   }, [dormitoriesFromDb]);
 
   const fetchDashboardData = useCallback(async () => {
+    if (!user || !allBookingsFromDb) return;
     setIsLoadingStats(true);
+
     try {
-      const bookingsCol = collection(db, "bookings");
-      const bookingsAggregateSnapshot = await getCountFromServer(bookingsCol);
-      let totalBookings = bookingsAggregateSnapshot.data().count;
+        let totalBookings: number | null = null;
+        let totalRevenue: number | null = 0;
+        let totalUsers: number | null = null;
+        let availableBedsStat: { available: number; total: number } | null = null;
+        let availableHalls: { available: number; total: number } | null = null;
+        let bookingsForStats = allBookingsFromDb;
 
-      const paidBookingsQuery = query(bookingsCol, where("paymentStatus", "==", "paid"));
-      const paidBookingsSnapshot = await getDocs(paidBookingsQuery);
-      let totalRevenue = 0;
-      paidBookingsSnapshot.forEach(doc => {
-        totalRevenue += (doc.data() as Booking).totalCost;
-      });
+        const isBuildingAdmin = user.role === 'admin' && !!user.buildingAssignment;
+        const isSuperOrGeneralAdmin = user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment);
 
-      let totalUsers: number | null = null;
-      let availableBedsStat: { available: number; total: number } | null = null;
-      let availableHalls: { available: number; total: number } | null = null;
-
-      if (user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment)) {
-        const usersCol = collection(db, "users");
-        const usersAggregateSnapshot = await getCountFromServer(usersCol);
-        totalUsers = usersAggregateSnapshot.data().count;
-      }
-      
-      const dormsCol = collection(db, "dormitories");
-      let dormsQuery = query(dormsCol);
-      if (user?.role === 'admin' && user.buildingAssignment) {
-        dormsQuery = query(dormsCol, where("buildingName", "==", user.buildingAssignment));
-      }
-      const dormsSnapshot = await getDocs(dormsQuery);
-      let availableBedCount = 0;
-      let totalBedCount = 0;
-      dormsSnapshot.forEach(docSnap => {
-        const dormData = docSnap.data() as DocumentData as Dormitory; 
-        totalBedCount += dormData.capacity || 0;
-        if (dormData.isAvailable && dormData.capacity > 0) {
-          availableBedCount += dormData.capacity || 0; 
+        // Filter bookings for building-specific admins
+        if (isBuildingAdmin && dormitoriesFromDb) {
+            const buildingDormIds = new Set(dormitoriesFromDb.filter(d => d.buildingName === user.buildingAssignment).map(d => d.id));
+            bookingsForStats = allBookingsFromDb.filter(b => 
+                b.items.some(item => buildingDormIds.has(item.id))
+            );
         }
-      });
-      availableBedsStat = { available: availableBedCount, total: totalBedCount };
 
-      if (user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment)) {
-        const hallsCol = collection(db, "halls");
-        const hallsSnapshot = await getDocs(hallsCol);
-        let availableHallCount = 0;
-        hallsSnapshot.forEach(docSnap => {
-          if ((docSnap.data() as DocumentData as Hall).isAvailable) { 
-            availableHallCount++;
-          }
+        totalBookings = bookingsForStats.length;
+        
+        bookingsForStats.forEach(booking => {
+            if (booking.paymentStatus === 'paid') {
+                totalRevenue! += booking.totalCost;
+            }
         });
-        availableHalls = { available: availableHallCount, total: hallsSnapshot.size };
-      } else {
-        availableHalls = { available: 0, total: 0}; 
-      }
+        
+        if (isSuperOrGeneralAdmin) {
+            const usersCol = collection(db, "users");
+            const usersAggregateSnapshot = await getCountFromServer(usersCol);
+            totalUsers = usersAggregateSnapshot.data().count;
+        }
+      
+        const dormsCol = collection(db, "dormitories");
+        let dormsQuery = query(dormsCol);
+        if (isBuildingAdmin) {
+            dormsQuery = query(dormsCol, where("buildingName", "==", user.buildingAssignment));
+        }
+        const dormsSnapshot = await getDocs(dormsQuery);
+        let availableBedCount = 0;
+        let totalBedCount = 0;
+        dormsSnapshot.forEach(docSnap => {
+            const dormData = docSnap.data() as DocumentData as Dormitory; 
+            totalBedCount += dormData.capacity || 0;
+            if (dormData.isAvailable && dormData.capacity > 0) {
+            availableBedCount += dormData.capacity || 0; 
+            }
+        });
+        availableBedsStat = { available: availableBedCount, total: totalBedCount };
+        
+        if (isSuperOrGeneralAdmin && hallsFromDb) {
+            let availableHallCount = hallsFromDb.filter(hall => hall.isAvailable).length;
+            availableHalls = { available: availableHallCount, total: hallsFromDb.length };
+        } else {
+            availableHalls = { available: 0, total: 0}; 
+        }
 
-      setStats({
-        totalBookings,
-        totalRevenue,
-        totalUsers,
-        availableBedsStat,
-        availableHalls,
-      });
+        setStats({
+            totalBookings,
+            totalRevenue,
+            totalUsers,
+            availableBedsStat,
+            availableHalls,
+        });
 
     } catch (error) {
       console.error("Error fetching dashboard stats: ", error);
@@ -159,7 +188,7 @@ export default function AdminDashboardPage() {
     } finally {
       setIsLoadingStats(false);
     }
-  }, [t, toast, user]);
+  }, [t, toast, user, allBookingsFromDb, dormitoriesFromDb, hallsFromDb]);
 
   const fetchRecentBookings = useCallback(async () => {
     setIsLoadingRecentBookings(true);
@@ -204,13 +233,16 @@ export default function AdminDashboardPage() {
   }, [t, toast, user, dormIdToBuildingMap, isLoadingStats]);
 
   useEffect(() => {
-    fetchDashboardData();
-    if (dormitoriesFromDb) { 
-        fetchRecentBookings();
-    } else if (!user?.buildingAssignment) { 
+    if (user && allBookingsFromDb && dormitoriesFromDb && hallsFromDb) {
+      fetchDashboardData();
+    }
+  }, [user, allBookingsFromDb, dormitoriesFromDb, hallsFromDb, fetchDashboardData]);
+
+  useEffect(() => {
+    if (user && dormitoriesFromDb) { 
         fetchRecentBookings();
     }
-  }, [fetchDashboardData, fetchRecentBookings, dormitoriesFromDb, user]);
+  }, [user, fetchRecentBookings, dormitoriesFromDb]);
 
   const {
     paginatedData: displayedRecentBookings,
@@ -423,4 +455,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
