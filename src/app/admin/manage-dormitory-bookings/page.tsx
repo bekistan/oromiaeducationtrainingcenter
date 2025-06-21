@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Dormitory, KeyStatus } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock, ExternalLink } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, Phone, ArrowUpDown, KeyRound, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -322,20 +323,18 @@ export default function AdminManageDormitoryBookingsPage() {
                             const imageUrl = dormDetails?.imageUrl;
                             return (
                               <div key={item.id} className="flex items-center space-x-2 py-1">
-                                <span>{item.name}</span>
                                 {imageUrl && (
-                                  <Button 
-                                    asChild
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-5 w-5"
-                                    title={t('viewImageForItem', {itemName: item.name})}
-                                  >
-                                    <a href={imageUrl} target="_blank" rel="noopener noreferrer">
-                                      <ExternalLink className="h-3 w-3 text-primary" />
-                                    </a>
-                                  </Button>
+                                  <a href={imageUrl} target="_blank" rel="noopener noreferrer" title={t('viewImageForItem', {itemName: item.name})}>
+                                    <Image
+                                      src={imageUrl}
+                                      alt={item.name}
+                                      width={40}
+                                      height={40}
+                                      className="rounded-md object-cover"
+                                    />
+                                  </a>
                                 )}
+                                <span>{item.name}</span>
                               </div>
                             );
                           })}
@@ -439,6 +438,8 @@ export default function AdminManageDormitoryBookingsPage() {
     </>
   );
 }
+    
+
     
 
     
