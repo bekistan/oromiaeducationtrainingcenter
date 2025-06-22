@@ -350,12 +350,13 @@ export default function CompanyDashboardPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
+                      <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('bookedAt')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {displayedBookings.map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt)}</TableCell>
                           <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
                           <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
                           <TableCell className="min-w-[120px]">

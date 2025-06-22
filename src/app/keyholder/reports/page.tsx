@@ -12,7 +12,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDateForDisplay } from '@/lib/date-utils';
+import { formatDateForDisplay, formatDualDate } from '@/lib/date-utils';
 
 interface ReportOutput {
   filename: string;
@@ -85,6 +85,7 @@ export default function KeyholderReportsPage() {
       [t('guestName')]: b.guestName,
       [t('phone')]: b.phone,
       [t('roomBooked')]: b.items.map(i => i.name).join('; '),
+      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
       [t('checkInDate')]: formatDateForDisplay(b.startDate, preferredCalendarSystem),
       [t('checkOutDate')]: formatDateForDisplay(b.endDate, preferredCalendarSystem),
       [t('keyStatus')]: t(b.keyStatus || 'keyNotIssued'),

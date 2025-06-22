@@ -177,6 +177,7 @@ export default function KeyholderAssignKeysPage() {
                     <TableHead>{t('guestName')}</TableHead>
                     <TableHead>{t('phone')}</TableHead>
                     <TableHead>{t('roomBooked')}</TableHead>
+                    <TableHead>{t('bookedAt')}</TableHead>
                     <TableHead>{t('bookingDates')}</TableHead>
                     <TableHead>{t('keyStatus')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
@@ -188,6 +189,7 @@ export default function KeyholderAssignKeysPage() {
                       <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
                       <TableCell>{booking.phone || t('notAvailable')}</TableCell>
                       <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
+                      <TableCell className="text-xs">{formatDualDate(booking.bookedAt)}</TableCell>
                       <TableCell className="text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
                       <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                       <TableCell className="text-right space-x-2">
@@ -246,5 +248,3 @@ export default function KeyholderAssignKeysPage() {
     </div>
   );
 }
-
-    

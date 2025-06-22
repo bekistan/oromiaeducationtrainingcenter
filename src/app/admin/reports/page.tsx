@@ -97,6 +97,7 @@ export default function AdminReportsPage() {
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8), 
+      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
       [t('guestName')]: b.guestName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
       [t('startDate')]: formatDateForDisplay(b.startDate, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD'),
@@ -163,7 +164,8 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
     const reportData = bookings.map(b => ({ 
-      [t('bookingId')]: b.id.substring(0,8), 
+      [t('bookingId')]: b.id.substring(0,8),
+      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'), 
       [t('companyName')]: b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
       [t('startDate')]: formatDateForDisplay(b.startDate, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD'),
@@ -224,6 +226,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
+      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
       [category === 'dormitory' ? t('guestName') : t('companyName')]: category === 'dormitory' ? b.guestName : b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
       [t('dates')]: `${formatDateForDisplay(b.startDate, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD')} - ${formatDateForDisplay(b.endDate, preferredCalendarSystem, 'yyyy-MM-dd', 'YYYY-MM-DD')}`,
