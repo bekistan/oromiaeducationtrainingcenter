@@ -104,7 +104,7 @@ export default function CheckMyBookingPage() {
         );
     }
     if (booking.paymentStatus === 'pending_transfer') {
-        const resumeUrl = `/booking-confirmation?bookingId=${booking.id}&itemName=${encodeURIComponent(booking.items.map(i => i.name).join(', '))}&amount=${booking.totalCost}&category=dormitory&phone=${booking.phone}`;
+        const resumeUrl = `/booking-confirmation?bookingId=${booking.id}&itemName=${encodeURIComponent(booking.items.map(i => i.name).join(', '))}&amount=${booking.totalCost}&category=dormitory&phone=${booking.phone}&status=booking_pending_approval`;
         return (
             <div className="flex flex-col items-center text-center p-4 bg-amber-50 border-t border-amber-200">
                  <AlertCircle className="w-8 h-8 text-amber-600 mb-2"/>
