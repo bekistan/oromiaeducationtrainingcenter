@@ -10,12 +10,14 @@ import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { Loader2, Search, AlertCircle, BedDouble, CalendarDays, DollarSign, ShieldCheck, Phone } from "lucide-react";
-import { Badge } from '@/components/ui/badge';
-import { toDateObject, formatDualDate } from '@/lib/date-utils'; // Use formatDualDate
+import { Loader2, Search, AlertCircle, BedDouble, CalendarDays, DollarSign, UploadCloud, Hourglass, CheckCircle, FileImage } from "lucide-react";
+import { toDateObject, formatDualDate } from '@/lib/date-utils';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function CheckMyBookingPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function CheckMyBookingPage() {
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
         where("phone", "==", phoneNumber.trim()),
-        where("approvalStatus", "==", "approved")
+        where("approvalStatus", "in", ["pending", "approved", "rejected"]) // Fetch all relevant statuses
       );
       const querySnapshot = await getDocs(q);
 
@@ -77,20 +79,61 @@ export default function CheckMyBookingPage() {
     }
   }, [phoneNumber, t]);
   
-  const getPaymentStatusBadge = (status?: Booking['paymentStatus']) => {
-    if (!status) return <Badge variant="secondary">{t('unknown')}</Badge>;
-    switch (status) {
-      case 'paid':
-        return <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200">{t(status)}</Badge>;
-      case 'pending_transfer':
-         return <Badge className="bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200">{t(status)}</Badge>;
-      case 'awaiting_verification':
-        return <Badge className="bg-sky-100 text-sky-700 border-sky-300 hover:bg-sky-200">{t(status)}</Badge>;
-      case 'failed':
-        return <Badge className="bg-red-100 text-red-700 border-red-300 hover:bg-red-200">{t(status)}</Badge>;
-      default:
-        return <Badge variant="secondary">{t(status)}</Badge>;
+  const getStatusComponent = (booking: Booking) => {
+    if (booking.paymentStatus === 'paid' && booking.approvalStatus === 'approved') {
+        return (
+            <div className="flex flex-col items-center text-center p-4 bg-green-50 border-t border-green-200">
+                <CheckCircle className="w-8 h-8 text-green-600 mb-2"/>
+                <p className="font-semibold text-green-700">{t('bookingConfirmedTitle')}</p>
+                <p className="text-xs text-green-600">{t('bookingConfirmedDesc')}</p>
+            </div>
+        );
     }
+    if (booking.paymentStatus === 'awaiting_verification') {
+        return (
+            <div className="flex flex-col items-center text-center p-4 bg-sky-50 border-t border-sky-200">
+                <Hourglass className="w-8 h-8 text-sky-600 mb-2"/>
+                <p className="font-semibold text-sky-700">{t('paymentAwaitingVerificationTitle')}</p>
+                <p className="text-xs text-sky-600">{t('paymentAwaitingVerificationDesc')}</p>
+                 {booking.paymentScreenshotUrl && (
+                    <a href={booking.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-sky-700 hover:underline mt-1 flex items-center">
+                        <FileImage className="w-3 h-3 mr-1"/> {t('viewYourUploadedProof')}
+                    </a>
+                )}
+            </div>
+        );
+    }
+    if (booking.paymentStatus === 'pending_transfer') {
+        const resumeUrl = `/booking-confirmation?bookingId=${booking.id}&itemName=${encodeURIComponent(booking.items.map(i => i.name).join(', '))}&amount=${booking.totalCost}&category=dormitory&phone=${booking.phone}`;
+        return (
+            <div className="flex flex-col items-center text-center p-4 bg-amber-50 border-t border-amber-200">
+                 <AlertCircle className="w-8 h-8 text-amber-600 mb-2"/>
+                <p className="font-semibold text-amber-700">{t('paymentProofRequiredTitle')}</p>
+                <p className="text-xs text-amber-600 mb-3">{t('paymentProofRequiredDesc')}</p>
+                <Button asChild size="sm">
+                    <Link href={resumeUrl}>
+                        <UploadCloud className="mr-2 h-4 w-4" />
+                        {t('submitPaymentProofButton')}
+                    </Link>
+                </Button>
+            </div>
+        )
+    }
+     if (booking.approvalStatus === 'rejected' || booking.paymentStatus === 'failed') {
+        return (
+            <div className="flex flex-col items-center text-center p-4 bg-red-50 border-t border-red-200">
+                <AlertCircle className="w-8 h-8 text-red-600 mb-2"/>
+                <p className="font-semibold text-red-700">{t('bookingRejectedTitle')}</p>
+                <p className="text-xs text-red-600">{t('bookingRejectedDesc')}</p>
+            </div>
+        );
+    }
+    
+    return (
+      <div className="flex flex-col items-center text-center p-4 bg-gray-50 border-t border-gray-200">
+        <p className="text-sm text-muted-foreground">{t('status')}: {t(booking.approvalStatus)} / {t(booking.paymentStatus)}</p>
+      </div>
+    );
   };
 
   return (
@@ -149,9 +192,9 @@ export default function CheckMyBookingPage() {
 
         {!isLoading && bookings.length > 0 && (
           <div className="mt-8 max-w-2xl mx-auto space-y-6">
-            <h2 className="text-xl font-semibold text-center text-primary">{t('yourActiveBookingDetails')} ({bookings.length})</h2>
+            <h2 className="text-xl font-semibold text-center text-primary">{t('yourActiveBookingsTitle')} ({bookings.length})</h2>
             {bookings.map(booking => (
-              <Card key={booking.id} className="shadow-lg">
+              <Card key={booking.id} className="shadow-lg overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg">
                     <BedDouble className="mr-2 h-5 w-5 text-primary" />
@@ -168,16 +211,8 @@ export default function CheckMyBookingPage() {
                     <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span>{t('totalCost')}: {booking.totalCost} {t('currencySymbol')}</span>
                   </div>
-                   <div className="flex items-center">
-                    <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>{t('paymentStatus')}: {getPaymentStatusBadge(booking.paymentStatus)}</span>
-                  </div>
                 </CardContent>
-                 <CardFooter>
-                    <p className="text-xs text-muted-foreground">
-                      {t('bookedOn')}: {formatDualDate(booking.bookedAt)}
-                    </p>
-                </CardFooter>
+                 {getStatusComponent(booking)}
               </Card>
             ))}
           </div>
@@ -186,7 +221,3 @@ export default function CheckMyBookingPage() {
     </PublicLayout>
   );
 }
-
-    
-
-    

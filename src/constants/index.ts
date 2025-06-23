@@ -17,11 +17,10 @@ export const DEFAULT_CALENDAR_SYSTEM = 'gregorian';
 export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },
   {
-    labelKey: 'dormitories', // This will be the dropdown title e.g. "Dormitories"
+    labelKey: 'dormitories',
     children: [
-      { labelKey: 'bookDorm', href: '/dormitories' }, // "Book Dorm"
-      { labelKey: 'checkMyBooking', href: '/check-my-booking' }, // "Check My Booking"
-      { labelKey: 'myDorm', href: '/check-my-booking' }, // "My Dorm"
+      { labelKey: 'bookDorm', href: '/dormitories' },
+      { labelKey: 'checkMyBooking', href: '/check-my-booking' },
     ]
   },
   { labelKey: 'halls', href: '/halls' },
