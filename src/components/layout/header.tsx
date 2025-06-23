@@ -145,9 +145,6 @@ export function Header() {
               <Button asChild variant="outline" size="sm">
                 <Link href="/auth/login">{t('login')}</Link>
               </Button>
-              <Button asChild size="sm" className="hidden sm:inline-flex">
-                 <Link href="/auth/register-company">{t('registerCompanyButton')}</Link> 
-              </Button>
             </>
           )}
 
@@ -218,9 +215,6 @@ export function Header() {
                    <>
                     <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm"> {/* Reduced text-lg to text-sm */}
                       {t('login')}
-                    </Link>
-                    <Link href="/auth/register-company" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm"> {/* Reduced text-lg to text-sm */}
-                      {t('registerCompanyButton')}
                     </Link>
                    </>
                 )}
