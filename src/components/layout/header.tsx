@@ -61,7 +61,7 @@ export function Header() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     {item.children.map((child) => (
-                      <DropdownMenuItem key={child.href} asChild>
+                      <DropdownMenuItem key={child.labelKey} asChild>
                         <Link href={child.href!}>{t(child.labelKey)}</Link>
                       </DropdownMenuItem>
                     ))}
@@ -173,7 +173,7 @@ export function Header() {
                                       const isActive = child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href)));
                                       return (
                                           <Link
-                                              key={child.href}
+                                              key={child.labelKey}
                                               href={child.href!}
                                               className={cn(
                                                   "transition-colors hover:text-foreground/80 text-sm",
