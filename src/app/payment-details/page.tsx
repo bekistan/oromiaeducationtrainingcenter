@@ -177,24 +177,7 @@ function PaymentDetailsContent() {
             {displayCategory && <div className="flex justify-between"><span className="text-muted-foreground">{t('category')}:</span> <span className="capitalize">{t(displayCategory)}</span></div>}
             {displayPhoneNumber && <div className="flex justify-between"><span className="text-muted-foreground">{t('phone')}:</span> <span>{displayPhoneNumber}</span></div>}
         </div>
-
-        <Alert variant="default" className="bg-sky-50 border-sky-200 dark:bg-sky-900/30 dark:border-sky-700">
-          <MessageSquare className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-          <AlertTitle className="text-sky-700 dark:text-sky-300">{t('telegramProofSubmissionTitle')}</AlertTitle>
-          <AlertDescription className="text-sky-600 dark:text-sky-400">
-            {t('telegramProofSubmissionInstruction', { botUsername: `@${telegramBotUsername}`, phoneNumber: displayPhoneNumber })}
-          </AlertDescription>
-        </Alert>
       </CardContent>
-      <CardFooter className="flex flex-col items-center pt-4">
-        <Button asChild className="w-full">
-          <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
-            <Send className="mr-2 h-4 w-4" />
-            {t('openTelegramToSendProof')}
-          </a>
-        </Button>
-        <p className="text-xs text-muted-foreground mt-3">{t('afterSendingProofAdminWillVerify')}</p>
-      </CardFooter>
     </Card>
   );
 }

@@ -274,13 +274,6 @@ function BookingConfirmationContent() {
                 </Button>
                  <p className="text-xs text-muted-foreground">{t('fileUploadLimitNote', { maxSize: '5MB'})}</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-3 text-center">{t('or')}</p>
-            <Button asChild className="w-full mt-2">
-              <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
-                <Send className="mr-2 h-4 w-4" />
-                {t('goToAtOromoEduTrainingCenterBotButton')}
-              </a>
-            </Button>
           </div>
         )}
          {showDormitoryPaymentInstructions && amount && !bankDetails && !isLoadingBankDetails && (

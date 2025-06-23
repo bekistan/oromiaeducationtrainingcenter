@@ -396,11 +396,6 @@ export default function AdminManageDormitoryBookingsPage() {
                                     <>
                                       <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
                                       <DropdownMenuSeparator />
-                                      <DropdownMenuItem>
-                                        <div className='flex items-center text-xs text-muted-foreground'>
-                                            <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
-                                        </div>
-                                      </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
                                         <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
                                       </DropdownMenuItem>
