@@ -2,14 +2,13 @@
 "use client";
 
 import type { Hall } from "@/types";
+import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Users, DollarSign, Utensils, Coffee, CheckSquare, Square } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-// Removed Badge import as it's no longer used for top-right availability
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
 import React from "react";
@@ -19,9 +18,10 @@ interface HallListProps {
   selectable?: boolean;
   selectedItems?: Hall[];
   onSelectionChange?: (selected: Hall[]) => void;
+  selectedDateRange?: DateRange;
 }
 
-export function HallList({ halls, selectable = false, selectedItems = [], onSelectionChange }: HallListProps) {
+export function HallList({ halls, selectable = false, selectedItems = [], onSelectionChange, selectedDateRange }: HallListProps) {
   const { t } = useLanguage();
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -39,23 +39,32 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
   const handleBookNowClick = (hallId: string) => {
     if (loading) return;
 
-    // Availability for individual booking is now primarily handled by the parent page filtering
-    // or the individual booking page's date selection.
-    // The `hall.isAvailable` (admin-set) is still relevant for the booking page itself.
+    if (!selectedDateRange?.from || !selectedDateRange?.to) {
+        alert(t('selectDateRangeFirst'));
+        return;
+    }
+
     const hall = halls.find(h => h.id === hallId);
     if (!hall || !hall.isAvailable) {
-        // This alert might be redundant if the list is already filtered by availability,
-        // but kept as a fallback for direct navigation or edge cases.
         alert(t('itemNotAvailableError', { itemName: hall?.name || t('thisItem') }));
         return;
     }
 
     if (!user || user.role !== 'company_representative') {
       alert(t('loginAsCompanyToBook'));
-      router.push(`/auth/login?redirect=/halls/${hallId}/book`);
+      const bookingUrl = new URL(window.location.origin);
+      bookingUrl.pathname = `/auth/login`;
+      bookingUrl.searchParams.set('redirect', `/halls/${hallId}/book?startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`);
+      router.push(bookingUrl.pathname + bookingUrl.search);
       return;
     }
-    router.push(`/halls/${hallId}/book`);
+
+    const bookingUrl = new URL(window.location.origin);
+    bookingUrl.pathname = `/halls/${hallId}/book`;
+    bookingUrl.searchParams.set('startDate', selectedDateRange.from.toISOString());
+    bookingUrl.searchParams.set('endDate', selectedDateRange.to.toISOString());
+
+    router.push(bookingUrl.pathname + bookingUrl.search);
   };
 
   if (!halls || halls.length === 0) {
@@ -81,7 +90,6 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 data-ai-hint={hall.dataAiHint || "meeting space"}
               />
-              {/* Removed the Badge component from here */}
               {selectable && (
                 <div className="absolute top-2 left-2 bg-background/70 p-1 rounded-md">
                   {isSelected ? <CheckSquare className="w-6 h-6 text-primary" /> : <Square className="w-6 h-6 text-muted-foreground" />}
@@ -119,8 +127,9 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                {!selectable && (
                   <Button 
                     className="w-full" 
-                    disabled={!hall.isAvailable || loading} 
+                    disabled={!hall.isAvailable || loading || !selectedDateRange?.from} 
                     onClick={() => handleBookNowClick(hall.id)}
+                    title={!selectedDateRange?.from ? t('selectDateRangeFirst') : ''}
                   >
                     {loading ? t('loading') : t('bookNow')}
                   </Button>

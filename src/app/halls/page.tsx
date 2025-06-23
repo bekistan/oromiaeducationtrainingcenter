@@ -169,7 +169,9 @@ export default function HallsAndSectionsPage() {
       .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
       .join('&');
 
-    router.push(`/halls/book-multiple?${itemsQuery}`);
+    const dateQuery = `startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`;
+
+    router.push(`/halls/book-multiple?${itemsQuery}&${dateQuery}`);
   };
 
   const displayedFacilities = useMemo(() => {
@@ -215,6 +217,7 @@ export default function HallsAndSectionsPage() {
         selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'}
         selectedItems={selectedItems}
         onSelectionChange={handleSelectionChange}
+        selectedDateRange={selectedDateRange}
       />
     );
   };

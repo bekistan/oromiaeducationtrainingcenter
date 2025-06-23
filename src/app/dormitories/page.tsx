@@ -164,7 +164,7 @@ export default function DormitoriesPage() {
       );
     }
 
-    return <DormitoryList dormitories={availableDormitoriesInRange} />;
+    return <DormitoryList dormitories={availableDormitoriesInRange} selectedDateRange={selectedDateRange} />;
   };
 
 

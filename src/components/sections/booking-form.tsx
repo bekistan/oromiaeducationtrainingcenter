@@ -31,7 +31,7 @@ import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType, Adm
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2, Building, BedDouble, Film } from 'lucide-react';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
@@ -48,7 +48,6 @@ const dormitoryBookingSchema = z.object({
   dateRange: z.custom<DateRange | undefined>((val) => val !== undefined && val.from !== undefined && val.to !== undefined, {
     message: "Date range with start and end dates is required.",
   }),
-  // Bank name and account number removed
 });
 
 const facilityBookingSchema = z.object({
@@ -76,6 +75,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isDormitoryBooking = bookingCategory === 'dormitory';
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -84,6 +84,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const [showLedProjectorOption, setShowLedProjectorOption] = useState(false);
   const [pricingSettings, setPricingSettings] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
   const [isLoadingPricing, setIsLoadingPricing] = useState(true);
+  const [isDateRangeFromUrl, setIsDateRangeFromUrl] = useState(false);
 
   useEffect(() => {
     const fetchPricing = async () => {
@@ -116,7 +117,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     phone: "",
     employer: "",
     dateRange: undefined,
-    // bankName and accountNumber removed
   };
 
   const defaultFacilityValues: FacilityBookingValues = {
@@ -136,6 +136,28 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       ? defaultDormitoryValues
       : defaultFacilityValues,
   });
+  
+  useEffect(() => {
+    const startDateStr = searchParams.get('startDate');
+    const endDateStr = searchParams.get('endDate');
+
+    if (startDateStr && endDateStr) {
+      try {
+        const from = parseISO(startDateStr);
+        const to = parseISO(endDateStr);
+        if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+          const dateRange: DateRange = { from, to };
+          form.setValue('dateRange', dateRange, { shouldValidate: true });
+          setIsDateRangeFromUrl(true);
+        } else {
+            console.error("Invalid date format in URL params");
+        }
+      } catch (e) {
+          console.error("Error parsing dates from URL", e);
+      }
+    }
+  }, [searchParams, form]);
+
 
   const watchedDateRange = form.watch('dateRange');
 
@@ -658,12 +680,15 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
               name="dateRange"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>{t('selectDates')}</FormLabel>
+                  <FormLabel>{isDateRangeFromUrl ? t('bookingDates') : t('selectDates')}</FormLabel>
                   <DatePickerWithRange
                     date={field.value}
                     onDateChange={field.onChange as (date: DateRange | undefined) => void}
+                    disabled={isDateRangeFromUrl || isCheckingAvailability}
                   />
-                  <FormDescription>{t('selectBothStartAndEndDates')}</FormDescription>
+                  <FormDescription>
+                    {isDateRangeFromUrl ? t('dateRangePreselected') : t('selectBothStartAndEndDates')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -675,8 +700,6 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
                 <FormField control={form.control} name="fullName" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneEthiopian')} {...field} /></FormControl><FormDescription>{t('phoneForTelegramIdentification')}</FormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="employer" render={({ field }) => ( <FormItem><FormLabel>{t('employer')}</FormLabel><FormControl><Input placeholder={t('enterEmployer')} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                
-                {/* Bank details removed from here */}
               </>
             )}
 
@@ -783,4 +806,3 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     </Card>
   );
 }
-    
