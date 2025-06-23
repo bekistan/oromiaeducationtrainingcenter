@@ -149,11 +149,12 @@ export interface CompanyProfile {
 
 export interface NavItem {
   labelKey: string;
-  href: string;
+  href?: string;
   adminOnly?: boolean;
   authRequired?: boolean;
   roles?: User['role'][];
   generalAdminOnly?: boolean;
+  children?: NavItem[];
 }
 
 export type NotificationType = 'new_facility_booking' | 'new_dormitory_booking' | 'company_registration' | 'payment_verification_needed';

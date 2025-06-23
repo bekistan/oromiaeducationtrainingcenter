@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle } from "lucide-react";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import {
@@ -49,11 +49,31 @@ export function Header() {
         
         <nav className="hidden md:flex items-center space-x-4 text-xs font-medium"> {/* Reduced space-x-6 to space-x-4 and text-sm to text-xs */}
           {PUBLIC_NAVS.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+            if (item.children && item.children.length > 0) {
+              const isDropdownActive = item.children.some(child => child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href))));
+              return (
+                <DropdownMenu key={item.labelKey}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className={cn("transition-colors hover:text-foreground/80 text-xs font-medium h-auto px-2 py-1", isDropdownActive ? "text-primary font-semibold" : "text-foreground/60")}>
+                      {t(item.labelKey)}
+                      <ChevronDown className="ml-1 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {item.children.map((child) => (
+                      <DropdownMenuItem key={child.href} asChild>
+                        <Link href={child.href!}>{t(child.labelKey)}</Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              );
+            }
+            const isActive = item.href && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)));
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={item.href!}
                 className={cn(
                   "transition-colors hover:text-foreground/80",
                   isActive ? "text-primary font-semibold" : "text-foreground/60"
@@ -144,11 +164,36 @@ export function Header() {
               </SheetTitle>
               <nav className="flex flex-col space-y-4 mt-8">
                 {PUBLIC_NAVS.map((item) => {
-                  const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                   if (item.children && item.children.length > 0) {
+                      return (
+                          <div key={item.labelKey} className="flex flex-col space-y-2">
+                              <span className="text-sm font-semibold text-foreground/80 px-2">{t(item.labelKey)}</span>
+                              <div className="flex flex-col space-y-2 pl-6">
+                                  {item.children.map((child) => {
+                                      const isActive = child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href)));
+                                      return (
+                                          <Link
+                                              key={child.href}
+                                              href={child.href!}
+                                              className={cn(
+                                                  "transition-colors hover:text-foreground/80 text-sm",
+                                                  isActive ? "text-primary font-semibold" : "text-foreground/60"
+                                              )}
+                                          >
+                                              {t(child.labelKey)}
+                                          </Link>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      );
+                    }
+
+                  const isActive = item.href && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)));
                   return (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={item.href!}
                       className={cn(
                         "transition-colors hover:text-foreground/80 text-sm", // Reduced text-lg to text-sm
                         isActive ? "text-primary font-semibold" : "text-foreground/60"
@@ -192,5 +237,3 @@ export function Header() {
     </header>
   );
 }
-
-    
