@@ -245,10 +245,10 @@ function BookingConfirmationContent() {
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {bankDetails.accountName || t('notSet')}</p>
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
-            <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNoteConfirmationPage', {bookingId: bookingId})}</p>
+            <p className="text-xs text-muted-foreground mt-2">Important: To ensure your payment is processed correctly, please include your Booking ID as the payment reference: <strong>{bookingId}</strong></p>
 
             <div className="mt-4 space-y-3">
-                <h4 className="font-medium text-sm text-primary">{t('submitPaymentProof')}</h4>
+                <h4 className="font-medium text-sm text-primary">Upload Payment Proof</h4>
                 <Input
                     id="paymentScreenshot"
                     type="file"
@@ -328,4 +328,3 @@ export default function BookingConfirmationPage() {
     </PublicLayout>
   );
 }
-    
