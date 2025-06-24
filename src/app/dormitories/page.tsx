@@ -9,11 +9,14 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarDays, AlertCircle } from "lucide-react";
+import { Loader2, CalendarDays, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useSimpleTable } from '@/hooks/use-simple-table';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -24,6 +27,7 @@ export default function DormitoriesPage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingInitialDorms, setIsLoadingInitialDorms] = useState(true);
   const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
+  const [buildingFilter, setBuildingFilter] = useState<string>('all');
 
   const fetchAllAdminEnabledDormitories = useCallback(async () => {
     setIsLoadingInitialDorms(true);
@@ -47,79 +51,89 @@ export default function DormitoriesPage() {
     fetchAllAdminEnabledDormitories();
   }, [fetchAllAdminEnabledDormitories]);
 
-  const checkDormitoryAvailabilityForRange = useCallback(async (dorm: Dormitory, range: DateRange): Promise<boolean> => {
-    if (!range.from || !range.to) return true; 
-    if (!dorm.capacity || dorm.capacity <= 0) return false; 
-
-    const fromTimestamp = Timestamp.fromDate(range.from);
-    const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
-
-    const bookingsQuery = query(
-        collection(db, "bookings"),
-        where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "in", ["approved", "pending"]),
-        where("startDate", "<=", toTimestamp)
-    );
-
-    try {
-        const querySnapshot = await getDocs(bookingsQuery);
-        let bookedBedsDuringPeriod = 0;
-
-        querySnapshot.forEach(docSnap => {
-            const booking = docSnap.data() as Booking;
-            const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
-            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-
-            const overlaps = bookingStartDate <= range.to! && bookingEndDate >= range.from!;
-
-            if (overlaps) {
-                const isForThisRoom = booking.items.some(bookedItem => bookedItem.id === dorm.id && bookedItem.itemType === "dormitory");
-                if (isForThisRoom) {
-                    bookedBedsDuringPeriod++;
-                }
-            }
-        });
-        return bookedBedsDuringPeriod < dorm.capacity;
-    } catch (error) {
-        console.error(`Error checking availability for dorm ${dorm.id}:`, error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
-        return false; 
+  const dormsFilteredByBuilding = useMemo(() => {
+    if (buildingFilter === 'all') {
+      return allAdminEnabledDormitories;
     }
-  }, [t, toast]);
+    return allAdminEnabledDormitories.filter(d => d.buildingName === buildingFilter);
+  }, [allAdminEnabledDormitories, buildingFilter]);
 
   useEffect(() => {
-    if (!selectedDateRange || !selectedDateRange.from || !selectedDateRange.to) {
+    if (!selectedDateRange?.from || !selectedDateRange?.to) {
       setAvailableDormitoriesInRange([]);
       return;
     }
 
-    const updateAvailableDorms = async () => {
+    const findAvailableDorms = async () => {
       setIsCheckingRangeAvailability(true);
-      const availableDorms: Dormitory[] = [];
-      for (const dorm of allAdminEnabledDormitories) {
-        if (dorm.isAvailable) { 
-            const isTrulyAvailableInRange = await checkDormitoryAvailabilityForRange(dorm, selectedDateRange);
-            if (isTrulyAvailableInRange) {
-              availableDorms.push(dorm);
+
+      const fromTimestamp = Timestamp.fromDate(selectedDateRange.from!);
+      const toTimestamp = Timestamp.fromDate(new Date(selectedDateRange.to!.setHours(23, 59, 59, 999)));
+
+      const bookingsQuery = query(
+          collection(db, "bookings"),
+          where("bookingCategory", "==", "dormitory"),
+          where("approvalStatus", "in", ["approved", "pending"]),
+          where("startDate", "<=", toTimestamp)
+      );
+      
+      try {
+        const querySnapshot = await getDocs(bookingsQuery);
+
+        const bookedBedsCount: { [dormId: string]: number } = {};
+        querySnapshot.forEach(docSnap => {
+            const booking = docSnap.data() as Booking;
+            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            
+            if (bookingEndDate >= selectedDateRange.from!) {
+                booking.items.forEach(item => {
+                    if (item.itemType === "dormitory") {
+                        bookedBedsCount[item.id] = (bookedBedsCount[item.id] || 0) + 1;
+                    }
+                });
             }
-        }
+        });
+
+        const availableDorms = dormsFilteredByBuilding.filter(dorm => {
+            const bookedCount = bookedBedsCount[dorm.id] || 0;
+            return dorm.isAvailable && dorm.capacity > bookedCount;
+        });
+
+        setAvailableDormitoriesInRange(availableDorms);
+      } catch (error) {
+        console.error("Failed to find available dorms:", error);
+        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
+      } finally {
+        setIsCheckingRangeAvailability(false);
       }
-      setAvailableDormitoriesInRange(availableDorms);
-      setIsCheckingRangeAvailability(false);
     };
 
-    updateAvailableDorms().catch(e => {
-        console.error("Failed to update available dorms:", e);
-        setIsCheckingRangeAvailability(false);
-    });
-  }, [selectedDateRange, allAdminEnabledDormitories, checkDormitoryAvailabilityForRange]);
+    findAvailableDorms();
+  }, [selectedDateRange, dormsFilteredByBuilding, t, toast]);
+  
+  const dormsToDisplayBeforePaging = useMemo(() => {
+    return (selectedDateRange?.from && selectedDateRange?.to)
+      ? availableDormitoriesInRange
+      : dormsFilteredByBuilding;
+  }, [selectedDateRange, availableDormitoriesInRange, dormsFilteredByBuilding]);
+
+  const {
+    paginatedData,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
+  } = useSimpleTable<Dormitory>({
+    data: dormsToDisplayBeforePaging,
+    rowsPerPage: 12,
+    searchKeys: ['roomNumber'], 
+  });
 
 
   const renderContent = () => {
-    const dormsToDisplay = (selectedDateRange?.from && selectedDateRange?.to)
-      ? availableDormitoriesInRange
-      : allAdminEnabledDormitories;
-      
     const hasDateRange = selectedDateRange?.from && selectedDateRange?.to;
 
     if (isLoadingInitialDorms) {
@@ -140,7 +154,7 @@ export default function DormitoriesPage() {
       );
     }
     
-    if (dormsToDisplay.length === 0) {
+    if (totalItems === 0) {
       if (hasDateRange) {
         return (
           <Alert variant="destructive" className="max-w-md mx-auto">
@@ -156,7 +170,36 @@ export default function DormitoriesPage() {
     }
     
 
-    return <DormitoryList dormitories={dormsToDisplay} selectedDateRange={selectedDateRange} />;
+    return (
+      <>
+        <DormitoryList dormitories={paginatedData} selectedDateRange={selectedDateRange} />
+        {pageCount > 1 && (
+            <div className="flex items-center justify-between py-4 mt-6">
+                <span className="text-sm text-muted-foreground">
+                    {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
+                </span>
+                <div className="space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={previousPage}
+                        disabled={!canPreviousPage}
+                    >
+                        <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={nextPage}
+                        disabled={!canNextPage}
+                    >
+                        {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                </div>
+              </div>
+        )}
+      </>
+    );
   };
 
 
@@ -168,8 +211,24 @@ export default function DormitoriesPage() {
         </h1>
         <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
 
-        <div className="mb-8 flex justify-center">
-          <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+        <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow-sm">
+            <div className="flex-1 min-w-[300px]">
+                <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
+                <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+                 <label htmlFor="buildingFilter" className="text-sm font-medium mb-1 block">{t('filterByBuilding')}</label>
+                <Select value={buildingFilter} onValueChange={(value) => setBuildingFilter(value as string)}>
+                    <SelectTrigger id="buildingFilter" className="w-full">
+                        <SelectValue placeholder={t('selectBuildingNamePlaceholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">{t('allBuildings')}</SelectItem>
+                        <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
+                        <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
         
         {!selectedDateRange?.from && !isLoadingInitialDorms && allAdminEnabledDormitories.length > 0 && (
@@ -189,4 +248,3 @@ export default function DormitoriesPage() {
     </PublicLayout>
   );
 }
-
