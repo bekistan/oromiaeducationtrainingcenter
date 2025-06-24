@@ -46,8 +46,6 @@ export default function HallsAndSectionsPage() {
       const itemsSnapshot = await getDocs(itemsQuery);
       const allItemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
       setAllAdminEnabledFacilities(allItemsData);
-      setFilteredFacilitiesByType(allItemsData);
-      setAvailableFacilitiesInRange(allItemsData);
     } catch (error) {
       console.error("Error fetching halls/sections: ", error);
       toast({ variant: "destructive", title: t('error'), description: t('errorFetchingHallsAndSections') });
@@ -66,12 +64,7 @@ export default function HallsAndSectionsPage() {
       filtered = allAdminEnabledFacilities.filter(item => item.itemType === itemTypeFilter);
     }
     setFilteredFacilitiesByType(filtered);
-    if (selectedDateRange?.from && selectedDateRange?.to) {
-      // Availability re-check will be triggered by selectedDateRange or filteredFacilitiesByType changing
-    } else {
-      setAvailableFacilitiesInRange(filtered);
-    }
-  }, [itemTypeFilter, allAdminEnabledFacilities, selectedDateRange]);
+  }, [itemTypeFilter, allAdminEnabledFacilities]);
 
 
   const checkFacilityAvailabilityForRange = useCallback(async (facility: Hall, range: DateRange): Promise<boolean> => {
@@ -134,7 +127,8 @@ export default function HallsAndSectionsPage() {
 
 
   const handleSelectionChange = (newSelection: Hall[]) => {
-    setSelectedItems(newSelection);
+    if (!onSelectionChange) return;
+    onSelectionChange(newSelection);
   };
 
   const handleBookSelectedItems = () => {
@@ -216,7 +210,7 @@ export default function HallsAndSectionsPage() {
         halls={displayedFacilities}
         selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'}
         selectedItems={selectedItems}
-        onSelectionChange={handleSelectionChange}
+        onSelectionChange={setSelectedItems}
         selectedDateRange={selectedDateRange}
       />
     );

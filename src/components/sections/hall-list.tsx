@@ -107,20 +107,8 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
               <div className="space-y-2 text-sm">
                 <div className="flex items-center">
                   <DollarSign className="w-4 h-4 mr-2 text-primary" />
-                  <span>{t('rentalCost')}: {hall.rentalCost} ETB</span>
+                  <span>{t('rentalCost')}: {hall.rentalCost ? `${hall.rentalCost} ${t('currencySymbol')}` : t('priceAvailableOnRequest')}</span>
                 </div>
-                {hall.lunchServiceCost && (
-                  <div className="flex items-center">
-                    <Utensils className="w-4 h-4 mr-2 text-primary" />
-                    <span>{t('lunchService')}: {hall.lunchServiceCost} ETB / {t('perPerson')}</span>
-                  </div>
-                )}
-                {hall.refreshmentServiceCost && (
-                  <div className="flex items-center">
-                    <Coffee className="w-4 h-4 mr-2 text-primary" />
-                    <span>{t('refreshmentService')}: {hall.refreshmentServiceCost} ETB / {t('perPerson')}</span>
-                  </div>
-                )}
               </div>
             </CardContent>
             <CardFooter className="p-4">
@@ -128,7 +116,10 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                   <Button 
                     className="w-full" 
                     disabled={!hall.isAvailable || loading || !selectedDateRange?.from} 
-                    onClick={() => handleBookNowClick(hall.id)}
+                    onClick={(e) => {
+                        e.stopPropagation(); // Prevent card's onClick from firing
+                        handleBookNowClick(hall.id);
+                    }}
                     title={!selectedDateRange?.from ? t('selectDateRangeFirst') : ''}
                   >
                     {loading ? t('loading') : t('bookNow')}
