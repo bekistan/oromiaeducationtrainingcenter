@@ -129,6 +129,7 @@ export interface User {
   email: string;
   role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder';
   name?: string;
+  position?: string;
   companyId?: string;
   companyName?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected';

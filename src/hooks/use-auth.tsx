@@ -29,6 +29,7 @@ import type { User as AppUserType } from '@/types'; // App's User type
 interface CompanyDetails {
   companyName: string;
   name: string; // Contact person's name
+  position: string;
   email: string;
   phone: string;
   password: string;
@@ -96,6 +97,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             email: userDataFromDb.email || '',
             role: userDataFromDb.role || 'individual',
             name: userDataFromDb.name,
+            position: userDataFromDb.position,
             companyId: userDataFromDb.companyId,
             companyName: userDataFromDb.companyName,
             approvalStatus: userDataFromDb.approvalStatus,
@@ -199,6 +201,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           email: userDataFromDb.email || '',
           role: userDataFromDb.role || 'individual',
           name: userDataFromDb.name,
+          position: userDataFromDb.position,
           companyId: userDataFromDb.companyId,
           companyName: userDataFromDb.companyName,
           approvalStatus: userDataFromDb.approvalStatus,
@@ -239,6 +242,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const newCompanyUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: companyDetails.email,
           name: companyDetails.name,
+          position: companyDetails.position,
           companyName: companyDetails.companyName,
           phone: companyDetails.phone,
           role: 'company_representative' as const,
@@ -252,6 +256,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             id: fbUserInstance.uid,
             email: companyDetails.email,
             name: companyDetails.name,
+            position: companyDetails.position,
             companyName: companyDetails.companyName,
             phone: companyDetails.phone,
             role: 'company_representative',
@@ -426,6 +431,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               email: updatedDataFromDb.email || '',
               role: updatedDataFromDb.role || 'individual',
               name: updatedDataFromDb.name,
+              position: updatedDataFromDb.position,
               companyId: updatedDataFromDb.companyId,
               companyName: updatedDataFromDb.companyName,
               approvalStatus: updatedDataFromDb.approvalStatus,

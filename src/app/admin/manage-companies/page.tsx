@@ -71,7 +71,7 @@ export default function ManageCompaniesPage() {
   } = useSimpleTable<User>({
       data: allCompaniesFromDb,
       rowsPerPage: 10,
-      searchKeys: ['companyName', 'name', 'email'], 
+      searchKeys: ['companyName', 'name', 'email', 'position'], 
       initialSort: { key: 'companyName', direction: 'ascending'},
   });
   
@@ -176,6 +176,7 @@ export default function ManageCompaniesPage() {
                   <TableRow>
                     <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('companyName')}{getSortIndicator('companyName')}</TableHead>
                     <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('contactPerson')}{getSortIndicator('name')}</TableHead>
+                    <TableHead onClick={() => requestSort('position')} className="cursor-pointer group">{t('position')}{getSortIndicator('position')}</TableHead>
                     <TableHead onClick={() => requestSort('email')} className="cursor-pointer group">{t('email')}{getSortIndicator('email')}</TableHead>
                     <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
@@ -186,6 +187,7 @@ export default function ManageCompaniesPage() {
                     <TableRow key={company.id}>
                       <TableCell className="font-medium">{company.companyName || t('notAvailable')}</TableCell>
                       <TableCell>{company.name || t('notAvailable')}</TableCell>
+                      <TableCell>{company.position || t('notAvailable')}</TableCell>
                       <TableCell>{company.email}</TableCell>
                       <TableCell>{getStatusBadge(company.approvalStatus)}</TableCell>
                       <TableCell className="text-right space-x-2">
