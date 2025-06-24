@@ -35,6 +35,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
+import { notifyAdminsOfNewBooking } from '@/actions/notification-actions';
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -417,7 +418,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         return mappedItem as BookingItem;
       });
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'payerBankName' | 'payerAccountNumber'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory: 'dormitory',
         items: mappedItems,
         guestName: dormData.fullName,
@@ -434,6 +435,19 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+        
+        const createdBookingForNotification: Booking = {
+            ...(bookingDataToSave as any),
+            id: docRef.id,
+            bookedAt: new Date().toISOString(),
+            startDate: Timestamp.fromDate(startDateObject).toDate().toISOString(),
+            endDate: Timestamp.fromDate(endDateObject).toDate().toISOString(),
+        };
+
+        notifyAdminsOfNewBooking(createdBookingForNotification).catch(err => {
+            console.error("SMS notification to admins failed to dispatch:", err);
+        });
+
         toast({ title: t('bookingRequestSubmitted'), description: t('dormitoryBookingPendingApproval') });
         
         const notificationMessageDorm = t('notificationNewDormBooking', {
@@ -557,6 +571,18 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
       try {
         const docRef = await addDoc(collection(db, "bookings"), bookingDataToSave);
+        
+        const createdBookingForNotification: Booking = {
+            ...(bookingDataToSave as any),
+            id: docRef.id,
+            bookedAt: new Date().toISOString(),
+            startDate: Timestamp.fromDate(startDateObject).toDate().toISOString(),
+            endDate: Timestamp.fromDate(endDateObject).toDate().toISOString(),
+        };
+
+        notifyAdminsOfNewBooking(createdBookingForNotification).catch(err => {
+            console.error("SMS notification to admins failed to dispatch:", err);
+        });
         
         const notificationMessageFacility = t('notificationNewFacilityBooking', {
             companyName: facilityData.companyName,

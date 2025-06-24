@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { notifyKeyholdersOfDormApproval } from '@/actions/notification-actions';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -172,6 +173,14 @@ export default function AdminManageDormitoryBookingsPage() {
     const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
     if (newPaymentStatus === 'paid') {
       updateData.approvalStatus = 'approved';
+      
+      const bookingToNotify = allBookingsFromDb.find(b => b.id === bookingId);
+      if (bookingToNotify) {
+        notifyKeyholdersOfDormApproval(bookingToNotify).catch(err => {
+          console.error("SMS notification to keyholders failed to dispatch:", err);
+        });
+      }
+
     } else {
       updateData.approvalStatus = 'rejected';
     }
