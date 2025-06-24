@@ -21,7 +21,9 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
   const { t } = useLanguage();
 
   if (!dormitories || dormitories.length === 0) {
-    return <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesAvailable')}</p>;
+    // This case will now be handled by the parent page component to show a more specific message.
+    // Returning null here to avoid duplicate messages.
+    return null;
   }
 
   return (
@@ -65,7 +67,7 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
             </CardHeader>
             <CardContent className="p-4 flex-grow">
               <div className="flex items-center text-lg font-semibold text-primary mb-2">
-                <DollarSign className="w-5 h-5 mr-1" /> {dorm.pricePerDay} ETB / {t('day')}
+                <DollarSign className="w-5 h-5 mr-1" /> {dorm.pricePerDay ? `${dorm.pricePerDay} ${t('currencySymbol')} / ${t('day')}` : t('priceAvailableOnRequest')}
               </div>
                <div className="flex items-center text-sm text-muted-foreground">
                 {dorm.isAvailable ? (
@@ -78,7 +80,11 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
             </CardContent>
             <CardFooter className="p-4">
               <Link href={href} className="w-full" passHref>
-                <Button className="w-full" disabled={!dorm.isAvailable}>
+                <Button 
+                  className="w-full" 
+                  disabled={!dorm.isAvailable || !selectedDateRange?.from}
+                  title={!selectedDateRange?.from ? t('selectDateRangeFirstTooltip') : undefined}
+                >
                   {t('bookNow')}
                 </Button>
               </Link>

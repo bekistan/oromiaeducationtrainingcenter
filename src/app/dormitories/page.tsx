@@ -33,7 +33,6 @@ export default function DormitoriesPage() {
       const dormsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          isAvailable: true // Ensure this reflects admin-set availability for initial list
         } as Dormitory));
       setAllAdminEnabledDormitories(dormsData);
     } catch (error) {
@@ -45,7 +44,7 @@ export default function DormitoriesPage() {
   }, [t, toast]);
 
   useEffect(() => {
-    fetchAllAdminEnabledDormitories().catch(console.error);
+    fetchAllAdminEnabledDormitories();
   }, [fetchAllAdminEnabledDormitories]);
 
   const checkDormitoryAvailabilityForRange = useCallback(async (dorm: Dormitory, range: DateRange): Promise<boolean> => {
@@ -101,7 +100,7 @@ export default function DormitoriesPage() {
         if (dorm.isAvailable) { 
             const isTrulyAvailableInRange = await checkDormitoryAvailabilityForRange(dorm, selectedDateRange);
             if (isTrulyAvailableInRange) {
-            availableDorms.push(dorm);
+              availableDorms.push(dorm);
             }
         }
       }
@@ -112,12 +111,17 @@ export default function DormitoriesPage() {
     updateAvailableDorms().catch(e => {
         console.error("Failed to update available dorms:", e);
         setIsCheckingRangeAvailability(false);
-        // Optionally set an error state to display to the user
     });
   }, [selectedDateRange, allAdminEnabledDormitories, checkDormitoryAvailabilityForRange]);
 
 
   const renderContent = () => {
+    const dormsToDisplay = (selectedDateRange?.from && selectedDateRange?.to)
+      ? availableDormitoriesInRange
+      : allAdminEnabledDormitories;
+      
+    const hasDateRange = selectedDateRange?.from && selectedDateRange?.to;
+
     if (isLoadingInitialDorms) {
       return (
         <div className="flex flex-col justify-center items-center h-40">
@@ -127,24 +131,8 @@ export default function DormitoriesPage() {
       );
     }
     
-    if (allAdminEnabledDormitories.length === 0 && !isLoadingInitialDorms) {
-        return <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesConfigured')}</p>;
-    }
-
-    if (!selectedDateRange?.from || !selectedDateRange?.to) {
-      return (
-        <Alert variant="default" className="max-w-md mx-auto bg-blue-50 border-blue-200">
-          <CalendarDays className="h-5 w-5 text-blue-600" />
-          <AlertTitle className="text-blue-700">{t('selectDatesTitle')}</AlertTitle>
-          <AlertDescription className="text-blue-600">
-            {t('selectDatesToSeeAvailableDorms')}
-          </AlertDescription>
-        </Alert>
-      );
-    }
-    
     if (isCheckingRangeAvailability) {
-      return (
+       return (
         <div className="flex flex-col justify-center items-center h-40">
           <Loader2 className="h-8 w-8 animate-spin mb-2" />
           <p>{t('checkingAvailabilityForRange')}</p>
@@ -152,19 +140,23 @@ export default function DormitoriesPage() {
       );
     }
     
-    if (availableDormitoriesInRange.length === 0) {
-      return (
-        <Alert variant="destructive" className="max-w-md mx-auto">
-          <AlertCircle className="h-5 w-5" />
-          <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
-          <AlertDescription>
-            {t('noDormsAvailableInDateRange')}
-          </AlertDescription>
-        </Alert>
-      );
+    if (dormsToDisplay.length === 0) {
+      if (hasDateRange) {
+        return (
+          <Alert variant="destructive" className="max-w-md mx-auto">
+            <AlertCircle className="h-5 w-5" />
+            <AlertTitle>{t('noAvailabilityTitle')}</AlertTitle>
+            <AlertDescription>
+              {t('noDormsAvailableInDateRange')}
+            </AlertDescription>
+          </Alert>
+        );
+      }
+      return <p className="text-center text-lg text-muted-foreground py-10">{t('noDormitoriesConfigured')}</p>;
     }
+    
 
-    return <DormitoryList dormitories={availableDormitoriesInRange} selectedDateRange={selectedDateRange} />;
+    return <DormitoryList dormitories={dormsToDisplay} selectedDateRange={selectedDateRange} />;
   };
 
 
@@ -180,6 +172,16 @@ export default function DormitoriesPage() {
           <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
         </div>
         
+        {!selectedDateRange?.from && !isLoadingInitialDorms && allAdminEnabledDormitories.length > 0 && (
+           <Alert variant="default" className="max-w-xl mx-auto mb-8 bg-blue-50 border-blue-200">
+            <CalendarDays className="h-5 w-5 text-blue-600" />
+            <AlertTitle className="text-blue-700">{t('selectDatesForAccurateAvailability')}</AlertTitle>
+            <AlertDescription className="text-blue-600">
+              {t('showingAllAdminAvailableDorms')}
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="mt-8">
             {renderContent()}
         </div>
@@ -187,3 +189,4 @@ export default function DormitoriesPage() {
     </PublicLayout>
   );
 }
+
