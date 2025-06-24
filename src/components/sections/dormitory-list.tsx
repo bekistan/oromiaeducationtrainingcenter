@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Dormitory } from "@/types";
@@ -9,7 +8,7 @@ import Image from "next/image";
 import { BedDouble, Users, DollarSign, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
 
 interface DormitoryListProps {
@@ -19,6 +18,7 @@ interface DormitoryListProps {
 
 export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListProps) {
   const { t } = useLanguage();
+  const router = useRouter();
 
   if (!dormitories || dormitories.length === 0) {
     return null;
@@ -26,18 +26,22 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
 
   const hasDateRange = selectedDateRange?.from && selectedDateRange?.to;
 
+  const handleBookNow = (dormId: string) => {
+    if (!hasDateRange || !selectedDateRange) return;
+
+    const bookingLink = new URLSearchParams();
+    if (selectedDateRange.from) {
+      bookingLink.set('startDate', selectedDateRange.from.toISOString());
+    }
+    if (selectedDateRange.to) {
+      bookingLink.set('endDate', selectedDateRange.to.toISOString());
+    }
+    router.push(`/dormitories/${dormId}/book?${bookingLink.toString()}`);
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {dormitories.map((dorm) => {
-        const bookingLink = new URLSearchParams();
-        if (selectedDateRange?.from) {
-          bookingLink.set('startDate', selectedDateRange.from.toISOString());
-        }
-        if (selectedDateRange?.to) {
-          bookingLink.set('endDate', selectedDateRange.to.toISOString());
-        }
-        const href = `/dormitories/${dorm.id}/book?${bookingLink.toString()}`;
-        
         return (
           <Card key={dorm.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
             <div className="relative w-full h-48">
@@ -78,15 +82,14 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
               )}
             </CardContent>
             <CardFooter className="p-4">
-              <Link href={href} className="w-full" passHref>
-                <Button 
-                  className="w-full" 
-                  disabled={!hasDateRange}
-                  title={!hasDateRange ? t('selectDateRangeFirstTooltip') : undefined}
-                >
-                  {t('bookNow')}
-                </Button>
-              </Link>
+              <Button 
+                className="w-full" 
+                disabled={!hasDateRange}
+                title={!hasDateRange ? t('selectDateRangeFirstTooltip') : undefined}
+                onClick={() => handleBookNow(dorm.id)}
+              >
+                {t('bookNow')}
+              </Button>
             </CardFooter>
           </Card>
         );
