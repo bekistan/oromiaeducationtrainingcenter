@@ -92,7 +92,7 @@ export default function AdminManageDormitoryBookingsPage() {
     queryFn: fetchDormitoryBookingsFromDb,
   });
 
-  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string }>({
+  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string; bookingToNotify?: Booking }>({
     mutationFn: async ({ bookingId, updateData }) => {
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, updateData);
@@ -100,6 +100,13 @@ export default function AdminManageDormitoryBookingsPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [DORMITORY_BOOKINGS_QUERY_KEY] });
       toast({ title: t('success'), description: t(variables.successMessageKey) });
+
+      if (variables.bookingToNotify && variables.updateData.approvalStatus === 'approved') {
+        console.log(`Dispatching keyholder notification for booking ID: ${variables.bookingToNotify.id}`);
+        notifyKeyholdersOfDormApproval(variables.bookingToNotify).catch(err => {
+          console.error("SMS notification to keyholders failed to dispatch from mutation success callback:", err);
+        });
+      }
     },
     onError: (error) => {
       toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingBookingStatus') });
@@ -171,20 +178,21 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const handlePaymentVerification = (bookingId: string, newPaymentStatus: 'paid' | 'failed') => {
     const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
+    let bookingToNotify: Booking | undefined = undefined;
+
     if (newPaymentStatus === 'paid') {
       updateData.approvalStatus = 'approved';
-      
-      const bookingToNotify = allBookingsFromDb.find(b => b.id === bookingId);
-      if (bookingToNotify) {
-        notifyKeyholdersOfDormApproval(bookingToNotify).catch(err => {
-          console.error("SMS notification to keyholders failed to dispatch:", err);
-        });
-      }
-
+      bookingToNotify = allBookingsFromDb.find(b => b.id === bookingId);
     } else {
       updateData.approvalStatus = 'rejected';
     }
-    updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'paymentStatusUpdated' });
+    
+    updateBookingMutation.mutate({ 
+      bookingId, 
+      updateData, 
+      successMessageKey: 'paymentStatusUpdated',
+      bookingToNotify // Pass the full booking object to the mutation
+    });
   };
 
   const confirmDeleteBooking = () => {

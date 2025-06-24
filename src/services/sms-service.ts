@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -12,21 +13,35 @@ const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
  * Sends an SMS using the Afro Messaging API.
- * @param to - The recipient's phone number in E.164 format (e.g., +2519...).
+ * @param to - The recipient's phone number. Handles formats like 09..., +2519..., 07..., etc.
  * @param message - The text message to send.
  * @returns A promise that resolves if the SMS is sent successfully.
  */
 export async function sendSms(to: string, message: string): Promise<void> {
-  if (API_KEY === 'YOUR_AFRO_MESSAGING_API_KEY' || SENDER_ID === 'YourSenderID') {
-    console.warn('SMS sending is disabled. Please configure your Afro Messaging API Key and Sender ID in src/services/sms-service.ts');
+  if (!API_KEY || API_KEY === 'YOUR_AFRO_MESSAGING_API_KEY' || !SENDER_ID || SENDER_ID === 'YourSenderID') {
+    console.warn('SMS sending is disabled. Please configure your Afro Messaging API Key and Sender ID.');
     return;
   }
 
-  // Basic validation for Ethiopian numbers
-  if (!/^\+251[79]\d{8}$/.test(to)) {
-      console.warn(`SMS not sent. Invalid phone number format for recipient: ${to}. Expected +251...`);
+  let normalizedPhoneNumber = to.trim();
+  
+  if (normalizedPhoneNumber.startsWith('09')) {
+    normalizedPhoneNumber = `+2519${normalizedPhoneNumber.substring(2)}`;
+  } else if (normalizedPhoneNumber.startsWith('9')) {
+    normalizedPhoneNumber = `+2519${normalizedPhoneNumber.substring(1)}`;
+  } else if (normalizedPhoneNumber.startsWith('07')) {
+    normalizedPhoneNumber = `+2517${normalizedPhoneNumber.substring(2)}`;
+  } else if (normalizedPhoneNumber.startsWith('7')) {
+    normalizedPhoneNumber = `+2517${normalizedPhoneNumber.substring(1)}`;
+  }
+
+  // Final validation check for E.164 format for Ethiopia (covers both 9... and 7... prefixes)
+  if (!/^\+251[79]\d{8}$/.test(normalizedPhoneNumber)) {
+      console.warn(`SMS not sent to "${to}". Invalid or unhandled phone number format. Normalized to: "${normalizedPhoneNumber}". Expected +251...`);
       return;
   }
+
+  console.log(`Attempting to send SMS to ${normalizedPhoneNumber} with message: "${message}"`);
 
   try {
     const response = await fetch(API_URL, {
@@ -37,7 +52,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        to: to,
+        to: normalizedPhoneNumber,
         from: SENDER_ID,
         message: message,
       }),
@@ -46,13 +61,17 @@ export async function sendSms(to: string, message: string): Promise<void> {
     const responseData = await response.json();
 
     if (!response.ok) {
-      console.error('Failed to send SMS via Afro Messaging API.', { status: response.status, body: responseData });
-      throw new Error(`Afro Messaging API Error: ${responseData.message || 'Unknown error'}`);
+      console.error('Failed to send SMS via Afro Messaging API.', { status: response.status, body: responseData, recipient: normalizedPhoneNumber });
+      // Do not re-throw, just log the error.
+    } else {
+        if (responseData.acknowledge === 'success') {
+            console.log('SMS successfully sent to', normalizedPhoneNumber, 'Response:', responseData);
+        } else {
+            console.warn('SMS submission to Afro Messaging was not successful.', { recipient: normalizedPhoneNumber, response: responseData });
+        }
     }
-
-    console.log('SMS sent successfully to', to, 'Response:', responseData);
   } catch (error) {
-    console.error('Error in sendSms function:', error);
+    console.error('Network or other error in sendSms function:', error);
     // Do not re-throw to prevent breaking user-facing flows
   }
 }
@@ -68,6 +87,7 @@ export async function getAdminPhoneNumbers(): Promise<string[]> {
     .map(doc => (doc.data() as User).phone)
     .filter((phone): phone is string => !!phone && phone.trim() !== '');
   
+  console.log(`Found ${phoneNumbers.length} admin/superadmin phone numbers for notification.`);
   return [...new Set(phoneNumbers)]; // Return unique phone numbers
 }
 
@@ -76,11 +96,12 @@ export async function getAdminPhoneNumbers(): Promise<string[]> {
  * @returns A promise that resolves to an array of phone numbers.
  */
 export async function getKeyholderPhoneNumbers(): Promise<string[]> {
-    const q = query(collection(db, "users"), where("role", "===", "keyholder"));
+    const q = query(collection(db, "users"), where("role", "==", "keyholder"));
     const querySnapshot = await getDocs(q);
     const phoneNumbers = querySnapshot.docs
       .map(doc => (doc.data() as User).phone)
       .filter((phone): phone is string => !!phone && phone.trim() !== '');
   
+    console.log(`Found ${phoneNumbers.length} keyholder phone numbers for notification.`);
     return [...new Set(phoneNumbers)];
 }
