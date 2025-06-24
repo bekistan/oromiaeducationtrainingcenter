@@ -37,7 +37,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { formatDualDate } from '@/lib/date-utils';
 import { notifyKeyholdersOfDormApproval } from '@/actions/notification-actions';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -395,7 +395,7 @@ export default function AdminManageDormitoryBookingsPage() {
                               : <span className="text-xs text-muted-foreground italic">{t('notApplicableShort')}</span>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap">{new Date(booking.startDate as string).toLocaleDateString()} - {new Date(booking.endDate as string).toLocaleDateString()}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

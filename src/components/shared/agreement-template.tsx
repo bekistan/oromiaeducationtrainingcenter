@@ -6,7 +6,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import { SITE_NAME } from '@/constants'; 
-import { formatDateForDisplay } from '@/lib/date-utils'; // Import the new formatter
+import { formatDateForDisplay, formatDualDate } from '@/lib/date-utils';
 
 interface AgreementTemplateProps {
   booking: Booking | null;
@@ -24,7 +24,7 @@ const DEFAULT_TERMS_KEYS = [
 ];
 
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
-  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
+  const { t } = useLanguage();
 
   if (!booking) {
     return <p>{t('loadingAgreementDetails')}</p>; 
@@ -34,15 +34,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     return <p>{t('agreementNotApplicable')}</p>; 
   }
   
-  // Use preferred calendar system for date display
-  const displayFormat = preferredCalendarSystem === 'ethiopian' ? 'MMMM D, YYYY ERA' : 'MMMM dd, yyyy';
-  const agreementDate = formatDateForDisplay(new Date(), preferredCalendarSystem, displayFormat, displayFormat);
+  const agreementDate = formatDualDate(new Date(), 'MMMM dd, yyyy', 'MMMM D, YYYY ERA');
   
   const startDateObj = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
   const endDateObj = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
 
-  const startDateFormatted = formatDateForDisplay(startDateObj, preferredCalendarSystem, displayFormat, displayFormat);
-  const endDateFormatted = formatDateForDisplay(endDateObj, preferredCalendarSystem, displayFormat, displayFormat);
+  const startDateFormatted = formatDualDate(startDateObj, 'MMMM dd, yyyy', 'MMMM D, YYYY ERA');
+  const endDateFormatted = formatDualDate(endDateObj, 'MMMM dd, yyyy', 'MMMM D, YYYY ERA');
   const numberOfDays = differenceInCalendarDays(endDateObj, startDateObj) + 1;
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
@@ -220,5 +218,3 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     </div>
   );
 }
-
-    

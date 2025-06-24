@@ -34,7 +34,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDateForDisplay, toDateObject, formatDualDate } from '@/lib/date-utils';
+import { toDateObject, formatDualDate } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -60,7 +60,7 @@ const fetchBookingsFromDb = async (): Promise<Booking[]> => {
 };
 
 export default function AdminBookingsPage() {
-  const { t, preferredCalendarSystem } = useLanguage();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const queryClient: QueryClient = useQueryClient();
 
@@ -356,7 +356,7 @@ export default function AdminBookingsPage() {
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                         <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">
-                          {formatDateForDisplay(booking.startDate, preferredCalendarSystem, 'MMM d, yy', 'MMM D, YY')} - {formatDateForDisplay(booking.endDate, preferredCalendarSystem, 'MMM d, yy', 'MMM D, YY')}
+                          {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
@@ -500,4 +500,3 @@ export default function AdminBookingsPage() {
     </>
   );
 }
-

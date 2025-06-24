@@ -86,13 +86,13 @@ export default function KeyholderReportsPage() {
       [t('phone')]: b.phone,
       [t('roomBooked')]: b.items.map(i => i.name).join('; '),
       [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
-      [t('checkInDate')]: formatDateForDisplay(b.startDate, preferredCalendarSystem),
-      [t('checkOutDate')]: formatDateForDisplay(b.endDate, preferredCalendarSystem),
+      [t('checkInDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('checkOutDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
       [t('keyStatus')]: t(b.keyStatus || 'keyNotIssued'),
     }));
 
     return {
-      filename: `${t('dormitoryActivityReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t('dormitoryActivityReport')}_${formatDualDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };

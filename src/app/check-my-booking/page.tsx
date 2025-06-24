@@ -205,7 +205,7 @@ export default function CheckMyBookingPage() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
                     <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>{t('bookingDates')}: {formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</span>
+                    <span>{t('bookingDates')}: {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</span>
                   </div>
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />

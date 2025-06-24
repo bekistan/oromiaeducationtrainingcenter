@@ -3,16 +3,16 @@
 
 import type { ReactNode } from 'react';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import type { Locale, Translations, CalendarSystem } from '@/types'; // Added CalendarSystem
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, DEFAULT_CALENDAR_SYSTEM } from '@/constants'; // Added DEFAULT_CALENDAR_SYSTEM
+import type { Locale, Translations, CalendarSystem } from '@/types';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, DEFAULT_CALENDAR_SYSTEM } from '@/constants';
 
 interface LanguageContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   translations: Translations;
   t: (key: string, replacements?: Record<string, string | number>) => string;
-  preferredCalendarSystem: CalendarSystem; // New
-  setPreferredCalendarSystem: (system: CalendarSystem) => void; // New
+  preferredCalendarSystem: CalendarSystem;
+  setPreferredCalendarSystem: (system: CalendarSystem) => void;
 }
 
 export const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -24,7 +24,7 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [translations, setTranslations] = useState<Translations>({});
-  const [preferredCalendarSystem, setPreferredCalendarSystemState] = useState<CalendarSystem>(DEFAULT_CALENDAR_SYSTEM); // New
+  const [preferredCalendarSystem, setPreferredCalendarSystemState] = useState<CalendarSystem>(DEFAULT_CALENDAR_SYSTEM);
 
   useEffect(() => {
     const storedLocale = localStorage.getItem('locale') as Locale | null;
@@ -32,10 +32,10 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       setLocaleState(storedLocale);
     }
 
-    const storedCalendarSystem = localStorage.getItem('calendarSystem') as CalendarSystem | null; // New
-    if (storedCalendarSystem && (storedCalendarSystem === 'gregorian' || storedCalendarSystem === 'ethiopian')) { // New
-      setPreferredCalendarSystemState(storedCalendarSystem); // New
-    } // New
+    const storedCalendarSystem = localStorage.getItem('calendarSystem') as CalendarSystem | null;
+    if (storedCalendarSystem && (storedCalendarSystem === 'gregorian' || storedCalendarSystem === 'ethiopian')) {
+      setPreferredCalendarSystemState(storedCalendarSystem);
+    }
   }, []);
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     }
   };
 
-  const setPreferredCalendarSystem = (system: CalendarSystem) => { // New function
+  const setPreferredCalendarSystem = (system: CalendarSystem) => {
     setPreferredCalendarSystemState(system);
     localStorage.setItem('calendarSystem', system);
   };

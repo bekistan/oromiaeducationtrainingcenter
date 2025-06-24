@@ -189,8 +189,8 @@ export default function KeyholderAssignKeysPage() {
                       <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
                       <TableCell>{booking.phone || t('notAvailable')}</TableCell>
                       <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
-                      <TableCell className="text-xs">{formatDualDate(booking.bookedAt)}</TableCell>
-                      <TableCell className="text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
+                      <TableCell className="text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                      <TableCell className="text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                       <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button 

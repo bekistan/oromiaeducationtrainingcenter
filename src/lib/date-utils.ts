@@ -4,7 +4,7 @@ import { EthiopianDate, toEthiopian, format as formatEthiopianDateInternalFn } f
 import type { Timestamp } from 'firebase/firestore';
 import type { CalendarSystem } from '@/types';
 
-type DateInput = string | Date | Timestamp | undefined;
+type DateInput = string | Date | Timestamp | undefined | null;
 
 export const toDateObject = (dateInput: DateInput): Date | null => {
   if (!dateInput) return null;
@@ -29,7 +29,7 @@ export const toDateObject = (dateInput: DateInput): Date | null => {
 
 export const formatGregorianDateInternal = (
     dateObj: Date,
-    formatStr: string = 'MMM d, yyyy' // Default format
+    formatStr: string = 'MMM d, yyyy'
   ): string => {
   try {
     return formatGregorian(dateObj, formatStr);
@@ -41,7 +41,7 @@ export const formatGregorianDateInternal = (
 
 export const formatEthiopianDateInternal = (
     dateObj: Date,
-    formatStr: string = 'MMMM D, YYYY ERA' // Default format
+    formatStr: string = 'MMMM D, YYYY ERA'
   ): string => {
   try {
     const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
@@ -64,8 +64,8 @@ export const formatEthiopianDateInternal = (
 export const formatDateForDisplay = (
   dateInput: DateInput,
   preferredSystem: CalendarSystem,
-  gregorianFormatStr: string = 'MMM d, yyyy', // Default Gregorian format
-  ethiopianFormatStr: string = 'MMMM D, YYYY ERA' // Default Ethiopian format
+  gregorianFormatStr: string = 'MMM d, yyyy',
+  ethiopianFormatStr: string = 'MMMM D, YYYY ERA'
 ): string => {
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
@@ -73,7 +73,6 @@ export const formatDateForDisplay = (
   if (preferredSystem === 'ethiopian') {
     return formatEthiopianDateInternal(dateObj, ethiopianFormatStr);
   }
-  // Default to Gregorian
   return formatGregorianDateInternal(dateObj, gregorianFormatStr);
 };
 
@@ -81,7 +80,7 @@ export const formatDateForDisplay = (
 export const formatDualDate = (
     dateInput: DateInput,
     gregorianFormatStr: string = 'MMM d, yyyy',
-    ethiopianFormatStr: string = 'MMMM D, YYYY ERA'
+    ethiopianFormatStr: string = 'MMMM D, YYYY'
   ): string => {
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
@@ -92,29 +91,7 @@ export const formatDualDate = (
     return `${gregorianFormatted} (${ethiopianFormatted})`;
   } catch (error) {
     console.error("Error formatting dual date:", error, "Input:", dateInput);
-    // Fallback to Gregorian only if Ethiopian formatting failed or vice-versa
     try { return formatGregorianDateInternal(dateObj, gregorianFormatStr) + " (Eth. N/A)"; }
     catch { return "Invalid Date"; }
   }
 };
-
-// Kept for direct Gregorian formatting if needed, independent of preference
-export const formatGregorianDate = (
-    dateInput: DateInput,
-    formatStr: string = 'PPP'
-  ): string => {
-  const dateObj = toDateObject(dateInput);
-  if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
-  return formatGregorianDateInternal(dateObj, formatStr);
-};
-
-// Kept for direct Ethiopian formatting if needed, independent of preference
-export const formatEthiopianCalendarDate = (
-    dateInput: DateInput,
-    formatStr: string = 'dddd, MMMM DD, YYYY ERA'
-  ): string => {
-  const dateObj = toDateObject(dateInput);
-  if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
-  return formatEthiopianDateInternal(dateObj, formatStr);
-};
-

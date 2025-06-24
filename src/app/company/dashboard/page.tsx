@@ -356,9 +356,9 @@ export default function CompanyDashboardPage() {
                       {displayedBookings.map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
                           <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate)} - {formatDualDate(booking.endDate)}</TableCell>
+                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                           <TableCell className="min-w-[120px]">
                             <div className="flex flex-col text-xs">
                               {booking.serviceDetails?.lunch && (

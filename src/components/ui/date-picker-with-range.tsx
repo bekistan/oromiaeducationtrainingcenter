@@ -14,20 +14,23 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useLanguage } from "@/hooks/use-language"
-import { formatDateForDisplay } from "@/lib/date-utils"; // Import the new formatter
+import { formatDateForDisplay } from "@/lib/date-utils";
 
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   date?: DateRange;
   onDateChange?: (date: DateRange | undefined) => void;
+  disabled?: boolean;
 }
 
 export function DatePickerWithRange({
   className,
   date: initialDate,
   onDateChange,
+  disabled: propDisabled
 }: DatePickerWithRangeProps) {
-  const { t, preferredCalendarSystem } = useLanguage(); // Get preferredCalendarSystem
+  const { t, preferredCalendarSystem } = useLanguage();
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
+  const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (initialDate) {
@@ -40,18 +43,24 @@ export function DatePickerWithRange({
     if (onDateChange) {
       onDateChange(selectedDate);
     }
+    if (selectedDate?.from && selectedDate?.to) {
+        setIsPopoverOpen(false);
+    }
   }
 
   const displayFormat = preferredCalendarSystem === 'ethiopian' ? 'MMMM D, YYYY' : 'LLL dd, y';
+  const today = new Date();
+  today.setHours(0,0,0,0);
 
 
   return (
     <div className={cn("grid gap-2", className)}>
-      <Popover>
+      <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
             id="date"
             variant={"outline"}
+            disabled={propDisabled}
             className={cn(
               "w-[300px] justify-start text-left font-normal",
               !date && "text-muted-foreground"
@@ -80,6 +89,7 @@ export function DatePickerWithRange({
             selected={date}
             onSelect={handleSelect}
             numberOfMonths={2}
+            disabled={{ before: today }}
           />
         </PopoverContent>
       </Popover>

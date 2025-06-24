@@ -195,7 +195,7 @@ export default function KeyholderDailyReportsPage() {
                                         <TableRow key={booking.id}>
                                             <TableCell>{booking.guestName}</TableCell>
                                             <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                            <TableCell>{formatDualDate(booking.endDate)}</TableCell>
+                                            <TableCell>{formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

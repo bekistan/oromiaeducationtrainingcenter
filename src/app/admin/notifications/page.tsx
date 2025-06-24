@@ -149,7 +149,7 @@ export default function AdminNotificationsPage() {
                       </TableCell>
                       <TableCell className="max-w-md truncate">{notification.message}</TableCell>
                       <TableCell className="capitalize">{t(notification.type)}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(notification.createdAt)}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(notification.createdAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
                       <TableCell className="text-right space-x-2">
                         {!notification.isRead && (
                           <Button

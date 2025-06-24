@@ -14,7 +14,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDualDate, formatDateForDisplay } from '@/lib/date-utils';
+import { formatDualDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
@@ -82,17 +82,17 @@ export default function CompanyReportsPage() {
     const reportData = bookings.map(b => ({
       [t('bookingId')]: b.id,
       [t('itemsBooked')]: b.items.map(i => i.name).join('; '),
-      [t('startDate')]: formatDateForDisplay(b.startDate, preferredCalendarSystem),
-      [t('endDate')]: formatDateForDisplay(b.endDate, preferredCalendarSystem),
+      [t('startDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('endDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
       [t('agreementStatus')]: b.agreementStatus ? t(b.agreementStatus) : t('notApplicable'),
-      [t('bookedOn')]: formatDualDate(b.bookedAt),
+      [t('bookedOn')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
     }));
 
     return {
-      filename: `${t('bookingHistoryReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t('bookingHistoryReport')}_${formatDualDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };

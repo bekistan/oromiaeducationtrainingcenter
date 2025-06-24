@@ -123,7 +123,7 @@ export default function KeyholderDashboardPage() {
                                     <TableRow key={booking.id}>
                                         <TableCell>{booking.guestName}</TableCell>
                                         <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                        <TableCell>{formatDualDate(booking.startDate)}</TableCell>
+                                        <TableCell className="text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
