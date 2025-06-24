@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -7,7 +6,7 @@ import type { User } from '@/types';
 
 // IMPORTANT: Replace these placeholders with your actual Afro Messaging credentials.
 // For better security, it is highly recommended to use environment variables.
-const API_KEY = process.env.AFRO_MESSAGING_API_KEY || 'YOUR_AFRO_MESSAGING_API_KEY';
+const API_KEY = process.env.AFRO_MESSAGING_API_KEY || 'eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiNEc0VWlBdkpOYmhuN3FreGlkTW1kanNjdUpmNWVmcmQiLCJleHAiOjE5MDg1MjI1MzYsImlhdCI6MTc1MDc1NjEzNiwianRpIjoiNDhlMTYzNTEtNWMwMS00YjRhLThjNDMtNzIwYzQxMzU0MWJkIn0.nCIxiBKSupkf-ry1AnY6cHjz4P9OgZuL-_OrwGpiQC0';
 const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID || 'YourSenderID';
 const API_URL = 'https://api.afromessage.com/api/send';
 
