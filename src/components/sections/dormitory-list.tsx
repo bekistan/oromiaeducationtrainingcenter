@@ -6,7 +6,7 @@ import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { BedDouble, Users, DollarSign, CheckCircle, XCircle } from "lucide-react";
+import { BedDouble, Users, DollarSign, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -21,10 +21,10 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
   const { t } = useLanguage();
 
   if (!dormitories || dormitories.length === 0) {
-    // This case will now be handled by the parent page component to show a more specific message.
-    // Returning null here to avoid duplicate messages.
     return null;
   }
+
+  const hasDateRange = selectedDateRange?.from && selectedDateRange?.to;
 
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -49,13 +49,14 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
                 sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 data-ai-hint={dorm.dataAiHint || "dormitory room"}
               />
-              <Badge 
-                variant={dorm.isAvailable ? "default" : "destructive"} 
-                className="absolute top-2 right-2"
-                style={dorm.isAvailable ? {} : { backgroundColor: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))' }}
-              >
-                {dorm.isAvailable ? t('available') : t('unavailable')}
-              </Badge>
+              {hasDateRange && (
+                <Badge 
+                  variant="default"
+                  className="absolute top-2 right-2 bg-green-600 text-white"
+                >
+                  {t('available')}
+                </Badge>
+              )}
             </div>
             <CardHeader className="p-4">
               <CardTitle className="text-xl">
@@ -69,21 +70,19 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
               <div className="flex items-center text-lg font-semibold text-primary mb-2">
                 <DollarSign className="w-5 h-5 mr-1" /> {dorm.pricePerDay ? `${dorm.pricePerDay} ${t('currencySymbol')} / ${t('day')}` : t('priceAvailableOnRequest')}
               </div>
-               <div className="flex items-center text-sm text-muted-foreground">
-                {dorm.isAvailable ? (
-                  <CheckCircle className="w-4 h-4 mr-1 text-green-500" />
-                ) : (
-                  <XCircle className="w-4 h-4 mr-1 text-red-500" />
-                )}
-                {dorm.isAvailable ? t('available') : t('unavailable')}
-              </div>
+              {hasDateRange && (
+                 <div className="flex items-center text-sm text-green-600">
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  {t('available')}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="p-4">
               <Link href={href} className="w-full" passHref>
                 <Button 
                   className="w-full" 
-                  disabled={!dorm.isAvailable || !selectedDateRange?.from}
-                  title={!selectedDateRange?.from ? t('selectDateRangeFirstTooltip') : undefined}
+                  disabled={!hasDateRange}
+                  title={!hasDateRange ? t('selectDateRangeFirstTooltip') : undefined}
                 >
                   {t('bookNow')}
                 </Button>
