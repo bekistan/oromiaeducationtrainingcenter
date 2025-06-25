@@ -392,7 +392,7 @@ export default function AdminManageFacilityBookingsPage() {
                                   <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
                                   <DropdownMenuItem asChild>
                                     <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
-                                      <FileText className="mr-2 h-4 w-4" /> {t('viewAgreement')}
+                                      <FileText className="mr-2 h-4 w-4" /> {t('viewEditAgreement')}
                                     </Link>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
