@@ -19,7 +19,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SiteContentSettings, FAQItem, Locale } from '@/types';
-import { SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, SUPPORTED_LOCALES } from '@/constants';
+import { SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, SUPPORTED_LOCALES, SITE_NAME } from '@/constants';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 
