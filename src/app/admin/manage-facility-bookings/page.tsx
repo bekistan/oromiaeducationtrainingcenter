@@ -44,6 +44,13 @@ type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
 const FACILITY_BOOKINGS_QUERY_KEY = "adminFacilityBookings";
 
+const DEFAULT_TERMS_KEYS = [
+  'termsPlaceholder1',
+  'termsPlaceholder2',
+  'termsPlaceholder3',
+  'termsPlaceholder4',
+];
+
 const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
   const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"), orderBy("bookedAt", "desc"));
   const querySnapshot = await getDocs(q);
@@ -146,8 +153,10 @@ export default function AdminManageFacilityBookingsPage() {
 
   const handleApprovalChange = (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
-    if (newStatus === 'approved') { 
+    if (newStatus === 'approved') {
       updateData.agreementStatus = 'pending_admin_action';
+      const defaultTerms = DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
+      updateData.customAgreementTerms = defaultTerms;
     } else if (newStatus === 'rejected') {
       updateData.paymentStatus = 'failed';
     }
