@@ -1,5 +1,4 @@
 
-
 export type Locale = 'en' | 'om' | 'am';
 
 export type Translations = {
@@ -100,9 +99,6 @@ export interface Booking {
   // Dormitory specific
   guestName?: string;
   guestEmployer?: string;
-  // payerBankName and payerAccountNumber are now effectively unused for dorms
-  // payerBankName?: string; 
-  // payerAccountNumber?: string;
   phone?: string;
   paymentScreenshotUrl?: string; // For admin verification
   paymentScreenshotAirtableRecordId?: string; // For admin verification
@@ -176,4 +172,20 @@ export interface AdminNotification {
     isRead: boolean;
     createdAt: import('firebase/firestore').Timestamp | Date | string;
     link?: string; 
+}
+
+export interface FAQItem {
+  id: string;
+  question: { [key in Locale]?: string };
+  answer: { [key in Locale]?: string };
+}
+
+export interface SiteContentSettings {
+  id?: string;
+  welcomeMessage: { [key in Locale]?: string };
+  tagline: { [key in Locale]?: string };
+  faqs: FAQItem[];
+  privacyPolicy: { [key in Locale]?: string };
+  termsOfService: { [key in Locale]?: string };
+  lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }

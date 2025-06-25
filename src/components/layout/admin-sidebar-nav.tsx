@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from "next/link";
@@ -15,10 +14,6 @@ import {
   SidebarMenuButton,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  useSidebar
 } from "@/components/ui/sidebar"; 
 import { 
   LayoutDashboard, 
@@ -58,6 +53,7 @@ const ICONS: Record<string, LucideIcon> = {
   userProfile: UserCircle,
   manageSettings: Settings, 
   generalSettings: Settings,
+  siteContent: Settings,
   financialManagement: DollarSign,
   agreementTemplate: FileText,
   registerAdmin: UserPlus,
@@ -68,10 +64,10 @@ export function AdminSidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user, loading } = useAuth(); 
-  const { state: sidebarState } = useSidebar();
 
-  const isSubpathActive = (href?: string) => {
+  const isSubpathActive = (href?: string, exact: boolean = false) => {
     if (!href) return false;
+    if (exact) return pathname === href;
     return pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href));
   }
 
@@ -100,9 +96,9 @@ export function AdminSidebarNav() {
                   <Collapsible key={item.labelKey} defaultOpen={isParentActive} className="w-full">
                      <CollapsibleTrigger asChild>
                        <SidebarMenuButton
-                         isActive={isParentActive && sidebarState === 'expanded'}
+                         isActive={isParentActive}
                          tooltip={t(item.labelKey)}
-                         className="justify-between w-full"
+                         className="justify-between w-full group-data-[collapsible=icon]:justify-center"
                        >
                          <div className="flex items-center gap-2">
                            <Icon className="h-5 w-5" />
@@ -112,17 +108,19 @@ export function AdminSidebarNav() {
                        </SidebarMenuButton>
                      </CollapsibleTrigger>
                      <CollapsibleContent>
-                        <SidebarMenuSub className="mt-1">
-                          {item.children.map(child => (
-                             <SidebarMenuSubItem key={child.href}>
-                               <Link href={child.href!} passHref legacyBehavior>
-                                 <SidebarMenuSubButton isActive={isSubpathActive(child.href)} className="gap-2">
+                        <div className="pl-4 group-data-[collapsible=icon]:hidden">
+                            {item.children.map(child => (
+                                <Link key={child.href} href={child.href!} passHref legacyBehavior>
+                                    <SidebarMenuButton
+                                      isActive={isSubpathActive(child.href, child.href === item.href)}
+                                      className="justify-start w-full h-8 mt-1 text-sm font-normal"
+                                      variant="ghost"
+                                    >
                                      <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
-                                 </SidebarMenuSubButton>
-                               </Link>
-                             </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
+                                    </SidebarMenuButton>
+                                </Link>
+                            ))}
+                        </div>
                      </CollapsibleContent>
                   </Collapsible>
                  )

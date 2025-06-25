@@ -7,10 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle } from "lucide-react";
-import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME } from "@/constants";
+import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle, Loader2 } from "lucide-react";
+import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
 import { QRCodeDisplay } from "@/components/shared/qr-code-display";
 import { useEffect, useState } from "react";
+import { useQuery } from '@tanstack/react-query';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import type { SiteContentSettings, Locale, FAQItem } from '@/types';
 import {
   Accordion,
   AccordionContent,
@@ -18,9 +22,26 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
+
+const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
+  const docRef = doc(db, SITE_CONTENT_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { ...DEFAULT_SITE_CONTENT, ...docSnap.data() } as SiteContentSettings;
+  }
+  return DEFAULT_SITE_CONTENT;
+};
+
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [brochureUrl, setBrochureUrl] = useState('');
+
+  const { data: siteContent, isLoading: isLoadingContent } = useQuery<SiteContentSettings, Error>({
+    queryKey: [SITE_CONTENT_QUERY_KEY],
+    queryFn: fetchSiteContentPublic,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -49,7 +70,7 @@ export default function HomePage() {
       icon: <Utensils className="h-10 w-10 text-primary" />,
       titleKey: "cateringServices",
       descriptionKey: "tagline",
-      link: "/halls#catering", // This might need adjustment if catering isn't a direct section on halls page
+      link: "/halls#catering",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
       imageHint: "catering food"
     },
@@ -73,27 +94,25 @@ export default function HomePage() {
     },
   ];
 
-  const faqItems = [
-    { id: "faq1", questionKey: "faqQ1Title", answerKey: "faqQ1Answer" },
-    { id: "faq2", questionKey: "faqQ2Title", answerKey: "faqQ2Answer" },
-    { id: "faq3", questionKey: "faqQ3Title", answerKey: "faqQ3Answer" },
-    { id: "faq4", questionKey: "faqQ4Title", answerKey: "faqQ4Answer" },
-    { id: "faq5", questionKey: "faqQ5Title", answerKey: "faqQ5Answer" },
-    { id: "faq6", questionKey: "faqQ6Title", answerKey: "faqQ6Answer" },
-    { id: "faq7", questionKey: "faqQ7Title", answerKey: "faqQ7Answer" },
-  ];
+  const welcomeMessage = siteContent?.welcomeMessage?.[locale as Locale] || t('homePageWelcomeMessage');
+  const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
+  const faqs: FAQItem[] = siteContent?.faqs || [];
 
   return (
     <PublicLayout>
       {/* Hero Section */}
       <section className="relative py-20 md:py-32 bg-gradient-to-b from-primary/10 to-background">
         <div className="container mx-auto text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
-            {t('homePageWelcomeMessage')}
-          </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-foreground/80">
-            {t('tagline')}
-          </p>
+           {isLoadingContent ? <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" /> :
+            <>
+              <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
+                {welcomeMessage}
+              </h1>
+              <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-foreground/80">
+                {tagline}
+              </p>
+            </>
+           }
           <div className="mt-10 flex items-center justify-center gap-x-6">
             <Link href="/dormitories" passHref>
               <Button size="lg">{t('viewAvailableDormitories')}</Button>
@@ -131,7 +150,7 @@ export default function HomePage() {
                   />
                 </div>
                 <CardContent className="p-6 text-center">
-                  <CardDescription className="mb-6">{t(service.descriptionKey)}</CardDescription>
+                  <CardDescription className="mb-6">{siteContent?.tagline?.[locale as Locale] || t(service.descriptionKey)}</CardDescription>
                   <Link href={service.link} passHref>
                     <Button variant="default" className="w-full">{t('bookNow')}</Button>
                   </Link>
@@ -172,18 +191,20 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold text-primary">{t('faqTitle')}</h2>
             <p className="text-muted-foreground mt-2">{t('faqSubtitle')}</p>
           </div>
-          <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
-            {faqItems.map((item) => (
-              <AccordionItem value={item.id} key={item.id}>
-                <AccordionTrigger className="text-lg text-left hover:text-primary">
-                  {t(item.questionKey)}
-                </AccordionTrigger>
-                <AccordionContent className="text-base text-muted-foreground leading-relaxed">
-                  {t(item.answerKey)}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+           {isLoadingContent ? <Loader2 className="h-8 w-8 mx-auto animate-spin" /> :
+              <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
+                {faqs.map((item) => (
+                  <AccordionItem value={item.id} key={item.id}>
+                    <AccordionTrigger className="text-lg text-left hover:text-primary">
+                      {item.question[locale as Locale] || item.question['en']}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-base text-muted-foreground leading-relaxed">
+                      {item.answer[locale as Locale] || item.answer['en']}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            }
         </div>
       </section>
 

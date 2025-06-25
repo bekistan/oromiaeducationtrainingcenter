@@ -1,10 +1,8 @@
 
-
-import type { NavItem, User } from '@/types'; 
+import type { NavItem, User, SiteContentSettings } from '@/types'; 
 
 export const SITE_NAME = "Oromia Education Research and Training Center";
 export const SITE_DESCRIPTION = "together we can";
-
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
@@ -45,6 +43,7 @@ export const ADMIN_NAVS: NavItem[] = [
     generalAdminOnly: true,
     children: [
       { labelKey: 'generalSettings', href: '/admin/settings' },
+      { labelKey: 'siteContent', href: '/admin/settings/site-content' },
       { labelKey: 'financialManagement', href: '/admin/financials' },
       { labelKey: 'agreementTemplate', href: '/admin/settings/agreement-template' },
     ]
@@ -67,7 +66,6 @@ export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'reports', href: '/keyholder/reports', authRequired: true, roles: ['keyholder'] },
 ];
-
 
 export const FOOTER_LINKS = [
   { labelKey: 'privacyPolicy', href: '/privacy-policy' },
@@ -105,14 +103,13 @@ export const ETHIOPIAN_BANKS = [
 export const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 export const SITE_SETTINGS_DOC_PATH = "site_configuration/general_settings";
 export const AGREEMENT_TEMPLATE_DOC_PATH = "site_configuration/agreement_template_settings";
-
+export const SITE_CONTENT_DOC_PATH = "site_configuration/site_content";
 
 export const DEFAULT_SITE_SETTINGS = {
   siteAnnouncementMessage: "",
   isAnnouncementVisible: false,
 };
 
-export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
 export const DEFAULT_PRICING_SETTINGS = {
   defaultDormitoryPricePerDay: 500,
   defaultHallRentalCostPerDay: 3000,
@@ -125,3 +122,38 @@ export const DEFAULT_PRICING_SETTINGS = {
 };
 
 export const DEFAULT_AGREEMENT_TERMS = "These are the default terms and conditions. Please replace this text in the admin settings with your organization's official rental agreement terms.";
+
+export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
+  welcomeMessage: {
+    en: "Welcome to Oromia Education Center",
+    om: "Gara Mana Barumsaa Oromiyaatti Nagaan Dhuftan",
+    am: "ወደ ኦሮሚያ ትምህርት ማዕከል እንኳን በደህና መጡ"
+  },
+  tagline: {
+    en: "Your one-stop solution for booking facilities and dormitories with ease.",
+    om: "Iddoo jireenyaa fi galmawwan haala salphaan itti qabsiifattu.",
+    am: "ተቋማትን እና መኝታ ቤቶችን በቀላሉ ለማስያዝ የእርስዎ መፍትሄ።"
+  },
+  faqs: [
+    {
+      id: "faq1",
+      question: { en: "How do I book a dormitory room?", om: "Akkamittan kutaa ciisichaa qabsiifachuu danda'a?", am: "የመኝታ ክፍል እንዴት ነው መያዝ የምችለው?" },
+      answer: { en: "Navigate to the 'Dormitories' page, select your desired dates, choose an available room, and fill out the booking form.", om: "Fuula 'Dormitories' deemi, guyyaa barbaaddu filadhu, kutaa banaa ta'e filadhu, fi unka guuti.", am: "ወደ 'መኝታ ክፍሎች' ገጽ ይሂዱ፣ የሚፈልጉትን ቀን ይምረጡ፣ ያለውን ክፍል ይምረጡ እና የማስያዣ ቅጹን ይሙሉ።"}
+    },
+     {
+      id: "faq2",
+      question: { en: "Can companies book facilities?", om: "Dhaabbanni iddoo kireeffachuu danda'aa?", am: "ኩባንያዎች ቦታዎችን መያዝ ይችላሉ?" },
+      answer: { en: "Yes, companies can register for an account. Once approved by an admin, they can book halls and sections for meetings and events.", om: "Eeyyee, dhaabbileen galmaa'uu ni danda'u. Adminiin erga hayyameefii booda, walgahii fi ayyaanotaaf galmawwanii fi kutaa addaa qabsiifachuu danda'u.", am: "አዎ ኩባንያዎች መለያ መመዝገብ ይችላሉ። በአስተዳዳሪ ከጸደቀ በኋላ ለአዳራሾች እና ለክፍሎች ለስብሰባ እና ለዝግጅቶች መያዝ ይችላሉ።"}
+    }
+  ],
+  privacyPolicy: {
+    en: "Your privacy policy content goes here. Please edit this in the admin settings.",
+    om: "Imaammata mateenyaa keessan asitti galchaa. Adminiin sirreessuu qaba.",
+    am: "የእርስዎ የግላዊነት ፖሊሲ ይዘት እዚህ ይመጣል። እባክዎ ይህንን በአስተዳዳሪ ቅንብሮች ውስጥ ያርትዑ።"
+  },
+  termsOfService: {
+    en: "Your terms of service content goes here. Please edit this in the admin settings.",
+    om: "Heera tajaajilaa keessan asitti galchaa. Adminiin sirreessuu qaba.",
+    am: "የአገልግሎት ውልዎ ይዘት እዚህ ይመጣል። እባክዎ ይህንን በአስተዳዳሪ ቅንብሮች ውስጥ ያርትዑ።"
+  }
+};
