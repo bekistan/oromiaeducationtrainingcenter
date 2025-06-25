@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useMemo } from 'react';
@@ -14,13 +15,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Save, Loader2, AlertCircle, Megaphone, ShieldAlert } from "lucide-react";
+import { Settings, Save, Loader2, AlertCircle, Megaphone, ShieldAlert, FileText } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { BankAccountDetails, SiteSettings } from '@/types';
 import { BANK_DETAILS_DOC_PATH, SITE_SETTINGS_DOC_PATH, DEFAULT_SITE_SETTINGS } from '@/constants';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
 
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
 const SITE_SETTINGS_QUERY_KEY = "siteSettings";
@@ -193,6 +196,23 @@ export default function AdminSettingsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageSettings')}</h1>
       </div>
+       <Card>
+          <CardHeader>
+              <CardTitle className="flex items-center">
+                  <FileText className="mr-2 h-6 w-6 text-primary" />
+                  {t('agreementTemplate')}
+              </CardTitle>
+              <CardDescription>{t('manageTheDefaultAgreement')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+              <p className="text-sm mb-4">{t('agreementTemplateCta')}</p>
+              <Button asChild>
+                  <Link href="/admin/settings/agreement-template">
+                      {t('editAgreementTemplate')}
+                  </Link>
+              </Button>
+          </CardContent>
+      </Card>
       
       <Card>
         <CardHeader>

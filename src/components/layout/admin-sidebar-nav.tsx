@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -13,7 +14,11 @@ import {
   SidebarMenuItem, 
   SidebarMenuButton,
   SidebarGroup,
-  SidebarGroupLabel
+  SidebarGroupLabel,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  useSidebar
 } from "@/components/ui/sidebar"; 
 import { 
   LayoutDashboard, 
@@ -28,30 +33,47 @@ import {
   KeyRound,
   Settings,
   DollarSign,
-  Bell // Added Bell for notifications
+  Bell,
+  ChevronDown
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import * as React from "react"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+
 
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
-  notifications: Bell, // Added Bell icon for notifications
+  notifications: Bell,
   manageDormitories: Bed,
   manageHalls: Building,
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks,
   manageCompanies: Users,
   reports: FileText,
-  financialManagement: DollarSign,
+  userManagement: UserPlus,
   userProfile: UserCircle,
-  registerAdmin: UserPlus,
-  registerKeyholder: KeyRound, 
   manageSettings: Settings, 
+  generalSettings: Settings,
+  financialManagement: DollarSign,
+  agreementTemplate: FileText,
+  registerAdmin: UserPlus,
+  registerKeyholder: KeyRound,
 };
 
 export function AdminSidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user, loading } = useAuth(); 
+  const { state: sidebarState } = useSidebar();
+
+  const isSubpathActive = (href?: string) => {
+    if (!href) return false;
+    return pathname === href || (href !== '/admin/dashboard' && pathname.startsWith(href));
+  }
 
   if (loading) {
     return <ScrollArea className="h-full py-4"><p className="p-4 text-muted-foreground">{t('loading')}...</p></ScrollArea>;
@@ -65,20 +87,52 @@ export function AdminSidebarNav() {
             {ADMIN_NAVS.filter(item => {
               if (!item.roles || item.roles.length === 0) return true; 
               if (!user || !item.roles.includes(user.role)) return false; 
-
-              // If user is an admin with a building assignment, hide generalAdminOnly items
               if (user.role === 'admin' && user.buildingAssignment && item.generalAdminOnly) {
                   return false;
               }
-              
               return true;
             }).map((item) => {
               const Icon = ICONS[item.labelKey] || LayoutDashboard; 
+              
+              if (item.children && item.children.length > 0) {
+                 const isParentActive = item.children.some(child => isSubpathActive(child.href));
+                 return (
+                  <Collapsible key={item.labelKey} defaultOpen={isParentActive} className="w-full">
+                     <CollapsibleTrigger asChild>
+                       <SidebarMenuButton
+                         isActive={isParentActive && sidebarState === 'expanded'}
+                         tooltip={t(item.labelKey)}
+                         className="justify-between w-full"
+                       >
+                         <div className="flex items-center gap-2">
+                           <Icon className="h-5 w-5" />
+                           <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
+                         </div>
+                         <ChevronDown className="h-4 w-4 group-data-[collapsible=icon]:hidden transition-transform [&[data-state=open]]:-rotate-180" />
+                       </SidebarMenuButton>
+                     </CollapsibleTrigger>
+                     <CollapsibleContent>
+                        <SidebarMenuSub className="mt-1">
+                          {item.children.map(child => (
+                             <SidebarMenuSubItem key={child.href}>
+                               <Link href={child.href!} passHref legacyBehavior>
+                                 <SidebarMenuSubButton isActive={isSubpathActive(child.href)} className="gap-2">
+                                     <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
+                                 </SidebarMenuSubButton>
+                               </Link>
+                             </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                     </CollapsibleContent>
+                  </Collapsible>
+                 )
+              }
+
               return (
                 <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} passHref legacyBehavior>
+                  <Link href={item.href!} passHref legacyBehavior>
                     <SidebarMenuButton
-                      isActive={pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))}
+                      isActive={isSubpathActive(item.href)}
                       tooltip={t(item.labelKey)}
                       className="justify-start"
                     >

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { Booking, BookingItem } from '@/types';
@@ -12,16 +13,6 @@ interface AgreementTemplateProps {
   booking: Booking | null;
   customTerms?: string; 
 }
-
-const LUNCH_PRICES_PER_DAY: Record<string, number> = { level1: 150, level2: 250 }; 
-const REFRESHMENT_PRICES_PER_DAY: Record<string, number> = { level1: 50, level2: 100 };
-
-const DEFAULT_TERMS_KEYS = [
-  'termsPlaceholder1',
-  'termsPlaceholder2',
-  'termsPlaceholder3',
-  'termsPlaceholder4',
-];
 
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
   const { t } = useLanguage();
@@ -45,39 +36,39 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
 
-  let totalFacilityRentalCost = 0;
+  // These are just for display in the table, the final cost is taken from booking.totalCost
   const facilityItemCosts = booking.items.map(item => {
     const itemRentalCost = (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
-    totalFacilityRentalCost += itemRentalCost;
     return { name: item.name, cost: itemRentalCost, type: item.itemType };
   });
 
-  let calculatedLunchServiceCost = 0;
-  if (booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
-    const pricePerPersonPerDay = LUNCH_PRICES_PER_DAY[booking.serviceDetails.lunch];
-    calculatedLunchServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
-  }
-
-  let calculatedRefreshmentServiceCost = 0;
-  if (booking.serviceDetails?.refreshment && booking.serviceDetails.refreshment !== 'none' && numberOfAttendees > 0 && numberOfDays > 0) {
-    const pricePerPersonPerDay = REFRESHMENT_PRICES_PER_DAY[booking.serviceDetails.refreshment];
-    calculatedRefreshmentServiceCost = pricePerPersonPerDay * numberOfAttendees * numberOfDays;
-  }
-
-  let calculatedLedProjectorCost = 0;
-  if (booking.serviceDetails?.ledProjector && numberOfDays > 0) {
-    booking.items.forEach(item => {
-      if (item.itemType === 'section' && typeof item.ledProjectorCost === 'number' && item.ledProjectorCost > 0) {
-        calculatedLedProjectorCost += item.ledProjectorCost * numberOfDays;
-      }
-    });
-  }
-  
   const totalBookingCostFromRecord = booking.totalCost; 
 
-  const termsToRender = customTerms || DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
+  const termsToRender = customTerms || t('defaultAgreementTermsNotSet');
   const facilitiesBookedString = booking.items.map(item => `${item.name} (${t(item.itemType)})`).join(', ');
 
+  const replacePlaceholders = (template: string) => {
+    let replaced = template;
+    const replacements: Record<string, string | number> = {
+      '{{{clientName}}}': booking.companyName || t('notAvailable'),
+      '{{{clientContactPerson}}}': booking.contactPerson || t('notAvailable'),
+      '{{{clientEmail}}}': booking.email || t('notAvailable'),
+      '{{{clientPhone}}}': booking.phone || t('notAvailable'),
+      '{{{facilitiesBooked}}}': facilitiesBookedString,
+      '{{{startDate}}}': startDateFormatted,
+      '{{{endDate}}}': endDateFormatted,
+      '{{{numberOfDays}}}': numberOfDays,
+      '{{{numberOfAttendees}}}': numberOfAttendees,
+      '{{{totalCost}}}': `${totalBookingCostFromRecord.toFixed(2)} ${t('currencySymbol')}`,
+      '{{{agreementDate}}}': agreementDate,
+      '{{{providerName}}}': SITE_NAME,
+    };
+
+    for (const [placeholder, value] of Object.entries(replacements)) {
+      replaced = replaced.replace(new RegExp(placeholder, 'g'), String(value));
+    }
+    return replaced;
+  };
 
   return (
     <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4">
@@ -138,60 +129,11 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
           </div>
         </section>
-
-        <section className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('agreedServicesAndCosts')}</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-slate-100">
-                <tr>
-                  <th className="border border-slate-300 p-2">{t('serviceItem')}</th>
-                  <th className="border border-slate-300 p-2">{t('details')}</th>
-                  <th className="border border-slate-300 p-2 text-right">{t('cost')} ({t('currencySymbol')})</th>
-                </tr>
-              </thead>
-              <tbody>
-                {facilityItemCosts.map((itemCost, index) => (
-                  <tr key={index}>
-                    <td className="border border-slate-300 p-2">{t(itemCost.type)} {t('rental')} - {itemCost.name}</td>
-                    <td className="border border-slate-300 p-2">{itemCost.name} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
-                    <td className="border border-slate-300 p-2 text-right">{itemCost.cost.toFixed(2)}</td>
-                  </tr>
-                ))}
-                {booking.serviceDetails?.lunch && booking.serviceDetails.lunch !== 'none' && numberOfAttendees > 0 && (
-                  <tr>
-                    <td className="border border-slate-300 p-2">{t('lunchService')}</td>
-                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.lunch)} - {numberOfAttendees} {t('persons')} x {numberOfDays} {numberOfDays === 1 ? t('day') : t('days')}</td>
-                    <td className="border border-slate-300 p-2 text-right">{calculatedLunchServiceCost.toFixed(2)}</td>
-                  </tr>
-                )}
-                {booking.serviceDetails?.refreshment && booking.serviceDetails.refreshment !== 'none' && numberOfAttendees > 0 && (
-                   <tr>
-                    <td className="border border-slate-300 p-2">{t('refreshmentService')}</td>
-                    <td className="border border-slate-300 p-2">{t(booking.serviceDetails.refreshment)} - {numberOfAttendees} {t('persons')} x {numberOfDays} {numberOfDays === 1 ? t('day') : t('days')}</td>
-                    <td className="border border-slate-300 p-2 text-right">{calculatedRefreshmentServiceCost.toFixed(2)}</td>
-                  </tr>
-                )}
-                {booking.serviceDetails?.ledProjector && calculatedLedProjectorCost > 0 && (
-                   <tr>
-                    <td className="border border-slate-300 p-2">{t('ledProjectorService')}</td>
-                    <td className="border border-slate-300 p-2">{t('forAllApplicableSections')} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</td>
-                    <td className="border border-slate-300 p-2 text-right">{calculatedLedProjectorCost.toFixed(2)}</td>
-                  </tr>
-                )}
-                <tr className="font-bold bg-slate-100">
-                  <td colSpan={2} className="border border-slate-300 p-2 text-right">{t('totalBookingCost')}</td>
-                  <td className="border border-slate-300 p-2 text-right">{totalBookingCostFromRecord.toFixed(2)} {t('currencySymbol')}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
         
         <section className="mb-8">
             <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('termsAndConditions')}</h2>
-            <div className="prose prose-sm max-w-none text-gray-700 space-y-1 text-xs border border-gray-300 p-3 rounded-md h-32 overflow-y-auto bg-slate-50 whitespace-pre-wrap">
-                {termsToRender}
+            <div className="prose prose-sm max-w-none text-gray-700 space-y-2 text-xs border border-gray-300 p-4 rounded-md bg-slate-50 whitespace-pre-wrap">
+                {replacePlaceholders(termsToRender)}
             </div>
         </section>
 

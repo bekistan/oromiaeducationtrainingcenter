@@ -1,4 +1,5 @@
 
+
 export type Locale = 'en' | 'om' | 'am';
 
 export type Translations = {
@@ -19,6 +20,12 @@ export interface SiteSettings {
   id?: string;
   siteAnnouncementMessage?: string;
   isAnnouncementVisible?: boolean;
+  lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
+export interface AgreementTemplateSettings {
+  id?: string;
+  defaultTerms: string;
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
 

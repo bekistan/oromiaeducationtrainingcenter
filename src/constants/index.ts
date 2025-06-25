@@ -1,4 +1,5 @@
 
+
 import type { NavItem, User } from '@/types'; 
 
 export const SITE_NAME = "Oromia Education Research and Training Center";
@@ -36,10 +37,28 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
-  { labelKey: 'financialManagement', href: '/admin/financials', authRequired: true, roles: ['superadmin', 'admin'], generalAdminOnly: true }, 
-  { labelKey: 'registerAdmin', href: '/admin/register-admin', authRequired: true, roles: ['superadmin'] },
-  { labelKey: 'registerKeyholder', href: '/admin/register-keyholder', authRequired: true, roles: ['superadmin'] }, 
-  { labelKey: 'manageSettings', href: '/admin/settings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+  { 
+    labelKey: 'manageSettings', 
+    href: '/admin/settings', 
+    authRequired: true, 
+    roles: ['admin', 'superadmin'], 
+    generalAdminOnly: true,
+    children: [
+      { labelKey: 'generalSettings', href: '/admin/settings' },
+      { labelKey: 'financialManagement', href: '/admin/financials' },
+      { labelKey: 'agreementTemplate', href: '/admin/settings/agreement-template' },
+    ]
+  },
+  { 
+    labelKey: 'userManagement',
+    href: '/admin/register-admin',
+    authRequired: true,
+    roles: ['superadmin'],
+    children: [
+      { labelKey: 'registerAdmin', href: '/admin/register-admin' },
+      { labelKey: 'registerKeyholder', href: '/admin/register-keyholder' },
+    ]
+  },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
@@ -85,6 +104,8 @@ export const ETHIOPIAN_BANKS = [
 
 export const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 export const SITE_SETTINGS_DOC_PATH = "site_configuration/general_settings";
+export const AGREEMENT_TEMPLATE_DOC_PATH = "site_configuration/agreement_template_settings";
+
 
 export const DEFAULT_SITE_SETTINGS = {
   siteAnnouncementMessage: "",
@@ -102,3 +123,5 @@ export const DEFAULT_PRICING_SETTINGS = {
   refreshmentServiceCostLevel2: 100,
   defaultLedProjectorCostPerDay: 500,
 };
+
+export const DEFAULT_AGREEMENT_TERMS = "These are the default terms and conditions. Please replace this text in the admin settings with your organization's official rental agreement terms.";

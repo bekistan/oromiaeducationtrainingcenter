@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
-import type { Booking, AgreementStatus } from "@/types";
+import type { Booking, AgreementStatus, AgreementTemplateSettings } from "@/types";
 import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard, ShieldAlert, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,18 +39,13 @@ import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { formatDualDate } from '@/lib/date-utils';
+import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
+
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 
 const FACILITY_BOOKINGS_QUERY_KEY = "adminFacilityBookings";
-
-const DEFAULT_TERMS_KEYS = [
-  'termsPlaceholder1',
-  'termsPlaceholder2',
-  'termsPlaceholder3',
-  'termsPlaceholder4',
-];
 
 const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
   const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"), orderBy("bookedAt", "desc"));
@@ -67,6 +63,16 @@ const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
     } as Booking;
   });
 };
+
+const fetchAgreementTemplate = async (): Promise<string> => {
+    const docRef = doc(db, AGREEMENT_TEMPLATE_DOC_PATH);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && docSnap.data()?.defaultTerms) {
+        return docSnap.data().defaultTerms;
+    }
+    return DEFAULT_AGREEMENT_TERMS;
+};
+
 
 export default function AdminManageFacilityBookingsPage() {
   const { t } = useLanguage();
@@ -151,11 +157,11 @@ export default function AdminManageFacilityBookingsPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handleApprovalChange = (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+  const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
     if (newStatus === 'approved') {
+      const defaultTerms = await fetchAgreementTemplate();
       updateData.agreementStatus = 'pending_admin_action';
-      const defaultTerms = DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
       updateData.customAgreementTerms = defaultTerms;
     } else if (newStatus === 'rejected') {
       updateData.paymentStatus = 'failed';
