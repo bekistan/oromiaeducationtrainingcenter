@@ -47,7 +47,7 @@ export function Header() {
       <div className="container flex py-4 max-w-screen-2xl items-center justify-between">
         <Logo />
         
-        <nav className="hidden md:flex items-center space-x-4 text-xs font-medium"> {/* Reduced space-x-6 to space-x-4 and text-sm to text-xs */}
+        <nav className="hidden md:flex items-center space-x-4 text-xs font-medium">
           {PUBLIC_NAVS.map((item) => {
             if (item.children && item.children.length > 0) {
               const isDropdownActive = item.children.some(child => child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href))));
@@ -192,7 +192,7 @@ export function Header() {
                       key={item.href}
                       href={item.href!}
                       className={cn(
-                        "transition-colors hover:text-foreground/80 text-sm", // Reduced text-lg to text-sm
+                        "transition-colors hover:text-foreground/80 text-sm",
                         isActive ? "text-primary font-semibold" : "text-foreground/60"
                       )}
                     >
@@ -213,13 +213,13 @@ export function Header() {
                 )}
                  {!user && !loading && (
                    <>
-                    <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm"> {/* Reduced text-lg to text-sm */}
+                    <Link href="/auth/login" className="transition-colors hover:text-foreground/80 text-foreground/60 text-sm">
                       {t('login')}
                     </Link>
                    </>
                 )}
                 {user && !loading && (
-                   <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-sm p-0"> {/* Reduced text-lg to text-sm */}
+                   <Button onClick={logout} variant="ghost" className="text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start text-sm p-0">
                     <LogOutIcon className="mr-2 h-5 w-5" />{t('logout')}
                    </Button>
                 )}

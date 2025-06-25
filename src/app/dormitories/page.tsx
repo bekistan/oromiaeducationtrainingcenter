@@ -16,7 +16,6 @@ import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -27,7 +26,6 @@ export default function DormitoriesPage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingInitialDorms, setIsLoadingInitialDorms] = useState(true);
   const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
-  const [buildingFilter, setBuildingFilter] = useState<string>('all');
 
   const fetchAllAdminEnabledDormitories = useCallback(async () => {
     setIsLoadingInitialDorms(true);
@@ -50,13 +48,6 @@ export default function DormitoriesPage() {
   useEffect(() => {
     fetchAllAdminEnabledDormitories();
   }, [fetchAllAdminEnabledDormitories]);
-
-  const dormsFilteredByBuilding = useMemo(() => {
-    if (buildingFilter === 'all') {
-      return allAdminEnabledDormitories;
-    }
-    return allAdminEnabledDormitories.filter(d => d.buildingName === buildingFilter);
-  }, [allAdminEnabledDormitories, buildingFilter]);
 
   useEffect(() => {
     if (!selectedDateRange?.from || !selectedDateRange?.to) {
@@ -94,7 +85,7 @@ export default function DormitoriesPage() {
             }
         });
 
-        const availableDorms = dormsFilteredByBuilding.filter(dorm => {
+        const availableDorms = allAdminEnabledDormitories.filter(dorm => {
             const bookedCount = bookedBedsCount[dorm.id] || 0;
             return dorm.isAvailable && dorm.capacity > bookedCount;
         });
@@ -109,13 +100,13 @@ export default function DormitoriesPage() {
     };
 
     findAvailableDorms();
-  }, [selectedDateRange, dormsFilteredByBuilding, t, toast]);
+  }, [selectedDateRange, allAdminEnabledDormitories, t, toast]);
   
   const dormsToDisplayBeforePaging = useMemo(() => {
     return (selectedDateRange?.from && selectedDateRange?.to)
       ? availableDormitoriesInRange
-      : dormsFilteredByBuilding;
-  }, [selectedDateRange, availableDormitoriesInRange, dormsFilteredByBuilding]);
+      : allAdminEnabledDormitories;
+  }, [selectedDateRange, availableDormitoriesInRange, allAdminEnabledDormitories]);
 
   const {
     paginatedData,
@@ -215,19 +206,6 @@ export default function DormitoriesPage() {
             <div className="flex-1 min-w-[300px]">
                 <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
                 <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-                 <label htmlFor="buildingFilter" className="text-sm font-medium mb-1 block">{t('filterByBuilding')}</label>
-                <Select value={buildingFilter} onValueChange={(value) => setBuildingFilter(value as string)}>
-                    <SelectTrigger id="buildingFilter" className="w-full">
-                        <SelectValue placeholder={t('selectBuildingNamePlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('allBuildings')}</SelectItem>
-                        <SelectItem value="ifaboru">{t('ifaBoruBuilding')}</SelectItem>
-                        <SelectItem value="buuraboru">{t('buuraBoruBuilding')}</SelectItem>
-                    </SelectContent>
-                </Select>
             </div>
         </div>
         
