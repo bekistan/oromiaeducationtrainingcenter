@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Save, Loader2, AlertCircle, ShieldAlert, PlusCircle, Trash2 } from "lucide-react";
+import { FileText, Save, Loader2, AlertCircle, ShieldAlert, PlusCircle, Trash2, Languages } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ import type { SiteContentSettings, FAQItem, Locale } from '@/types';
 import { SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, SUPPORTED_LOCALES, SITE_NAME } from '@/constants';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
+import { translateText } from '@/ai/flows/translate-flow';
 
 const localeSchema = z.object({
   en: z.string().optional(),
@@ -73,6 +74,7 @@ export default function AdminSiteContentPage() {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [isTranslating, setIsTranslating] = React.useState<Record<string, boolean>>({});
 
   const canAccessPage = useMemo(() => {
     if (!user) return false;
@@ -121,6 +123,50 @@ export default function AdminSiteContentPage() {
   async function onSubmit(values: SiteContentFormValues) {
     mutation.mutate(values);
   }
+
+  const handleTranslate = async (fieldName: any, sourceText: string | undefined | null) => {
+    if (!sourceText || sourceText.trim() === '') {
+        toast({
+            variant: "destructive",
+            title: t('translationSourceMissingTitle'),
+            description: t('translationSourceMissingDesc'),
+        });
+        return;
+    }
+
+    const fieldKey = Array.isArray(fieldName) ? fieldName.join('.') : fieldName;
+    setIsTranslating(prev => ({ ...prev, [fieldKey]: true }));
+
+    try {
+        const result = await translateText({
+            textToTranslate: sourceText,
+            sourceLanguage: 'English',
+            targetLanguages: ['Oromo', 'Amharic']
+        });
+
+        const updatePromises = [];
+        if (result.Oromo) {
+            form.setValue(`${fieldName}.om` as any, result.Oromo, { shouldValidate: true, shouldDirty: true });
+        }
+        if (result.Amharic) {
+            form.setValue(`${fieldName}.am` as any, result.Amharic, { shouldValidate: true, shouldDirty: true });
+        }
+        
+        toast({
+            title: t('translationSuccessfulTitle'),
+            description: t('translationSuccessfulDesc'),
+        });
+    } catch (err: any) {
+        toast({
+            variant: "destructive",
+            title: t('translationFailedTitle'),
+            description: err.message || t('translationFailedDesc'),
+        });
+    } finally {
+        setIsTranslating(prev => ({ ...prev, [fieldKey]: false }));
+    }
+  };
+
 
   if (authLoading || (isLoadingContent && canAccessPage)) {
     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -172,11 +218,23 @@ export default function AdminSiteContentPage() {
                 <Card>
                   <CardHeader><CardTitle className="text-lg">{t('heroSection')}</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-medium">{t('welcomeMessage')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('welcomeMessage', form.getValues('welcomeMessage.en'))} disabled={isTranslating['welcomeMessage']} >
+                            {isTranslating['welcomeMessage'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                    </div>
                     {SUPPORTED_LOCALES.map(lang => (
-                        <FormField key={`welcome-${lang.code}`} control={form.control} name={`welcomeMessage.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('welcomeMessage')} ({lang.name})</FormLabel><FormControl><Input {...field} placeholder={`${t('welcomeTo')} ${SITE_NAME}`} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField key={`welcome-${lang.code}`} control={form.control} name={`welcomeMessage.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...field} placeholder={`${t('welcomeTo')} ${SITE_NAME}`} /></FormControl><FormMessage /></FormItem> )}/>
                     ))}
+                     <div className="flex justify-between items-center mb-2 pt-4">
+                        <h4 className="text-sm font-medium">{t('tagline')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('tagline', form.getValues('tagline.en'))} disabled={isTranslating['tagline']} >
+                            {isTranslating['tagline'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                    </div>
                     {SUPPORTED_LOCALES.map(lang => (
-                        <FormField key={`tagline-${lang.code}`} control={form.control} name={`tagline.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('tagline')} ({lang.name})</FormLabel><FormControl><Textarea {...field} placeholder={t('siteDescriptionPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
+                        <FormField key={`tagline-${lang.code}`} control={form.control} name={`tagline.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...field} placeholder={t('siteDescriptionPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
                     ))}
                   </CardContent>
                 </Card>
@@ -184,7 +242,7 @@ export default function AdminSiteContentPage() {
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <CardTitle className="text-lg">{t('manageFaqs')}</CardTitle>
-                      <Button type="button" size="sm" variant="outline" onClick={() => append({ id: uuidv4(), question: {}, answer: {} })}>
+                      <Button type="button" size="sm" variant="outline" onClick={() => append({ id: uuidv4(), question: {en:'',om:'',am:''}, answer: {en:'',om:'',am:''} })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> {t('addFaq')}
                       </Button>
                     </div>
@@ -196,11 +254,23 @@ export default function AdminSiteContentPage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                         <div className="space-y-4">
+                           <div className="flex justify-between items-center mb-2">
+                              <h4 className="text-sm font-medium">{t('question')}</h4>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`faqs.${index}.question`, form.getValues(`faqs.${index}.question.en`))} disabled={isTranslating[`faqs.${index}.question`]} >
+                                {isTranslating[`faqs.${index}.question`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                              </Button>
+                           </div>
                           {SUPPORTED_LOCALES.map(lang => (
-                            <FormField key={`${field.id}-q-${lang.code}`} control={form.control} name={`faqs.${index}.question.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>{t('question')} ({lang.name})</FormLabel><FormControl><Input {...formField} /></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField key={`${field.id}-q-${lang.code}`} control={form.control} name={`faqs.${index}.question.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...formField} /></FormControl><FormMessage /></FormItem> )}/>
                           ))}
+                           <div className="flex justify-between items-center mb-2 pt-4">
+                              <h4 className="text-sm font-medium">{t('answer')}</h4>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`faqs.${index}.answer`, form.getValues(`faqs.${index}.answer.en`))} disabled={isTranslating[`faqs.${index}.answer`]} >
+                                {isTranslating[`faqs.${index}.answer`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                              </Button>
+                           </div>
                           {SUPPORTED_LOCALES.map(lang => (
-                            <FormField key={`${field.id}-a-${lang.code}`} control={form.control} name={`faqs.${index}.answer.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>{t('answer')} ({lang.name})</FormLabel><FormControl><Textarea {...formField} rows={4} /></FormControl><FormMessage /></FormItem> )}/>
+                            <FormField key={`${field.id}-a-${lang.code}`} control={form.control} name={`faqs.${index}.answer.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...formField} rows={4} /></FormControl><FormMessage /></FormItem> )}/>
                           ))}
                         </div>
                       </Card>
@@ -214,7 +284,17 @@ export default function AdminSiteContentPage() {
 
           <TabsContent value="privacy" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>{t('privacyPolicyContent')}</CardTitle><CardDescription>{t('privacyPolicyContentDescription')}</CardDescription></CardHeader>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>{t('privacyPolicyContent')}</CardTitle>
+                            <CardDescription>{t('privacyPolicyContentDescription')}</CardDescription>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('privacyPolicy', form.getValues('privacyPolicy.en'))} disabled={isTranslating['privacyPolicy']} >
+                            {isTranslating['privacyPolicy'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                    </div>
+                </CardHeader>
               <CardContent className="space-y-4">
                 {SUPPORTED_LOCALES.map(lang => (
                   <FormField key={`privacy-${lang.code}`} control={form.control} name={`privacyPolicy.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('content')} ({lang.name})</FormLabel><FormControl><Textarea {...field} rows={15} placeholder={t('enterContentPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
@@ -225,7 +305,17 @@ export default function AdminSiteContentPage() {
 
           <TabsContent value="terms" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>{t('termsOfServiceContent')}</CardTitle><CardDescription>{t('termsOfServiceContentDescription')}</CardDescription></CardHeader>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>{t('termsOfServiceContent')}</CardTitle>
+                            <CardDescription>{t('termsOfServiceContentDescription')}</CardDescription>
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('termsOfService', form.getValues('termsOfService.en'))} disabled={isTranslating['termsOfService']} >
+                            {isTranslating['termsOfService'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                    </div>
+                </CardHeader>
               <CardContent className="space-y-4">
                 {SUPPORTED_LOCALES.map(lang => (
                   <FormField key={`terms-${lang.code}`} control={form.control} name={`termsOfService.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('content')} ({lang.name})</FormLabel><FormControl><Textarea {...field} rows={15} placeholder={t('enterContentPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
