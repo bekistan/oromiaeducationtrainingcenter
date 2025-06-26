@@ -1,27 +1,77 @@
+
 "use client";
 
+import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/hooks/use-language";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { UserCircle, Save, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UserCircle, Save } from "lucide-react";
+
+const profileFormSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  phone: z.string().min(7, { message: "Valid phone number is required."}).optional().or(z.literal('')),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export default function AdminProfilePage() {
   const { t } = useLanguage();
+  const { user, updateUserDocument, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = React.useState(false);
 
-  // Placeholder user data
-  const user = {
-    name: "Admin User",
-    email: "admin@example.com",
-    avatarUrl: `https://placehold.co/100x100.png`, // Placeholder avatar
-  };
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: "",
+      phone: "",
+    },
+  });
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    alert("Profile update submitted (placeholder)");
-  };
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name || "",
+        phone: user.phone || "",
+      });
+    }
+  }, [user, form]);
+  
+  async function onSubmit(data: ProfileFormValues) {
+    if (!user) {
+        toast({ variant: "destructive", title: t('error'), description: t('userNotAuthenticated')});
+        return;
+    }
+    setIsSaving(true);
+    try {
+        await updateUserDocument(user.id, {
+            name: data.name,
+            phone: data.phone || '',
+        });
+        toast({ title: t('success'), description: t('profileUpdatedSuccessfully')});
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        toast({ variant: "destructive", title: t('error'), description: t('failedToUpdateProfile')});
+    } finally {
+        setIsSaving(false);
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex justify-center items-center h-40">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
@@ -29,50 +79,64 @@ export default function AdminProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t('profileInformation')}</CardTitle> {/* Add to JSON */}
-          <CardDescription>{t('updateYourProfileDetails')}</CardDescription> {/* Add to JSON */}
+          <CardTitle>{t('profileInformation')}</CardTitle>
+          <CardDescription>{t('updateYourProfileDetails')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <Avatar className="h-20 w-20">
-                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="profile avatar" />
-                <AvatarFallback>
-                  <UserCircle className="h-10 w-10 text-muted-foreground" />
-                </AvatarFallback>
-              </Avatar>
-              <Button variant="outline" type="button">{t('changeAvatar')}</Button> {/* Add to JSON */}
-            </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="flex items-center space-x-4">
+                    <Avatar className="h-20 w-20">
+                        <AvatarImage src={`https://placehold.co/100x100.png`} alt={user?.name || "User"} data-ai-hint="profile avatar" />
+                        <AvatarFallback>
+                        <UserCircle className="h-10 w-10 text-muted-foreground" />
+                        </AvatarFallback>
+                    </Avatar>
+                    <Button variant="outline" type="button">{t('changeAvatar')}</Button>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">{t('fullName')}</Label>
-              <Input id="name" defaultValue={user.name} />
-            </div>
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('fullName')}</FormLabel>
+                            <FormControl>
+                                <Input placeholder={t('enterFullName')} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('email')}</Label>
-              <Input id="email" type="email" defaultValue={user.email} readOnly disabled />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="current-password">{t('currentPassword')}</Label> {/* Add to JSON */}
-              <Input id="current-password" type="password" />
-            </div>
+                <div className="space-y-2">
+                    <Label htmlFor="email">{t('email')}</Label>
+                    <Input id="email" type="email" value={user?.email || ""} readOnly disabled />
+                </div>
+                
+                 <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{t('phone')}</FormLabel>
+                            <FormControl>
+                                <Input type="tel" placeholder={t('enterPhoneForSms')} {...field} />
+                            </FormControl>
+                             <FormDescription>
+                                {t('phoneForSmsDescription')}
+                            </FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-            <div className="space-y-2">
-              <Label htmlFor="new-password">{t('newPassword')}</Label> {/* Add to JSON */}
-              <Input id="new-password" type="password" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">{t('confirmNewPassword')}</Label> {/* Add to JSON */}
-              <Input id="confirm-password" type="password" />
-            </div>
-
-            <Button type="submit" className="w-full sm:w-auto">
-              <Save className="mr-2 h-4 w-4" /> {t('saveChanges')} {/* Add to JSON */}
-            </Button>
-          </form>
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {t('saveChanges')}
+                </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
