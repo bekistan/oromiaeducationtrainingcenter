@@ -1,14 +1,13 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from '@/types';
 
-// IMPORTANT: Replace these placeholders with your actual Afro Messaging credentials.
-// For better security, it is highly recommended to use environment variables.
-const API_KEY = process.env.AFRO_MESSAGING_API_KEY || 'eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiNEc0VWlBdkpOYmhuN3FreGlkTW1kanNjdUpmNWVmcmQiLCJleHAiOjE5MDg1MjI1MzYsImlhdCI6MTc1MDc1NjEzNiwianRpIjoiNDhlMTYzNTEtNWMwMS00YjRhLThjNDMtNzIwYzQxMzU0MWJkIn0.nCIxiBKSupkf-ry1AnY6cHjz4P9OgZuL-_OrwGpiQC0';
-const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID || 'Whale';
+// IMPORTANT: These credentials are now read from environment variables.
+// Ensure they are set in your .env or .env.local file.
+const API_KEY = process.env.AFRO_MESSAGING_API_KEY;
+const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID;
 const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
@@ -19,8 +18,8 @@ const API_URL = 'https://api.afromessage.com/api/send';
  */
 export async function sendSms(to: string, message: string): Promise<void> {
   console.log(`[SMS Service] sendSms called. To: "${to}", Message: "${message}"`);
-  if (!API_KEY || API_KEY.includes('YOUR_') || !SENDER_ID || SENDER_ID.includes('YourSenderID')) {
-    console.warn('[SMS Service] SMS sending is disabled. Please configure your Afro Messaging API Key and Sender ID.');
+  if (!API_KEY || !SENDER_ID) {
+    console.warn('[SMS Service] SMS sending is disabled. Please configure AFRO_MESSAGING_API_KEY and AFRO_MESSAGING_SENDER_ID in your environment variables.');
     return;
   }
 

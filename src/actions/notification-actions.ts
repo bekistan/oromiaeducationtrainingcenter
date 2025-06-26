@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -6,6 +5,9 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAdminPhoneNumbers, getKeyholderPhoneNumbers, sendSms } from '@/services/sms-service';
 import type { Booking, AdminNotification } from '@/types';
 import { toDateObject } from '@/lib/date-utils';
+
+// It's important to set this in your environment variables for production.
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
 
 /**
  * Notifies admins via SMS and web notification about a new booking.
@@ -17,9 +19,15 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const customerName = booking.guestName || booking.companyName || 'Unknown';
     const itemName = booking.items.map(i => i.name).join(', ');
     
-    // --- 1. Construct messages ---
+    // --- 1. Construct messages with a full URL for the link ---
+    const notificationLink = booking.bookingCategory === 'dormitory' 
+      ? `/admin/manage-dormitory-bookings#${booking.id}` 
+      : `/admin/manage-facility-bookings#${booking.id}`;
+    const fullLink = `${BASE_URL}${notificationLink}`;
+
     const webMessage = `New booking from ${customerName} for ${itemName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
-    const smsMessage = `New Booking!\nID: ${booking.id.substring(0, 6)}...\nItem: ${itemName}\nCustomer: ${customerName}\nTotal: ${booking.totalCost} ETB`;
+    // More concise SMS message with the direct link
+    const smsMessage = `New Booking: ${customerName} for ${itemName} (${booking.totalCost} ETB). View: ${fullLink}`;
 
     // --- 2. Send SMS notification ---
     const adminPhoneNumbers = await getAdminPhoneNumbers();
@@ -33,10 +41,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
 
     // --- 3. Create web notification in Firestore ---
     const notificationType = booking.bookingCategory === 'dormitory' ? 'new_dormitory_booking' : 'new_facility_booking';
-    const notificationLink = booking.bookingCategory === 'dormitory' 
-      ? `/admin/manage-dormitory-bookings#${booking.id}` 
-      : `/admin/manage-facility-bookings#${booking.id}`;
-
+    
     const webNotification: Omit<AdminNotification, 'id'> = {
       message: webMessage,
       type: notificationType,
@@ -44,7 +49,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
       recipientRole: 'admin',
       isRead: false,
       createdAt: serverTimestamp(),
-      link: notificationLink,
+      link: notificationLink, // Use the relative link for in-app navigation
     };
     await addDoc(collection(db, "notifications"), webNotification);
     console.log('[ACTION] Web notification created in Firestore for new booking.');
