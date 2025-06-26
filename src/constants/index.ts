@@ -147,13 +147,13 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     }
   ],
   privacyPolicy: {
-    en: "Your privacy policy content goes here. Please edit this in the admin settings.",
-    om: "Imaammata mateenyaa keessan asitti galchaa. Adminiin sirreessuu qaba.",
-    am: "የእርስዎ የግላዊነት ፖሊሲ ይዘት እዚህ ይመጣል። እባክዎ ይህንን በአስተዳዳሪ ቅንብሮች ውስጥ ያርትዑ።"
+    en: "",
+    om: "",
+    am: ""
   },
   termsOfService: {
-    en: "Your terms of service content goes here. Please edit this in the admin settings.",
-    om: "Heera tajaajilaa keessan asitti galchaa. Adminiin sirreessuu qaba.",
-    am: "የአገልግሎት ውልዎ ይዘት እዚህ ይመጣል። እባክዎ ይህንን በአስተዳዳሪ ቅንብሮች ውስጥ ያርትዑ።"
+    en: "",
+    om: "",
+    am: ""
   }
 };
