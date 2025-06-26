@@ -141,7 +141,6 @@ export default function AdminSiteContentPage() {
         const result = await translateText({
             textToTranslate: sourceText,
             sourceLanguage: 'English',
-            targetLanguages: ['Oromo', 'Amharic']
         });
 
         const updatePromises = [];
