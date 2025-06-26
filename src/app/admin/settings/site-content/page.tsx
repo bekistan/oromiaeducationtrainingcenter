@@ -203,7 +203,7 @@ export default function AdminSiteContentPage() {
         )}
 
         <Tabs defaultValue="homepage" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="h-auto flex-col items-stretch sm:flex-row">
             <TabsTrigger value="homepage">{t('homepageContent')}</TabsTrigger>
             <TabsTrigger value="privacy">{t('privacyPolicyContent')}</TabsTrigger>
             <TabsTrigger value="terms">{t('termsOfServiceContent')}</TabsTrigger>
