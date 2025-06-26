@@ -18,7 +18,7 @@ import { FileText, Save, Loader2, AlertCircle, ShieldAlert, PlusCircle, Trash2, 
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { SiteContentSettings, FAQItem, Locale } from '@/types';
+import type { SiteContentSettings, FAQItem, Locale, ServiceItem } from '@/types';
 import { SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, SUPPORTED_LOCALES, SITE_NAME } from '@/constants';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,9 +36,17 @@ const faqItemSchema = z.object({
   answer: localeSchema,
 });
 
+const serviceItemSchema = z.object({
+  id: z.string(),
+  title: localeSchema,
+  description: localeSchema,
+});
+
 const siteContentSchema = z.object({
   welcomeMessage: localeSchema,
   tagline: localeSchema,
+  servicesSectionTitle: localeSchema,
+  services: z.array(serviceItemSchema),
   faqs: z.array(faqItemSchema),
   privacyPolicy: localeSchema,
   termsOfService: localeSchema,
@@ -55,12 +63,13 @@ const fetchSiteContent = async (): Promise<SiteContentSettings> => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
-      ...DEFAULT_SITE_CONTENT, 
+      ...DEFAULT_SITE_CONTENT,
       ...data,
       faqs: data.faqs && data.faqs.length > 0 ? data.faqs : DEFAULT_SITE_CONTENT.faqs,
+      services: data.services && data.services.length > 0 ? data.services : DEFAULT_SITE_CONTENT.services,
     } as SiteContentSettings;
   }
-  return { ...DEFAULT_SITE_CONTENT, id: 'site_content' }; 
+  return { ...DEFAULT_SITE_CONTENT, id: 'site_content' };
 };
 
 const updateSiteContent = async (details: SiteContentFormValues): Promise<void> => {
@@ -96,12 +105,20 @@ export default function AdminSiteContentPage() {
     control: form.control,
     name: "faqs",
   });
+  
+  // Services are managed but not added/removed, so we just get their fields
+  const { fields: serviceFields } = useFieldArray({
+    control: form.control,
+    name: "services",
+  });
 
   useEffect(() => {
     if (currentContent) {
       form.reset({
         welcomeMessage: currentContent.welcomeMessage,
         tagline: currentContent.tagline,
+        servicesSectionTitle: currentContent.servicesSectionTitle,
+        services: currentContent.services,
         faqs: currentContent.faqs,
         privacyPolicy: currentContent.privacyPolicy,
         termsOfService: currentContent.termsOfService,
@@ -205,8 +222,9 @@ export default function AdminSiteContentPage() {
         <Tabs defaultValue="homepage" className="w-full">
           <TabsList className="h-auto flex-col items-stretch sm:flex-row">
             <TabsTrigger value="homepage">{t('homepageContent')}</TabsTrigger>
-            <TabsTrigger value="privacy">{t('privacyPolicyTitle')}</TabsTrigger>
-            <TabsTrigger value="terms">{t('termsOfServiceTitle')}</TabsTrigger>
+            <TabsTrigger value="services">{t('servicesContent')}</TabsTrigger>
+            <TabsTrigger value="privacy">{t('privacyPolicy')}</TabsTrigger>
+            <TabsTrigger value="terms">{t('termsOfService')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="homepage" className="mt-6">
@@ -292,13 +310,70 @@ export default function AdminSiteContentPage() {
               </CardContent>
             </Card>
           </TabsContent>
+          
+          <TabsContent value="services" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('servicesSection')}</CardTitle>
+                <CardDescription>{t('servicesSectionDescription')}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <Card>
+                    <CardHeader>
+                         <div className="flex justify-between items-center">
+                            <CardTitle className="text-lg">{t('sectionHeader')}</CardTitle>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('servicesSectionTitle', form.getValues('servicesSectionTitle.en'))} disabled={isTranslating['servicesSectionTitle']} >
+                                {isTranslating['servicesSectionTitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`services-title-${lang.code}`} control={form.control} name={`servicesSectionTitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('title')} ({lang.name})</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                    </CardContent>
+                </Card>
+                {serviceFields.map((field, index) => (
+                  <Card key={field.id}>
+                    <CardHeader>
+                        <CardTitle className="text-lg capitalize">{t('serviceCardTitle', { serviceName: field.id })}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-base font-semibold">{t('cardTitle')}</h4>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`services.${index}.title`, form.getValues(`services.${index}.title.en`))} disabled={isTranslating[`services.${index}.title`]} >
+                                {isTranslating[`services.${index}.title`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                            </Button>
+                        </div>
+                        <div className="space-y-3 pl-2 border-l-2">
+                            {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`${field.id}-title-${lang.code}`} control={form.control} name={`services.${index}.title.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...formField} /></FormControl><FormMessage /></FormItem> )}/>
+                            ))}
+                        </div>
+                        <div className="flex justify-between items-center mb-2 pt-6">
+                            <h4 className="text-base font-semibold">{t('cardDescription')}</h4>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`services.${index}.description`, form.getValues(`services.${index}.description.en`))} disabled={isTranslating[`services.${index}.description`]} >
+                                {isTranslating[`services.${index}.description`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                            </Button>
+                        </div>
+                        <div className="space-y-3 pl-2 border-l-2">
+                            {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`${field.id}-desc-${lang.code}`} control={form.control} name={`services.${index}.description.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...formField} /></FormControl><FormMessage /></FormItem> )}/>
+                            ))}
+                        </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="privacy" className="mt-6">
             <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle>{t('privacyPolicyTitle')}</CardTitle>
+                            <CardTitle>{t('privacyPolicy')}</CardTitle>
                             <CardDescription>{t('privacyPolicyContentDescription')}</CardDescription>
                         </div>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('privacyPolicy', form.getValues('privacyPolicy.en'))} disabled={isTranslating['privacyPolicy']} >
@@ -319,7 +394,7 @@ export default function AdminSiteContentPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle>{t('termsOfServiceTitle')}</CardTitle>
+                            <CardTitle>{t('termsOfService')}</CardTitle>
                             <CardDescription>{t('termsOfServiceContentDescription')}</CardDescription>
                         </div>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('termsOfService', form.getValues('termsOfService.en'))} disabled={isTranslating['termsOfService']} >
@@ -339,3 +414,5 @@ export default function AdminSiteContentPage() {
     </Form>
   );
 }
+
+    

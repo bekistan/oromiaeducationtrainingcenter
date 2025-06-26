@@ -4,7 +4,7 @@
 import Image from "next/image";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
 import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle, Loader2 } from "lucide-react";
@@ -49,32 +49,26 @@ export default function HomePage() {
     }
   }, []);
 
-  const services = [
-    {
+  const serviceStaticData = {
+    dormitories: {
       icon: <BedDouble className="h-10 w-10 text-primary" />,
-      titleKey: "dormitories",
-      descriptionKey: "tagline",
       link: "/dormitories",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "modern dormitory"
+      imageHint: "modern dormitory",
     },
-    {
+    halls: {
       icon: <Presentation className="h-10 w-10 text-primary" />,
-      titleKey: "halls",
-      descriptionKey: "tagline",
       link: "/halls",
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "conference hall"
+      imageHint: "conference hall",
     },
-    {
+    catering: {
       icon: <Utensils className="h-10 w-10 text-primary" />,
-      titleKey: "cateringServices",
-      descriptionKey: "tagline",
-      link: "/halls#catering",
+      link: "/halls#catering", // This might need to be a more specific page in the future
       image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "catering food"
+      imageHint: "catering food",
     },
-  ];
+  };
 
   const features = [
     {
@@ -96,7 +90,9 @@ export default function HomePage() {
 
   const welcomeMessage = siteContent?.welcomeMessage?.[locale as Locale] || t('homePageWelcomeMessage');
   const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
+  const servicesSectionTitle = siteContent?.servicesSectionTitle?.[locale as Locale] || t('services');
   const faqs: FAQItem[] = siteContent?.faqs || [];
+  const services = siteContent?.services || [];
 
   return (
     <PublicLayout>
@@ -128,35 +124,47 @@ export default function HomePage() {
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-12">
-            {t('services')}
+            {servicesSectionTitle}
           </h2>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {services.map((service) => (
-              <Card key={service.titleKey} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="items-center text-center p-6">
-                  <div className="p-3 rounded-full bg-primary/10 mb-4">
-                     {service.icon}
-                  </div>
-                  <CardTitle className="text-2xl">{t(service.titleKey)}</CardTitle>
-                </CardHeader>
-                <div className="relative h-48 w-full">
-                  <Image
-                    src={service.image}
-                    alt={t(service.titleKey)}
-                    fill
-                    style={{ objectFit: 'cover' }}
-                    data-ai-hint={service.imageHint}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                </div>
-                <CardContent className="p-6 text-center">
-                  <CardDescription className="mb-6">{siteContent?.tagline?.[locale as Locale] || t(service.descriptionKey)}</CardDescription>
-                  <Link href={service.link} passHref>
-                    <Button variant="default" className="w-full">{t('bookNow')}</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            ))}
+            {isLoadingContent ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="flex flex-col"><CardHeader><Loader2 className="h-8 w-8 animate-spin"/></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
+              ))
+            ) : (
+                services.map((service) => {
+                const staticData = serviceStaticData[service.id as keyof typeof serviceStaticData];
+                if (!staticData) return null;
+                const serviceTitle = service.title[locale as Locale] || service.title['en'] || t(service.id);
+                const serviceDescription = service.description[locale as Locale] || service.description['en'] || t('tagline');
+                return (
+                  <Card key={service.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <CardHeader className="items-center text-center p-6">
+                      <div className="p-3 rounded-full bg-primary/10 mb-4">
+                        {staticData.icon}
+                      </div>
+                      <CardTitle className="text-2xl">{serviceTitle}</CardTitle>
+                    </CardHeader>
+                    <div className="relative h-48 w-full">
+                      <Image
+                        src={staticData.image}
+                        alt={serviceTitle}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        data-ai-hint={staticData.imageHint}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    </div>
+                    <CardContent className="p-6 text-center">
+                      <CardDescription className="mb-6">{serviceDescription}</CardDescription>
+                      <Link href={staticData.link} passHref>
+                        <Button variant="default" className="w-full">{t('bookNow')}</Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </div>
       </section>
@@ -236,3 +244,5 @@ export default function HomePage() {
     </PublicLayout>
   );
 }
+
+    

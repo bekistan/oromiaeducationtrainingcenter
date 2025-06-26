@@ -180,12 +180,22 @@ export interface FAQItem {
   answer: { [key in Locale]?: string };
 }
 
+export interface ServiceItem {
+  id: string;
+  title: { [key in Locale]?: string };
+  description: { [key in Locale]?: string };
+}
+
 export interface SiteContentSettings {
   id?: string;
   welcomeMessage: { [key in Locale]?: string };
   tagline: { [key in Locale]?: string };
+  servicesSectionTitle: { [key in Locale]?: string };
+  services: ServiceItem[];
   faqs: FAQItem[];
   privacyPolicy: { [key in Locale]?: string };
   termsOfService: { [key in Locale]?: string };
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
+
+    

@@ -134,6 +134,28 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     om: "Iddoo jireenyaa fi galmawwan haala salphaan itti qabsiifattu.",
     am: "ተቋማትን እና መኝታ ቤቶችን በቀላሉ ለማስያዝ የእርስዎ መፍትሄ።"
   },
+  servicesSectionTitle: {
+    en: "Our Services",
+    om: "Tajaajila Keenya",
+    am: "የእኛ አገልግሎቶች"
+  },
+  services: [
+    {
+      id: "dormitories",
+      title: { en: "Dormitories", om: "Dormitoriiwwan", am: "የመኝታ ክፍሎች" },
+      description: { en: "Comfortable and secure accommodation for individuals and groups.", om: "Jireenyaaf mijataa fi nageenyi isaa eegamaadha.", am: "ለግለሰቦች እና ለቡድኖች ምቹ እና ደህንነቱ የተጠበቀ ማረፊያ።" }
+    },
+    {
+      id: "halls",
+      title: { en: "Halls & Sections", om: "Galmawwanii fi Kutaa Addaa", am: "አዳራሾች እና ክፍሎች" },
+      description: { en: "Versatile spaces for meetings, conferences, and events of all sizes.", om: "Bakkeewwan adda addaa walgahii, koonfaransii fi sagantaaleef.", am: "ለሁሉም መጠን ላላቸው ስብሰባዎች፣ ኮንፈረንሶች እና ዝግጅቶች ሁለገብ ቦታዎች።" }
+    },
+    {
+      id: "catering",
+      title: { en: "Catering Services", om: "Tajaajila Nyaataa", am: "የምግብ አቅርቦት አገልግሎቶች" },
+      description: { en: "Delicious and customizable catering options to complement your event.", om: "Filannoowwan nyaataa mi'aawaa fi akka barbaadetti kan qophaa'u.", am: "ዝግጅትዎን የሚያሟሉ ጣፋጭ እና ሊበጁ የሚችሉ የምግብ አማራጮች።" }
+    }
+  ],
   faqs: [
     {
       id: "faq1",
@@ -157,3 +179,5 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     am: ""
   }
 };
+
+    
