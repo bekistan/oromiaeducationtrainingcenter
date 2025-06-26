@@ -104,6 +104,7 @@ export const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 export const SITE_SETTINGS_DOC_PATH = "site_configuration/general_settings";
 export const AGREEMENT_TEMPLATE_DOC_PATH = "site_configuration/agreement_template_settings";
 export const SITE_CONTENT_DOC_PATH = "site_configuration/site_content";
+export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
 
 export const DEFAULT_SITE_SETTINGS = {
   siteAnnouncementMessage: "",
