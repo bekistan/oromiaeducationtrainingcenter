@@ -205,8 +205,8 @@ export default function AdminSiteContentPage() {
         <Tabs defaultValue="homepage" className="w-full">
           <TabsList className="h-auto flex-col items-stretch sm:flex-row">
             <TabsTrigger value="homepage">{t('homepageContent')}</TabsTrigger>
-            <TabsTrigger value="privacy">{t('privacyPolicyContent')}</TabsTrigger>
-            <TabsTrigger value="terms">{t('termsOfServiceContent')}</TabsTrigger>
+            <TabsTrigger value="privacy">{t('privacyPolicyTitle')}</TabsTrigger>
+            <TabsTrigger value="terms">{t('termsOfServiceTitle')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="homepage" className="mt-6">
@@ -298,7 +298,7 @@ export default function AdminSiteContentPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle>{t('privacyPolicyContent')}</CardTitle>
+                            <CardTitle>{t('privacyPolicyTitle')}</CardTitle>
                             <CardDescription>{t('privacyPolicyContentDescription')}</CardDescription>
                         </div>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('privacyPolicy', form.getValues('privacyPolicy.en'))} disabled={isTranslating['privacyPolicy']} >
@@ -319,7 +319,7 @@ export default function AdminSiteContentPage() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle>{t('termsOfServiceContent')}</CardTitle>
+                            <CardTitle>{t('termsOfServiceTitle')}</CardTitle>
                             <CardDescription>{t('termsOfServiceContentDescription')}</CardDescription>
                         </div>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('termsOfService', form.getValues('termsOfService.en'))} disabled={isTranslating['termsOfService']} >
