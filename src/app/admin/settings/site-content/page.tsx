@@ -124,7 +124,7 @@ export default function AdminSiteContentPage() {
     mutation.mutate(values);
   }
 
-  const handleTranslate = async (fieldName: any, sourceText: string | undefined | null) => {
+  const handleTranslate = async (fieldName: string, sourceText: string | undefined | null) => {
     if (!sourceText || sourceText.trim() === '') {
         toast({
             variant: "destructive",
@@ -134,7 +134,7 @@ export default function AdminSiteContentPage() {
         return;
     }
 
-    const fieldKey = Array.isArray(fieldName) ? fieldName.join('.') : fieldName;
+    const fieldKey = fieldName;
     setIsTranslating(prev => ({ ...prev, [fieldKey]: true }));
 
     try {
@@ -143,7 +143,6 @@ export default function AdminSiteContentPage() {
             sourceLanguage: 'English',
         });
 
-        const updatePromises = [];
         if (result.Oromo) {
             form.setValue(`${fieldName}.om` as any, result.Oromo, { shouldValidate: true, shouldDirty: true });
         }
@@ -212,29 +211,38 @@ export default function AdminSiteContentPage() {
 
           <TabsContent value="homepage" className="mt-6">
             <Card>
-              <CardHeader><CardTitle>{t('homepageContent')}</CardTitle><CardDescription>{t('homepageContentDescription')}</CardDescription></CardHeader>
+              <CardHeader>
+                <CardTitle>{t('homepageContent')}</CardTitle>
+                <CardDescription>{t('homepageContentDescription')}</CardDescription>
+              </CardHeader>
               <CardContent className="space-y-6">
                 <Card>
-                  <CardHeader><CardTitle className="text-lg">{t('heroSection')}</CardTitle></CardHeader>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{t('heroSection')}</CardTitle>
+                  </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-sm font-medium">{t('welcomeMessage')}</h4>
+                        <h4 className="text-base font-semibold">{t('welcomeMessage')}</h4>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('welcomeMessage', form.getValues('welcomeMessage.en'))} disabled={isTranslating['welcomeMessage']} >
                             {isTranslating['welcomeMessage'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
                         </Button>
                     </div>
-                    {SUPPORTED_LOCALES.map(lang => (
-                        <FormField key={`welcome-${lang.code}`} control={form.control} name={`welcomeMessage.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...field} placeholder={`${t('welcomeTo')} ${SITE_NAME}`} /></FormControl><FormMessage /></FormItem> )}/>
-                    ))}
-                     <div className="flex justify-between items-center mb-2 pt-4">
-                        <h4 className="text-sm font-medium">{t('tagline')}</h4>
+                    <div className="space-y-3 pl-2 border-l-2">
+                      {SUPPORTED_LOCALES.map(lang => (
+                          <FormField key={`welcome-${lang.code}`} control={form.control} name={`welcomeMessage.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...field} placeholder={`${t('welcomeTo')} ${SITE_NAME}`} /></FormControl><FormMessage /></FormItem> )}/>
+                      ))}
+                    </div>
+                     <div className="flex justify-between items-center mb-2 pt-6">
+                        <h4 className="text-base font-semibold">{t('tagline')}</h4>
                         <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('tagline', form.getValues('tagline.en'))} disabled={isTranslating['tagline']} >
                             {isTranslating['tagline'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
                         </Button>
                     </div>
-                    {SUPPORTED_LOCALES.map(lang => (
-                        <FormField key={`tagline-${lang.code}`} control={form.control} name={`tagline.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...field} placeholder={t('siteDescriptionPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
-                    ))}
+                     <div className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`tagline-${lang.code}`} control={form.control} name={`tagline.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...field} placeholder={t('siteDescriptionPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -252,25 +260,29 @@ export default function AdminSiteContentPage() {
                         <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10" onClick={() => remove(index)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                        <div className="space-y-4">
+                        <div className="space-y-4 pr-10">
                            <div className="flex justify-between items-center mb-2">
-                              <h4 className="text-sm font-medium">{t('question')}</h4>
+                              <h4 className="text-base font-semibold">{t('question')} #{index + 1}</h4>
                               <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`faqs.${index}.question`, form.getValues(`faqs.${index}.question.en`))} disabled={isTranslating[`faqs.${index}.question`]} >
                                 {isTranslating[`faqs.${index}.question`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
                               </Button>
                            </div>
-                          {SUPPORTED_LOCALES.map(lang => (
-                            <FormField key={`${field.id}-q-${lang.code}`} control={form.control} name={`faqs.${index}.question.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...formField} /></FormControl><FormMessage /></FormItem> )}/>
-                          ))}
-                           <div className="flex justify-between items-center mb-2 pt-4">
-                              <h4 className="text-sm font-medium">{t('answer')}</h4>
+                           <div className="space-y-3 pl-2 border-l-2">
+                              {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`${field.id}-q-${lang.code}`} control={form.control} name={`faqs.${index}.question.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Input {...formField} /></FormControl><FormMessage /></FormItem> )}/>
+                              ))}
+                            </div>
+                           <div className="flex justify-between items-center mb-2 pt-6">
+                              <h4 className="text-base font-semibold">{t('answer')} #{index + 1}</h4>
                               <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate(`faqs.${index}.answer`, form.getValues(`faqs.${index}.answer.en`))} disabled={isTranslating[`faqs.${index}.answer`]} >
                                 {isTranslating[`faqs.${index}.answer`] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
                               </Button>
                            </div>
-                          {SUPPORTED_LOCALES.map(lang => (
-                            <FormField key={`${field.id}-a-${lang.code}`} control={form.control} name={`faqs.${index}.answer.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...formField} rows={4} /></FormControl><FormMessage /></FormItem> )}/>
-                          ))}
+                           <div className="space-y-3 pl-2 border-l-2">
+                              {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`${field.id}-a-${lang.code}`} control={form.control} name={`faqs.${index}.answer.${lang.code}`} render={({ field: formField }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...formField} rows={4} /></FormControl><FormMessage /></FormItem> )}/>
+                              ))}
+                            </div>
                         </div>
                       </Card>
                     ))}
