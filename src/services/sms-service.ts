@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -23,7 +24,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
     return;
   }
 
-  let normalizedPhoneNumber = to.trim();
+  let normalizedPhoneNumber = to.trim().replace(/\s/g, ""); // Remove spaces
   
   if (normalizedPhoneNumber.startsWith('09')) {
     normalizedPhoneNumber = `+2519${normalizedPhoneNumber.substring(2)}`;

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -26,8 +27,8 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const fullLink = `${BASE_URL}${notificationLink}`;
 
     const webMessage = `New booking from ${customerName} for ${itemName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
-    // More concise SMS message with the direct link
-    const smsMessage = `New Booking: ${customerName} for ${itemName} (${booking.totalCost} ETB). View: ${fullLink}`;
+    // More concise SMS message with the direct link. Removed customer name to prevent issues with special characters.
+    const smsMessage = `New ${booking.bookingCategory} booking for: ${itemName}. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
 
     // --- 2. Send SMS notification ---
     const adminPhoneNumbers = await getAdminPhoneNumbers();
