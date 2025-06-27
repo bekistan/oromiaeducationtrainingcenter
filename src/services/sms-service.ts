@@ -22,12 +22,12 @@ export async function sendSms(to: string, message: string): Promise<void> {
   console.log(`\n--- [SMS Service] START (POST Method): Attempting to send SMS to: "${to}" ---`);
 
   if (!API_KEY || !SENDER_ID || !IDENTIFIER_ID) {
-    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED. One or more required environment variables are not set.
+    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED because one or more required environment variables are not set in the .env file.
       - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'}
-      - AFRO_MESSAGING_SENDER_ID: ${SENDER_ID ? 'SET' : 'MISSING'}
-      - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'}`;
+      - AFRO_MESSAGING_SENDER_ID: ${SENDER_ID ? 'SET' : 'MISSING'} (This is your approved sender name from the Afro Messaging dashboard).
+      - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'} (This is the system identifier from the Afro Messaging dashboard).`;
     console.error(errorMsg);
-    throw new Error('SMS service is not configured. Admin, please check server logs.');
+    throw new Error('SMS service is not configured. Please check your .env file and server logs.');
   }
   console.log('[SMS Service] Environment variables check PASSED.');
 
