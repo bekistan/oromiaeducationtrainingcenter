@@ -197,5 +197,3 @@ export interface SiteContentSettings {
   termsOfService: { [key in Locale]?: string };
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
-
-    

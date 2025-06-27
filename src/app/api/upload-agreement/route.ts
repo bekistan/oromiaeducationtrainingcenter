@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
     const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any; full_result?: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
-          folder: 'homepage', 
-          resource_type: 'raw', // Changed from 'auto' to 'raw' for general file types like PDFs
+          folder: 'signed_agreements', 
+          resource_type: 'raw', // Use 'raw' for non-image files like PDFs
           access_mode: 'public', 
         },
         (error, result) => {
