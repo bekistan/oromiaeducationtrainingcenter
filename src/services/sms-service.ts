@@ -19,15 +19,15 @@ const API_URL = 'https://api.afromessage.com/api/send';
  * @throws {Error} If sending fails at any step.
  */
 export async function sendSms(to: string, message: string): Promise<void> {
-  console.log(`\n--- [SMS Service] START: Attempting to send SMS to: "${to}" ---`);
+  console.log(`\n--- [SMS Service] START (POST Method): Attempting to send SMS to: "${to}" ---`);
 
   if (!API_KEY || !SENDER_ID || !IDENTIFIER_ID) {
-    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED. One or more required environment variables are not set. 
+    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED. One or more required environment variables are not set.
       - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'}
       - AFRO_MESSAGING_SENDER_ID: ${SENDER_ID ? 'SET' : 'MISSING'}
       - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'}`;
     console.error(errorMsg);
-    throw new Error('SMS service is not configured on the server. Check server logs for details.');
+    throw new Error('SMS service is not configured. Admin, please check server logs.');
   }
   console.log('[SMS Service] Environment variables check PASSED.');
 
@@ -35,10 +35,12 @@ export async function sendSms(to: string, message: string): Promise<void> {
 
   if (normalizedPhoneNumber.startsWith('0')) {
     normalizedPhoneNumber = `+251${normalizedPhoneNumber.substring(1)}`;
-  } else if (normalizedPhoneNumber.startsWith('251')) {
-    normalizedPhoneNumber = `+${normalizedPhoneNumber}`;
-  } else if (normalizedPhoneNumber.length === 9 && (normalizedPhoneNumber.startsWith('9') || normalizedPhoneNumber.startsWith('7'))) {
-    normalizedPhoneNumber = `+251${normalizedPhoneNumber}`;
+  } else if (!normalizedPhoneNumber.startsWith('+251')) {
+    if (normalizedPhoneNumber.length === 9) {
+        normalizedPhoneNumber = `+251${normalizedPhoneNumber}`;
+    } else if (normalizedPhoneNumber.startsWith('251')) {
+        normalizedPhoneNumber = `+${normalizedPhoneNumber}`;
+    }
   }
 
   if (!/^\+251[79]\d{8}$/.test(normalizedPhoneNumber)) {
@@ -77,24 +79,18 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.log(`----------------------------------------`);
 
     if (!response.ok) {
-      const errorMsg = `[SMS Service] FAILED: API returned a non-2xx HTTP error. Status: ${response.status}. Body: ${responseBodyText}`;
-      console.error(errorMsg);
-      throw new Error(`SMS provider responded with HTTP error ${response.status}. See server logs for full response.`);
+      throw new Error(`SMS provider returned a non-2xx HTTP error. Status: ${response.status}. Body: ${responseBodyText}`);
     }
 
     let responseData;
     try {
       responseData = JSON.parse(responseBodyText);
     } catch (e) {
-      const errorMsg = `[SMS Service] FAILED: Could not parse JSON response from API, although status was OK. Raw text: ${responseBodyText}`;
-      console.error(errorMsg);
-      throw new Error(`SMS provider returned a non-JSON response. See server logs for details.`);
+      throw new Error(`SMS provider returned a non-JSON response, although status was OK. Raw text: ${responseBodyText}`);
     }
 
     if (responseData.acknowledge !== 'success') {
       const failureReason = responseData.response?.message || JSON.stringify(responseData.response) || 'Unknown reason.';
-      const errorMsg = `[SMS Service] FAILED: API acknowledged the request, but reported a failure. Reason: ${failureReason}`;
-      console.error(errorMsg);
       throw new Error(`SMS provider rejected the message: ${failureReason}`);
     }
 
@@ -102,8 +98,8 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.log(`--- [SMS Service] END ---`);
 
   } catch (error: any) {
-    console.error('[SMS Service] FAILED: An exception occurred during the fetch call.', error.message, error.stack);
-    // Re-throw the error to be caught by the calling action.
+    // Log the final error before re-throwing
+    console.error('[SMS Service] CRITICAL FAILURE:', error.message);
     throw error;
   }
 }

@@ -18,7 +18,6 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
   console.log('[ACTION] notifyAdminsOfNewBooking triggered for booking ID:', booking.id);
   try {
     const customerName = booking.guestName || booking.companyName || 'Unknown';
-    const itemName = booking.items.map(i => i.name).join(', ');
     const bookingCategoryCapitalized = booking.bookingCategory.charAt(0).toUpperCase() + booking.bookingCategory.slice(1);
     
     // --- 1. Construct messages with a full URL for the link ---
@@ -28,7 +27,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const fullLink = `${BASE_URL}${notificationLink}`;
 
     // Web message can be more detailed
-    const webMessage = `New booking from ${customerName} for ${itemName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
+    const webMessage = `New booking from ${customerName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
     
     // SMS message is simplified to improve reliability
     const smsMessage = `New ${bookingCategoryCapitalized} Booking. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
@@ -39,6 +38,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
       console.log(`[ACTION] Preparing to send new booking SMS to ${adminPhoneNumbers.length} admins. Phones: ${adminPhoneNumbers.join(', ')}. Message: "${smsMessage}"`);
       const smsPromises = adminPhoneNumbers.map(phone => sendSms(phone, smsMessage));
       await Promise.all(smsPromises);
+      console.log('[ACTION] All SMS submissions to provider were successful.');
     } else {
       console.log('[ACTION] No admin phone numbers found. SMS notification for new booking will not be sent.');
     }
@@ -60,11 +60,13 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
 
     console.log('[ACTION] notifyAdminsOfNewBooking finished successfully.');
   } catch (error) {
-    console.error("================================================================");
-    console.error("[ACTION] CRITICAL FAILURE: SMS notification failed to send.");
-    console.error("This error was caught in `notifyAdminsOfNewBooking`. The error from `sendSms` is below:");
+    console.error("################################################################");
+    console.error("##### [ACTION] CRITICAL FAILURE IN NOTIFICATION PROCESS! #####");
+    console.error("################################################################");
+    console.error("The error occurred in `notifyAdminsOfNewBooking` for booking ID:", booking.id);
+    console.error("The caught error object is below:");
     console.error(error);
-    console.error("================================================================");
+    console.error("##################### END OF CRITICAL FAILURE ####################");
   }
 }
 
