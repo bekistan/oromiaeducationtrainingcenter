@@ -60,7 +60,11 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
 
     console.log('[ACTION] notifyAdminsOfNewBooking finished successfully.');
   } catch (error) {
-    console.error('[ACTION] Failed to execute notifyAdminsOfNewBooking:', error);
+    console.error("================================================================");
+    console.error("[ACTION] CRITICAL FAILURE: SMS notification failed to send.");
+    console.error("This error was caught in `notifyAdminsOfNewBooking`. The error from `sendSms` is below:");
+    console.error(error);
+    console.error("================================================================");
   }
 }
 
