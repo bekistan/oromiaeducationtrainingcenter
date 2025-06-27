@@ -170,55 +170,53 @@ export default function KeyholderAssignKeysPage() {
             <CardDescription>{t('manageKeyAssignmentsForGuests')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('guestName')}</TableHead>
-                    <TableHead>{t('phone')}</TableHead>
-                    <TableHead>{t('roomBooked')}</TableHead>
-                    <TableHead>{t('bookedAt')}</TableHead>
-                    <TableHead>{t('bookingDates')}</TableHead>
-                    <TableHead>{t('keyStatus')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('guestName')}</TableHead>
+                  <TableHead>{t('phone')}</TableHead>
+                  <TableHead>{t('roomBooked')}</TableHead>
+                  <TableHead>{t('bookedAt')}</TableHead>
+                  <TableHead>{t('bookingDates')}</TableHead>
+                  <TableHead>{t('keyStatus')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayedBookings.map((booking) => (
+                  <TableRow key={booking.id}>
+                    <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
+                    <TableCell>{booking.phone || t('notAvailable')}</TableCell>
+                    <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
+                    <TableCell className="text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                    <TableCell className="text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                    <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleKeyStatusChange(booking.id, 'issued')}
+                        disabled={isUpdatingKeyStatus === booking.id || booking.keyStatus === 'issued'}
+                        className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
+                      >
+                        {isUpdatingKeyStatus === booking.id && booking.keyStatus !== 'issued' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
+                        {t('issueKey')}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleKeyStatusChange(booking.id, 'returned')}
+                        disabled={isUpdatingKeyStatus === booking.id || booking.keyStatus === 'returned' || booking.keyStatus === 'not_issued'}
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        {isUpdatingKeyStatus === booking.id && booking.keyStatus !== 'returned' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
+                        {t('markReturned')}
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedBookings.map((booking) => (
-                    <TableRow key={booking.id}>
-                      <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
-                      <TableCell>{booking.phone || t('notAvailable')}</TableCell>
-                      <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
-                      <TableCell className="text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                      <TableCell className="text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
-                      <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleKeyStatusChange(booking.id, 'issued')}
-                          disabled={isUpdatingKeyStatus === booking.id || booking.keyStatus === 'issued'}
-                          className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
-                        >
-                          {isUpdatingKeyStatus === booking.id && booking.keyStatus !== 'issued' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <KeyRound className="mr-1 h-4 w-4" />}
-                          {t('issueKey')}
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleKeyStatusChange(booking.id, 'returned')}
-                          disabled={isUpdatingKeyStatus === booking.id || booking.keyStatus === 'returned' || booking.keyStatus === 'not_issued'}
-                          className="text-blue-600 border-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                        >
-                          {isUpdatingKeyStatus === booking.id && booking.keyStatus !== 'returned' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
-                          {t('markReturned')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
             <div className="flex items-center justify-between py-4">
                 <span className="text-sm text-muted-foreground">
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})

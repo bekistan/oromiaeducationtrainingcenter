@@ -313,126 +313,124 @@ export default function AdminManageDormitoryBookingsPage() {
               <CardDescription>{t('viewAndManageDormitoryBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
-                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
-                      <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead>{t('paymentProof')}</TableHead>
-                      <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
-                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
-                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
-                      <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
-                      <TableHead onClick={() => requestSort('keyStatus' as any)} className="cursor-pointer group">{t('keyStatusColumn')}{getSortIndicator('keyStatus' as any)}</TableHead>
-                      <TableHead className="text-right">{t('actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                        <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
-                        <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
-                        <TableCell className="min-w-[200px]">
-                          {booking.items.map(item => {
-                            const dormDetails = dormDataMap.get(item.id);
-                            const imageUrl = dormDetails?.imageUrl;
-                            return (
-                              <div key={item.id} className="flex items-center space-x-2 py-1">
-                                {imageUrl && (
-                                  <a href={imageUrl} target="_blank" rel="noopener noreferrer" title={t('viewImageForItem', {itemName: item.name})}>
-                                    <Image
-                                      src={imageUrl}
-                                      alt={item.name}
-                                      width={40}
-                                      height={40}
-                                      className="rounded-md object-cover"
-                                    />
-                                  </a>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
+                    <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
+                    <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
+                    <TableHead>{t('itemsBooked')}</TableHead>
+                    <TableHead>{t('paymentProof')}</TableHead>
+                    <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
+                    <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
+                    <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
+                    <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                    <TableHead onClick={() => requestSort('keyStatus' as any)} className="cursor-pointer group">{t('keyStatusColumn')}{getSortIndicator('keyStatus' as any)}</TableHead>
+                    <TableHead className="text-right">{t('actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedBookings.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                      <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
+                      <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
+                      <TableCell className="min-w-[200px]">
+                        {booking.items.map(item => {
+                          const dormDetails = dormDataMap.get(item.id);
+                          const imageUrl = dormDetails?.imageUrl;
+                          return (
+                            <div key={item.id} className="flex items-center space-x-2 py-1">
+                              {imageUrl && (
+                                <a href={imageUrl} target="_blank" rel="noopener noreferrer" title={t('viewImageForItem', {itemName: item.name})}>
+                                  <Image
+                                    src={imageUrl}
+                                    alt={item.name}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-md object-cover"
+                                  />
+                                </a>
+                              )}
+                              <span>{item.name}</span>
+                            </div>
+                          );
+                        })}
+                        ({booking.items.length})
+                      </TableCell>
+                      <TableCell>
+                        {booking.paymentScreenshotUrl ? (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                  <Image
+                                      src={booking.paymentScreenshotUrl}
+                                      alt={t('paymentProofForBooking', { bookingId: booking.id })}
+                                      width={50}
+                                      height={50}
+                                      className="rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                  />
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                  <DialogHeader>
+                                      <DialogTitle className="flex items-center">
+                                          <FileImage className="mr-2 h-5 w-5" />
+                                          {t('paymentProofForBooking', { bookingId: booking.id.substring(0, 8) })}
+                                      </DialogTitle>
+                                  </DialogHeader>
+                                  <div className="mt-4">
+                                      <Image
+                                          src={booking.paymentScreenshotUrl}
+                                          alt={t('paymentProofForBooking', { bookingId: booking.id })}
+                                          width={800}
+                                          height={600}
+                                          className="rounded-lg object-contain w-full h-auto max-h-[70vh]"
+                                      />
+                                  </div>
+                              </DialogContent>
+                            </Dialog>
+                        ) : (
+                            (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') 
+                            ? <span className="text-xs text-muted-foreground italic">{t('notProvided')}</span>
+                            : <span className="text-xs text-muted-foreground italic">{t('notApplicableShort')}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                      <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
+                      <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
+                      <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                      <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">{t('moreActions')}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {(booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
+                                  <>
+                                    <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
+                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                      <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
                                 )}
-                                <span>{item.name}</span>
-                              </div>
-                            );
-                          })}
-                          ({booking.items.length})
-                        </TableCell>
-                        <TableCell>
-                          {booking.paymentScreenshotUrl ? (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                    <Image
-                                        src={booking.paymentScreenshotUrl}
-                                        alt={t('paymentProofForBooking', { bookingId: booking.id })}
-                                        width={50}
-                                        height={50}
-                                        className="rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                                    />
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                    <DialogHeader>
-                                        <DialogTitle className="flex items-center">
-                                            <FileImage className="mr-2 h-5 w-5" />
-                                            {t('paymentProofForBooking', { bookingId: booking.id.substring(0, 8) })}
-                                        </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="mt-4">
-                                        <Image
-                                            src={booking.paymentScreenshotUrl}
-                                            alt={t('paymentProofForBooking', { bookingId: booking.id })}
-                                            width={800}
-                                            height={600}
-                                            className="rounded-lg object-contain w-full h-auto max-h-[70vh]"
-                                        />
-                                    </div>
-                                </DialogContent>
-                              </Dialog>
-                          ) : (
-                              (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') 
-                              ? <span className="text-xs text-muted-foreground italic">{t('notProvided')}</span>
-                              : <span className="text-xs text-muted-foreground italic">{t('notApplicableShort')}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
-                        <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
-                        <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
-                        <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
-                        <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
-                                      <MoreHorizontal className="h-4 w-4" />
-                                      <span className="sr-only">{t('moreActions')}</span>
-                                  </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                  {(booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
-                                    <>
-                                      <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
-                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                        <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                    </>
-                                  )}
-                                  <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
-                                      <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                                  </DropdownMenuItem>
-                              </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
               <div className="flex items-center justify-between py-4">
                 <span className="text-sm text-muted-foreground">
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useLanguage } from '@/hooks/use-language';
+import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
 import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud, ExternalLink } from 'lucide-react';
@@ -347,88 +347,86 @@ export default function CompanyDashboardPage() {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('bookedAt')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayedBookings.map((booking) => (
-                        <TableRow key={booking.id}>
-                          <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                          <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                          <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
-                          <TableCell className="min-w-[120px]">
-                            <div className="flex flex-col text-xs">
-                              {booking.serviceDetails?.lunch && (
-                                <span className="flex items-center">
-                                  <Utensils className="w-3 h-3 mr-1 text-muted-foreground" /> {t('lunch')}: {t(booking.serviceDetails.lunch)}
-                                </span>
-                              )}
-                              {booking.serviceDetails?.refreshment && (
-                                <span className="flex items-center">
-                                  <Coffee className="w-3 h-3 mr-1 text-muted-foreground" /> {t('refreshment')}: {t(booking.serviceDetails.refreshment)}
-                                </span>
-                              )}
-                              {(!booking.serviceDetails || (Object.keys(booking.serviceDetails).length === 0)) && (
-                                  <span className="text-muted-foreground italic text-xs">{t('serviceLevelNone')}</span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
-                          <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
-                          <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
-                          <TableCell>
-                            {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
-                          </TableCell>
-                          <TableCell className="text-right space-x-1">
-                            {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
-                              <>
-                                <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
-                                  <Button size="sm" variant="outline" asChild>
-                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
-                                  </Button>
-                                </Link>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => handleTriggerFileUpload(booking.id)}
-                                  disabled={isUploadingAgreementId === booking.id}
-                                  className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
-                                >
-                                  {isUploadingAgreementId === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
-                                  {t('uploadAndConfirmSignedAgreement')} 
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('bookedAt')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedBookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                        <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                        <TableCell className="min-w-[120px]">
+                          <div className="flex flex-col text-xs">
+                            {booking.serviceDetails?.lunch && (
+                              <span className="flex items-center">
+                                <Utensils className="w-3 h-3 mr-1 text-muted-foreground" /> {t('lunch')}: {t(booking.serviceDetails.lunch)}
+                              </span>
+                            )}
+                            {booking.serviceDetails?.refreshment && (
+                              <span className="flex items-center">
+                                <Coffee className="w-3 h-3 mr-1 text-muted-foreground" /> {t('refreshment')}: {t(booking.serviceDetails.refreshment)}
+                              </span>
+                            )}
+                            {(!booking.serviceDetails || (Object.keys(booking.serviceDetails).length === 0)) && (
+                                <span className="text-muted-foreground italic text-xs">{t('serviceLevelNone')}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
+                        <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
+                        <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                        <TableCell>
+                          {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1">
+                          {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
+                            <>
+                              <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
+                                <Button size="sm" variant="outline" asChild>
+                                    <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
                                 </Button>
-                              </>
-                            )}
-                             {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
-                               <span className="text-xs text-muted-foreground italic flex items-center justify-end">
-                                 <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')}
-                               </span>
-                            )}
-                             {booking.bookingCategory === 'facility' && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
-                               <>
-                                <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
-                                  <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-                                      <a><FileText className="mr-2 h-4 w-4" />{t('viewGeneratedAgreement')}</a>
+                              </Link>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleTriggerFileUpload(booking.id)}
+                                disabled={isUploadingAgreementId === booking.id}
+                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
+                              >
+                                {isUploadingAgreementId === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
+                                {t('uploadAndConfirmSignedAgreement')} 
+                              </Button>
+                            </>
+                          )}
+                           {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
+                             <span className="text-xs text-muted-foreground italic flex items-center justify-end">
+                               <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')}
+                             </span>
+                          )}
+                           {booking.bookingCategory === 'facility' && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
+                             <>
+                              <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
+                                <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+                                    <a><FileText className="mr-2 h-4 w-4" />{t('viewGeneratedAgreement')}</a>
+                                </Button>
+                              </Link>
+                              {booking.signedAgreementUrl && (
+                                  <Button size="sm" variant="outline" asChild className="border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
+                                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                                          <ExternalLink className="mr-2 h-4 w-4" />{t('viewYourSignedAgreement')}
+                                      </a>
                                   </Button>
-                                </Link>
-                                {booking.signedAgreementUrl && (
-                                    <Button size="sm" variant="outline" asChild className="border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-                                        <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                            <ExternalLink className="mr-2 h-4 w-4" />{t('viewYourSignedAgreement')}
-                                        </a>
-                                    </Button>
-                                )}
-                               </>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                              )}
+                             </>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
                 <div className="flex items-center justify-between pt-4">
                     <span className="text-sm text-muted-foreground">
                         {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})

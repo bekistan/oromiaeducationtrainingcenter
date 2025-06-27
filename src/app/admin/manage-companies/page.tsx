@@ -170,60 +170,58 @@ export default function ManageCompaniesPage() {
             <CardDescription>{t('viewAndApproveCompanies')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('companyName')}{getSortIndicator('companyName')}</TableHead>
-                    <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('contactPerson')}{getSortIndicator('name')}</TableHead>
-                    <TableHead onClick={() => requestSort('position')} className="cursor-pointer group">{t('position')}{getSortIndicator('position')}</TableHead>
-                    <TableHead onClick={() => requestSort('email')} className="cursor-pointer group">{t('email')}{getSortIndicator('email')}</TableHead>
-                    <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead onClick={() => requestSort('companyName')} className="cursor-pointer group">{t('companyName')}{getSortIndicator('companyName')}</TableHead>
+                  <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('contactPerson')}{getSortIndicator('name')}</TableHead>
+                  <TableHead onClick={() => requestSort('position')} className="cursor-pointer group">{t('position')}{getSortIndicator('position')}</TableHead>
+                  <TableHead onClick={() => requestSort('email')} className="cursor-pointer group">{t('email')}{getSortIndicator('email')}</TableHead>
+                  <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayedCompanies.map((company) => (
+                  <TableRow key={company.id}>
+                    <TableCell className="font-medium">{company.companyName || t('notAvailable')}</TableCell>
+                    <TableCell>{company.name || t('notAvailable')}</TableCell>
+                    <TableCell>{company.position || t('notAvailable')}</TableCell>
+                    <TableCell>{company.email}</TableCell>
+                    <TableCell>{getStatusBadge(company.approvalStatus)}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      {company.approvalStatus === 'pending' && (
+                        <>
+                          <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleApproval(company.id, 'approved')} 
+                              className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
+                              disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
+                          >
+                            {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'approved' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />}
+                            {t('approveButton')}
+                          </Button>
+                          <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => handleApproval(company.id, 'rejected')} 
+                              className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
+                              disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
+                          >
+                            {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'rejected' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
+                            {t('rejectButton')}
+                          </Button>
+                        </>
+                      )}
+                      {company.approvalStatus !== 'pending' && (
+                          <span className="text-xs text-muted-foreground italic">{t('actionTaken')}</span>
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedCompanies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">{company.companyName || t('notAvailable')}</TableCell>
-                      <TableCell>{company.name || t('notAvailable')}</TableCell>
-                      <TableCell>{company.position || t('notAvailable')}</TableCell>
-                      <TableCell>{company.email}</TableCell>
-                      <TableCell>{getStatusBadge(company.approvalStatus)}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        {company.approvalStatus === 'pending' && (
-                          <>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleApproval(company.id, 'approved')} 
-                                className="text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
-                                disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
-                            >
-                              {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'approved' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4" />}
-                              {t('approveButton')}
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleApproval(company.id, 'rejected')} 
-                                className="text-red-600 border-red-600 hover:bg-red-50 hover:text-red-700"
-                                disabled={updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id}
-                            >
-                              {updateCompanyStatusMutation.isPending && updateCompanyStatusMutation.variables?.companyId === company.id && updateCompanyStatusMutation.variables.newStatus === 'rejected' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <XCircle className="mr-1 h-4 w-4" />}
-                              {t('rejectButton')}
-                            </Button>
-                          </>
-                        )}
-                        {company.approvalStatus !== 'pending' && (
-                            <span className="text-xs text-muted-foreground italic">{t('actionTaken')}</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
             <div className="flex items-center justify-between py-4">
                 <span className="text-sm text-muted-foreground">
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
@@ -253,4 +251,3 @@ export default function ManageCompaniesPage() {
     </div>
   );
 }
-    

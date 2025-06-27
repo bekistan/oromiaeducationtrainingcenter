@@ -342,119 +342,117 @@ export default function AdminBookingsPage() {
               <CardDescription>{t('viewAndManageActiveBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
-                      <TableHead onClick={() => requestSort('bookingCategory')} className="cursor-pointer group">{t('category')}{getSortIndicator('bookingCategory')}</TableHead>
-                      <TableHead>{t('itemsBooked')}</TableHead>
-                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
-                      <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
-                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
-                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
-                      <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
-                      <TableHead onClick={() => requestSort('agreementStatus')} className="cursor-pointer group">{t('agreementStatus')}{getSortIndicator('agreementStatus')}</TableHead>
-                      <TableHead className="text-right">{t('actions')}</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
+                    <TableHead onClick={() => requestSort('bookingCategory')} className="cursor-pointer group">{t('category')}{getSortIndicator('bookingCategory')}</TableHead>
+                    <TableHead>{t('itemsBooked')}</TableHead>
+                    <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
+                    <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
+                    <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
+                    <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
+                    <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
+                    <TableHead onClick={() => requestSort('agreementStatus')} className="cursor-pointer group">{t('agreementStatus')}{getSortIndicator('agreementStatus')}</TableHead>
+                    <TableHead className="text-right">{t('actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayedBookings.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                      <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
+                      <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
+                      <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
+                      <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
+                      <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
+                      <TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell>
+                      <TableCell className="text-right space-x-1">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">{t('moreActions')}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {booking.bookingCategory === 'facility' && (
+                                  <>
+                                    <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
+                                        {t('setAsPending')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                        {t('rejectBooking')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>{t('paymentActions')}</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleFacilityPaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
+                                        <CreditCard className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
+                                    <DropdownMenuItem asChild>
+                                      <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
+                                        <FileText className="mr-2 h-4 w-4" /> {t('viewEditAgreement')}
+                                      </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
+                                      disabled={!(!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action')}
+                                    >
+                                      <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
+                                      disabled={booking.agreementStatus !== 'sent_to_client'}
+                                    >
+                                      <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem
+                                      onClick={() => handleAgreementStatusChange(booking.id, 'completed')}
+                                      disabled={booking.agreementStatus !== 'signed_by_client'}
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('markAgreementCompleted')}
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                {booking.bookingCategory === 'dormitory' && (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
+                                  <>
+                                    <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
+                                    <DropdownMenuItem>
+                                      <div className='flex items-center text-xs text-muted-foreground'>
+                                          <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
+                                      </div>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
+                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+                                      <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
+                                    <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedBookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                        <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
-                        <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
-                        <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">
-                          {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
-                        <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
-                        <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
-                        <TableCell>{booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}</TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
-                                      <MoreHorizontal className="h-4 w-4" />
-                                      <span className="sr-only">{t('moreActions')}</span>
-                                  </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                  {booking.bookingCategory === 'facility' && (
-                                    <>
-                                      <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
-                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
-                                          <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                          {t('setAsPending')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                          {t('rejectBooking')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuLabel>{t('paymentActions')}</DropdownMenuLabel>
-                                      <DropdownMenuItem onClick={() => handleFacilityPaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
-                                          <CreditCard className="mr-2 h-4 w-4" /> {t('markAsPaid')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
-                                      <DropdownMenuItem asChild>
-                                        <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
-                                          <FileText className="mr-2 h-4 w-4" /> {t('viewEditAgreement')}
-                                        </Link>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                        disabled={!(!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action')}
-                                      >
-                                        <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
-                                        disabled={booking.agreementStatus !== 'sent_to_client'}
-                                      >
-                                        <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
-                                      </DropdownMenuItem>
-                                       <DropdownMenuItem
-                                        onClick={() => handleAgreementStatusChange(booking.id, 'completed')}
-                                        disabled={booking.agreementStatus !== 'signed_by_client'}
-                                      >
-                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAgreementCompleted')}
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-
-                                  {booking.bookingCategory === 'dormitory' && (booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
-                                    <>
-                                      <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
-                                      <DropdownMenuItem>
-                                        <div className='flex items-center text-xs text-muted-foreground'>
-                                            <Phone className="mr-2 h-3 w-3" /> {t('verifyOnTelegramUsing')}: {booking.phone || t('notProvided')}
-                                        </div>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
-                                        <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => handleDormitoryPaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
-                                        <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground" onClick={() => openDeleteDialog(booking.id)}>
-                                      <Trash2 className="mr-2 h-4 w-4" /> {t('delete')}
-                                  </DropdownMenuItem>
-                              </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
               <div className="flex items-center justify-between py-4">
                 <span className="text-sm text-muted-foreground">
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})

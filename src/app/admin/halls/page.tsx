@@ -320,50 +320,48 @@ export default function AdminHallsAndSectionsPage() {
             <CardDescription>{t('viewAndManageHallsAndSections')}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('name')}{getSortIndicator('name')}</TableHead>
-                    <TableHead onClick={() => requestSort('itemType')} className="cursor-pointer group">{t('type')}{getSortIndicator('itemType')}</TableHead>
-                    <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
-                    <TableHead onClick={() => requestSort('rentalCost')} className="cursor-pointer group">{t('rentalCost')}{getSortIndicator('rentalCost')}</TableHead>
-                    <TableHead onClick={() => requestSort('ledProjectorCost')} className="cursor-pointer group">{t('ledProjectorCost')}{getSortIndicator('ledProjectorCost')}</TableHead>
-                    <TableHead onClick={() => requestSort('isAvailable')} className="cursor-pointer group">{t('availability')}{getSortIndicator('isAvailable')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('name')}{getSortIndicator('name')}</TableHead>
+                  <TableHead onClick={() => requestSort('itemType')} className="cursor-pointer group">{t('type')}{getSortIndicator('itemType')}</TableHead>
+                  <TableHead onClick={() => requestSort('capacity')} className="cursor-pointer group">{t('capacity')}{getSortIndicator('capacity')}</TableHead>
+                  <TableHead onClick={() => requestSort('rentalCost')} className="cursor-pointer group">{t('rentalCost')}{getSortIndicator('rentalCost')}</TableHead>
+                  <TableHead onClick={() => requestSort('ledProjectorCost')} className="cursor-pointer group">{t('ledProjectorCost')}{getSortIndicator('ledProjectorCost')}</TableHead>
+                  <TableHead onClick={() => requestSort('isAvailable')} className="cursor-pointer group">{t('availability')}{getSortIndicator('isAvailable')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {displayedItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="capitalize">{t(item.itemType)}</TableCell>
+                    <TableCell>{item.capacity}</TableCell>
+                    <TableCell>{item.rentalCost ? `${item.rentalCost} ${t('currencySymbol')}` : t('usesDefaultPrice')}</TableCell>
+                    <TableCell>{item.itemType === 'section' && item.ledProjectorCost ? `${item.ledProjectorCost} ${t('currencySymbol')}` : (item.itemType === 'section' ? t('usesDefaultPrice') : t('notApplicableShort'))}</TableCell>
+                    <TableCell>
+                      <Badge
+                          variant={item.isAvailable ? "default" : "destructive"}
+                          className={item.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
+                      >
+                        {item.isAvailable ? t('available') : t('unavailable')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">{t('edit')}</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(item.id)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">{t('delete')}</span>
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell className="capitalize">{t(item.itemType)}</TableCell>
-                      <TableCell>{item.capacity}</TableCell>
-                      <TableCell>{item.rentalCost ? `${item.rentalCost} ${t('currencySymbol')}` : t('usesDefaultPrice')}</TableCell>
-                      <TableCell>{item.itemType === 'section' && item.ledProjectorCost ? `${item.ledProjectorCost} ${t('currencySymbol')}` : (item.itemType === 'section' ? t('usesDefaultPrice') : t('notApplicableShort'))}</TableCell>
-                      <TableCell>
-                        <Badge
-                            variant={item.isAvailable ? "default" : "destructive"}
-                            className={item.isAvailable ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'}
-                        >
-                          {item.isAvailable ? t('available') : t('unavailable')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">{t('edit')}</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive-foreground hover:bg-destructive" onClick={() => openDeleteDialog(item.id)} disabled={editHallMutation.isPending || deleteHallMutation.isPending}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">{t('delete')}</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
             <div className="flex items-center justify-between py-4">
                 <span className="text-sm text-muted-foreground">
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
@@ -451,4 +449,3 @@ export default function AdminHallsAndSectionsPage() {
     </>
   );
 }
-    

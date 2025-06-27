@@ -128,54 +128,52 @@ export default function AdminNotificationsPage() {
           {notifications.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">{t('noNotificationsFound')}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('status')}</TableHead>
-                    <TableHead>{t('message')}</TableHead>
-                    <TableHead>{t('type')}</TableHead>
-                    <TableHead>{t('date')}</TableHead>
-                    <TableHead className="text-right">{t('actions')}</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('status')}</TableHead>
+                  <TableHead>{t('message')}</TableHead>
+                  <TableHead>{t('type')}</TableHead>
+                  <TableHead>{t('date')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {notifications.map((notification) => (
+                  <TableRow key={notification.id} className={cn(!notification.isRead && "bg-primary/5 font-semibold")}>
+                    <TableCell>
+                      <Badge variant={notification.isRead ? "secondary" : "default"} className={notification.isRead ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
+                        {notification.isRead ? t('read') : t('unread')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-md truncate">{notification.message}</TableCell>
+                    <TableCell className="capitalize">{t(notification.type)}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDualDate(notification.createdAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      {!notification.isRead && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => markAsReadMutation.mutate(notification.id)}
+                          disabled={markAsReadMutation.isPending && markAsReadMutation.variables === notification.id}
+                        >
+                          {markAsReadMutation.isPending && markAsReadMutation.variables === notification.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Eye className="mr-1 h-3 w-3" />}
+                          {t('markAsRead')}
+                        </Button>
+                      )}
+                      {notification.link && (
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={notification.link}>
+                            <ExternalLink className="mr-1 h-3 w-3" />
+                            {t('viewDetails')}
+                          </Link>
+                        </Button>
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {notifications.map((notification) => (
-                    <TableRow key={notification.id} className={cn(!notification.isRead && "bg-primary/5 font-semibold")}>
-                      <TableCell>
-                        <Badge variant={notification.isRead ? "secondary" : "default"} className={notification.isRead ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}>
-                          {notification.isRead ? t('read') : t('unread')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-md truncate">{notification.message}</TableCell>
-                      <TableCell className="capitalize">{t(notification.type)}</TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(notification.createdAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        {!notification.isRead && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => markAsReadMutation.mutate(notification.id)}
-                            disabled={markAsReadMutation.isPending && markAsReadMutation.variables === notification.id}
-                          >
-                            {markAsReadMutation.isPending && markAsReadMutation.variables === notification.id ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Eye className="mr-1 h-3 w-3" />}
-                            {t('markAsRead')}
-                          </Button>
-                        )}
-                        {notification.link && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link href={notification.link}>
-                              <ExternalLink className="mr-1 h-3 w-3" />
-                              {t('viewDetails')}
-                            </Link>
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

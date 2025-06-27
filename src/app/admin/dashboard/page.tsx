@@ -362,33 +362,31 @@ export default function AdminDashboardPage() {
               <p className="text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noRecentBookings')}</p>
             ) : (
               <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
-                        <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
-                        <TableHead>{t('item')}</TableHead>
-                        <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
-                        <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('status')}{getSortIndicator('paymentStatus')}</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
+                      <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('customer')}{getSortIndicator('guestName')}</TableHead>
+                      <TableHead>{t('item')}</TableHead>
+                      <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('cost')}{getSortIndicator('totalCost')}</TableHead>
+                      <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('status')}{getSortIndicator('paymentStatus')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedRecentBookings.map(booking => (
+                      <TableRow key={booking.id}>
+                        <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                        <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
+                        <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
+                        <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="space-x-1">
+                          {getStatusBadge(booking.paymentStatus, 'payment')}
+                          {getStatusBadge(booking.approvalStatus, 'approval')}
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {displayedRecentBookings.map(booking => (
-                        <TableRow key={booking.id}>
-                          <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                          <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
-                          <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
-                          <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>
-                          <TableCell className="space-x-1">
-                            {getStatusBadge(booking.paymentStatus, 'payment')}
-                            {getStatusBadge(booking.approvalStatus, 'approval')}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
                 <div className="flex items-center justify-between pt-4">
                     <span className="text-sm text-muted-foreground">
                         {t('page')} {pageCount > 0 ? currentPage + 1: 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
