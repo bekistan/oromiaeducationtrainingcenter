@@ -43,29 +43,29 @@ export async function sendSms(to: string, message: string): Promise<void> {
      normalizedPhoneNumber = `+${normalizedPhoneNumber}`;
   }
 
-
   if (!/^\+251[79]\d{8}$/.test(normalizedPhoneNumber)) {
     console.warn(`[SMS Service] SMS not sent. Invalid or unhandled Ethiopian phone number format. Original: "${to}", Normalized to: "${normalizedPhoneNumber}". Expected format: +251...`);
     return;
   }
 
-  const payload = {
+  // Construct URL with query parameters, as required by the API
+  const params = new URLSearchParams({
     to: normalizedPhoneNumber,
     from: SENDER_ID,
     message: message,
-  };
+  });
+  const fullUrl = `${API_URL}?${params.toString()}`;
 
-  console.log('[SMS Service] Sending API request to Afro Messaging with payload:', JSON.stringify(payload, null, 2));
+  console.log('[SMS Service] Sending API GET request to Afro Messaging with URL:', fullUrl);
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await fetch(fullUrl, {
+      method: 'GET', // Corrected method to GET
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(payload),
+      // No body for a GET request
     });
 
     const responseBodyText = await response.text();
@@ -75,7 +75,6 @@ export async function sendSms(to: string, message: string): Promise<void> {
       responseData = JSON.parse(responseBodyText);
     } catch (e) {
       console.error('[SMS Service] Failed to parse JSON response from Afro Messaging. Status:', response.status, 'Raw response:', responseBodyText);
-      // Don't return, as the status code might still be useful below.
       responseData = { rawResponse: responseBodyText };
     }
 
