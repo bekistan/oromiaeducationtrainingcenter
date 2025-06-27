@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 export function Logo() {
   return (
-    <Link href="/" className="flex items-center space-x-2" aria-label="Homepage">
+    <Link href="/" className="flex items-center space-x-2 ml-2" aria-label="Homepage">
       <Image
         src="/images/logo.png"
         alt="Oromia Education Training Center Logo"
