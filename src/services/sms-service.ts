@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -12,7 +11,7 @@ const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID;
 const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
- * Sends an SMS using the Afro Messaging API.
+ * Sends an SMS using the Afro Messaging API via POST.
  * @param to - The recipient's phone number. Handles formats like 09..., +2519..., etc.
  * @param message - The text message to send.
  * @returns A promise that resolves if the SMS is sent successfully.
@@ -47,25 +46,24 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.warn(`[SMS Service] SMS not sent. Invalid or unhandled Ethiopian phone number format. Original: "${to}", Normalized to: "${normalizedPhoneNumber}". Expected format: +251...`);
     return;
   }
-
-  // Construct URL with query parameters, as required by the API
-  const params = new URLSearchParams({
+  
+  const requestBody = {
     to: normalizedPhoneNumber,
-    from: SENDER_ID,
+    sender: SENDER_ID, // Use 'sender' for the Sender Name as per docs
     message: message,
-  });
-  const fullUrl = `${API_URL}?${params.toString()}`;
+  };
 
-  console.log('[SMS Service] Sending API GET request to Afro Messaging with URL:', fullUrl);
+  console.log('[SMS Service] Sending API POST request to Afro Messaging. URL:', API_URL, 'Body:', JSON.stringify(requestBody));
 
   try {
-    const response = await fetch(fullUrl, {
-      method: 'GET', // Corrected method to GET
+    const response = await fetch(API_URL, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      // No body for a GET request
+      body: JSON.stringify(requestBody),
     });
 
     const responseBodyText = await response.text();
@@ -80,7 +78,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
 
     if (!response.ok) {
       console.error(`[SMS Service] Afro Messaging API returned an error (Status: ${response.status}).`, {
-        recipient: normalizedPhoneNumber,
+        requestBody: requestBody,
         response: responseData,
       });
       return;
