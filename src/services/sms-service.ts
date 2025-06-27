@@ -5,32 +5,30 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from '@/types';
 
-// IMPORTANT: These credentials are now read from environment variables.
-// Ensure they are set in your .env or .env.local file.
+// Read all credentials from environment variables.
 const API_KEY = process.env.AFRO_MESSAGING_API_KEY;
 const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID;
+const IDENTIFIER_ID = process.env.AFRO_MESSAGING_IDENTIFIER_ID;
 const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
- * Sends an SMS using the Afro Messaging API via POST. Throws an error on failure.
+ * Sends an SMS using the Afro Messaging POST API. Throws an error on failure.
  * @param to - The recipient's phone number.
  * @param message - The text message to send.
  * @returns A promise that resolves if the SMS is sent successfully.
  * @throws {Error} If sending fails at any step.
  */
 export async function sendSms(to: string, message: string): Promise<void> {
-  console.log(`[SMS Service] Attempting to send SMS. To: "${to}"`);
+  console.log(`[SMS Service] Attempting to send SMS via POST. To: "${to}"`);
 
   if (!API_KEY || !SENDER_ID) {
     const errorMsg = '[SMS Service] FAILED: SMS sending is DISABLED. AFRO_MESSAGING_API_KEY and/or AFRO_MESSAGING_SENDER_ID are not set in environment variables.';
     console.error(errorMsg);
-    // Throw an error to ensure the calling function knows about the failure.
-    throw new Error('SMS service is not configured on the server.');
+    throw new Error('SMS service is not configured on the server. API Key or Sender ID missing.');
   }
 
-  // More robust phone number normalization for Ethiopia
-  let normalizedPhoneNumber = to.trim().replace(/ /g, '');
-  normalizedPhoneNumber = normalizedPhoneNumber.replace(/[-()]/g, '');
+  // Robust phone number normalization for Ethiopia
+  let normalizedPhoneNumber = to.trim().replace(/[-() ]/g, ''); // Remove spaces, hyphens, parentheses
 
   if (normalizedPhoneNumber.startsWith('0')) {
     normalizedPhoneNumber = `+251${normalizedPhoneNumber.substring(1)}`;
@@ -40,20 +38,33 @@ export async function sendSms(to: string, message: string): Promise<void> {
     normalizedPhoneNumber = `+251${normalizedPhoneNumber}`;
   }
 
-  // Validate the final format
   if (!/^\+251[79]\d{8}$/.test(normalizedPhoneNumber)) {
     const errorMsg = `[SMS Service] FAILED: Invalid Ethiopian phone number format. Original: "${to}", Final Normalized: "${normalizedPhoneNumber}". Expected format: +251...`;
     console.error(errorMsg);
     throw new Error(`Invalid phone number format for SMS: ${to}`);
   }
 
-  const requestBody = {
+  // Construct the request body as per the documentation
+  const requestBody: {
+    to: string;
+    sender: string;
+    message: string;
+    from?: string;
+  } = {
     to: normalizedPhoneNumber,
     sender: SENDER_ID,
     message: message,
   };
 
-  console.log('[SMS Service] Sending API POST request to Afro Messaging with body:', JSON.stringify(requestBody));
+  // Only include the 'from' identifier if it's provided.
+  if (IDENTIFIER_ID) {
+    requestBody.from = IDENTIFIER_ID;
+  } else {
+    console.warn('[SMS Service] AFRO_MESSAGING_IDENTIFIER_ID is not set. The default identifier will be used by the API.');
+  }
+
+
+  console.log('[SMS Service] Sending API POST request with body:', JSON.stringify(requestBody));
 
   try {
     const response = await fetch(API_URL, {
@@ -67,18 +78,23 @@ export async function sendSms(to: string, message: string): Promise<void> {
     });
 
     const responseBodyText = await response.text();
-    console.log('[SMS Service] Raw API Response:', `Status: ${response.status}`, `Body: ${responseBodyText}`);
+    console.log(`[SMS Service] Raw API Response - Status: ${response.status}, Body: ${responseBodyText}`);
 
-    if (!response.ok) {
-      // Handles HTTP errors like 401, 403, 500 etc.
-      const errorMsg = `[SMS Service] FAILED: Afro Messaging API returned an HTTP error. Status: ${response.status}. Body: ${responseBodyText}`;
-      console.error(errorMsg);
-      throw new Error(`SMS provider responded with HTTP error ${response.status}.`);
+    let responseData;
+    try {
+        responseData = JSON.parse(responseBodyText);
+    } catch (e) {
+        console.error(`[SMS Service] FAILED: Could not parse JSON response from API. Raw text: ${responseBodyText}`);
+        throw new Error(`SMS provider returned non-JSON response. Status: ${response.status}.`);
     }
 
-    const responseData = JSON.parse(responseBodyText);
+    if (!response.ok) {
+      const failureReason = responseData.response?.message || JSON.stringify(responseData.response) || 'Unknown error';
+      const errorMsg = `[SMS Service] FAILED: API returned an HTTP error. Status: ${response.status}. Reason: ${failureReason}`;
+      console.error(errorMsg);
+      throw new Error(`SMS provider responded with HTTP error ${response.status}: ${failureReason}`);
+    }
 
-    // Check for logical errors within a 2xx response
     if (responseData.acknowledge !== 'success') {
       const failureReason = responseData.response?.message || JSON.stringify(responseData.response);
       const errorMsg = `[SMS Service] FAILED: API acknowledged the request, but reported a failure. Reason: ${failureReason}`;
@@ -89,7 +105,6 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.log(`[SMS Service] SUCCESS: SMS successfully submitted for recipient ${normalizedPhoneNumber}. Response:`, responseData);
 
   } catch (error) {
-    // Catches network errors, JSON parsing errors, or errors thrown from the logic above.
     console.error('[SMS Service] FAILED: An exception occurred in the sendSms function.', error);
     // Re-throw the error so the calling function's catch block is triggered.
     throw error;
