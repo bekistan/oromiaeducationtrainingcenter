@@ -19,6 +19,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
   try {
     const customerName = booking.guestName || booking.companyName || 'Unknown';
     const itemName = booking.items.map(i => i.name).join(', ');
+    const bookingCategoryCapitalized = booking.bookingCategory.charAt(0).toUpperCase() + booking.bookingCategory.slice(1);
     
     // --- 1. Construct messages with a full URL for the link ---
     const notificationLink = booking.bookingCategory === 'dormitory' 
@@ -26,14 +27,16 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
       : `/admin/manage-facility-bookings#${booking.id}`;
     const fullLink = `${BASE_URL}${notificationLink}`;
 
+    // Web message can be more detailed
     const webMessage = `New booking from ${customerName} for ${itemName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
-    // More concise SMS message with the direct link. Removed customer name to prevent issues with special characters.
-    const smsMessage = `New ${booking.bookingCategory} booking for: ${itemName}. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
+    
+    // SMS message is simplified to improve reliability
+    const smsMessage = `New ${bookingCategoryCapitalized} Booking. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
 
     // --- 2. Send SMS notification ---
     const adminPhoneNumbers = await getAdminPhoneNumbers();
     if (adminPhoneNumbers.length > 0) {
-      console.log(`[ACTION] Preparing to send new booking SMS to ${adminPhoneNumbers.length} admins. Message: "${smsMessage}"`);
+      console.log(`[ACTION] Preparing to send new booking SMS to ${adminPhoneNumbers.length} admins. Phones: ${adminPhoneNumbers.join(', ')}. Message: "${smsMessage}"`);
       const smsPromises = adminPhoneNumbers.map(phone => sendSms(phone, smsMessage));
       await Promise.all(smsPromises);
     } else {
