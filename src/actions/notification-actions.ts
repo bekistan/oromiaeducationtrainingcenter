@@ -36,9 +36,24 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const adminPhoneNumbers = await getAdminPhoneNumbers();
     if (adminPhoneNumbers.length > 0) {
       console.log(`[ACTION] Preparing to send new booking SMS to ${adminPhoneNumbers.length} admins. Phones: ${adminPhoneNumbers.join(', ')}. Message: "${smsMessage}"`);
-      const smsPromises = adminPhoneNumbers.map(phone => sendSms(phone, smsMessage));
-      await Promise.all(smsPromises);
-      console.log('[ACTION] All SMS submissions to provider were successful.');
+      
+      for (const phone of adminPhoneNumbers) {
+        try {
+          console.log(`[ACTION] Attempting to send SMS to ${phone}...`);
+          await sendSms(phone, smsMessage);
+          console.log(`[ACTION] SMS submission to provider for ${phone} was successful.`);
+        } catch (smsError: any) {
+          console.error(`################################################################`);
+          console.error(`##### [ACTION] FAILED TO SEND SMS TO ADMIN: ${phone} #####`);
+          console.error(`################################################################`);
+          console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
+          console.error("The caught error object is below:");
+          console.error(smsError);
+          console.error("####################### END OF SMS FAILURE #######################");
+          // Continue to the next phone number without stopping the process
+        }
+      }
+      
     } else {
       console.log('[ACTION] No admin phone numbers found. SMS notification for new booking will not be sent.');
     }
@@ -98,11 +113,25 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
 
     console.log(`[ACTION] Preparing to send approved booking SMS to keyholders. Message: "${message}"`);
 
-    const smsPromises = keyholderPhoneNumbers.map(phone => sendSms(phone, message));
-    await Promise.all(smsPromises);
+    for (const phone of keyholderPhoneNumbers) {
+      try {
+        console.log(`[ACTION] Attempting to send SMS to keyholder ${phone}...`);
+        await sendSms(phone, message);
+        console.log(`[ACTION] SMS submission to provider for keyholder ${phone} was successful.`);
+      } catch (smsError: any) {
+        console.error(`################################################################`);
+        console.error(`##### [ACTION] FAILED TO SEND SMS TO KEYHOLDER: ${phone} #####`);
+        console.error(`################################################################`);
+        console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
+        console.error("The caught error object is below:");
+        console.error(smsError);
+        console.error("####################### END OF SMS FAILURE #######################");
+      }
+    }
     
     console.log('[ACTION] notifyKeyholdersOfDormApproval finished.');
   } catch (error) {
     console.error('[ACTION] Failed to execute notifyKeyholdersOfDormApproval:', error);
   }
 }
+
