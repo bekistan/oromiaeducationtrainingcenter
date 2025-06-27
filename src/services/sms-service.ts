@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -12,7 +13,7 @@ const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
  * Sends an SMS using the Afro Messaging API via POST.
- * @param to - The recipient's phone number. Handles formats like 09..., +2519..., etc.
+ * @param to - The recipient's phone number.
  * @param message - The text message to send.
  * @returns A promise that resolves if the SMS is sent successfully.
  */
@@ -23,7 +24,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.error('[SMS Service] SMS sending is DISABLED. AFRO_MESSAGING_API_KEY and/or AFRO_MESSAGING_SENDER_ID are not set in environment variables. Please configure them to enable SMS notifications.');
     return;
   }
-
+  
   // More robust phone number normalization for Ethiopia
   let normalizedPhoneNumber = to.trim().replace(/ /g, ''); // Remove spaces
   normalizedPhoneNumber = normalizedPhoneNumber.replace(/[-()]/g, ''); // Remove brackets and dashes
@@ -46,7 +47,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
     console.warn(`[SMS Service] SMS not sent. Invalid or unhandled Ethiopian phone number format. Original: "${to}", Normalized to: "${normalizedPhoneNumber}". Expected format: +251...`);
     return;
   }
-  
+
   const requestBody = {
     to: normalizedPhoneNumber,
     sender: SENDER_ID, // Use 'sender' for the Sender Name as per docs
@@ -65,32 +66,47 @@ export async function sendSms(to: string, message: string): Promise<void> {
       },
       body: JSON.stringify(requestBody),
     });
-
+    
+    // Read the response as text first to handle non-JSON responses gracefully
     const responseBodyText = await response.text();
     let responseData;
+    
+    // Log the raw response for debugging purposes, regardless of status
+    console.log('[SMS Service] Raw response from Afro Messaging. Status:', response.status, 'Body:', responseBodyText);
 
     try {
       responseData = JSON.parse(responseBodyText);
     } catch (e) {
-      console.error('[SMS Service] Failed to parse JSON response from Afro Messaging. Status:', response.status, 'Raw response:', responseBodyText);
-      responseData = { rawResponse: responseBodyText };
+      console.error('[SMS Service] Failed to parse JSON response from Afro Messaging. The raw response is logged above.');
+      // Create a synthetic response object for consistent error reporting below
+      responseData = { 
+          acknowledge: 'error', 
+          response: { 
+              message: 'Failed to parse API response. See server logs for raw output.',
+              rawResponse: responseBodyText
+          }
+      };
     }
 
     if (!response.ok) {
-      console.error(`[SMS Service] Afro Messaging API returned an error (Status: ${response.status}).`, {
+      // Handle HTTP errors (e.g., 401, 403, 500)
+      console.error(`[SMS Service] Afro Messaging API returned an HTTP error (Status: ${response.status}).`, {
         requestBody: requestBody,
         response: responseData,
       });
-      return;
+      return; // Stop execution
     }
 
-    if (responseData.acknowledge === 'success') {
-      console.log(`[SMS Service] SMS successfully submitted for recipient ${normalizedPhoneNumber}. Afro Messaging Response:`, responseData);
-    } else {
+    // Handle non-error HTTP status but failure in the application logic (e.g., bad phone number)
+    if (responseData.acknowledge !== 'success') {
       console.warn(`[SMS Service] SMS submission to Afro Messaging was not successful for ${normalizedPhoneNumber}. Response:`, responseData);
+    } else {
+      console.log(`[SMS Service] SMS successfully submitted for recipient ${normalizedPhoneNumber}. Afro Messaging Response:`, responseData);
     }
+
   } catch (error) {
-    console.error('[SMS Service] Network or other unexpected error in sendSms function:', error);
+    // This will catch network errors (e.g., fetch failing to connect)
+    console.error('[SMS Service] Network error or other unexpected exception in sendSms function:', error);
   }
 }
 
