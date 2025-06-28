@@ -75,11 +75,11 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const webMessage = `New ${bookingCategoryCapitalized} booking from ${customerName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
     const notificationType = booking.bookingCategory === 'dormitory' ? 'new_dormitory_booking' : 'new_facility_booking';
     
-    const webNotification: Omit<AdminNotification, 'id'> = {
+    const webNotification = {
       message: webMessage,
       type: notificationType,
       relatedId: booking.id,
-      recipientRole: 'admin',
+      recipientRole: 'admin' as const,
       isRead: false,
       createdAt: serverTimestamp(),
       link: notificationLink,
