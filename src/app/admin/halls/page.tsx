@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -267,6 +267,9 @@ export default function AdminHallsAndSectionsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('addNewHallOrSection')}</DialogTitle>
+              <DialogDescription>
+                Fill in the details to add a new hall or section for booking.
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -393,6 +396,9 @@ export default function AdminHallsAndSectionsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('editItem')}</DialogTitle>
+            <DialogDescription>
+              Update the details for the selected hall or section.
+            </DialogDescription>
           </DialogHeader>
           {currentItem && (
             <Form {...editForm}>

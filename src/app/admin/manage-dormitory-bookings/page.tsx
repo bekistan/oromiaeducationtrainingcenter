@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -376,6 +376,9 @@ export default function AdminManageDormitoryBookingsPage() {
                                           <FileImage className="mr-2 h-5 w-5" />
                                           {t('paymentProofForBooking', { bookingId: booking.id.substring(0, 8) })}
                                       </DialogTitle>
+                                      <DialogDescription>
+                                          Review the uploaded payment screenshot. You can verify the payment and take action in the main table.
+                                      </DialogDescription>
                                   </DialogHeader>
                                   <div className="mt-4">
                                       <Image

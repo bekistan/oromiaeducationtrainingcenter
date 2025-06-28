@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -6,9 +5,11 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import type { User } from '@/types';
 
 // Read all credentials from environment variables.
+// IMPORTANT: Ensure these are set in your .env.local file for local development
+// and in your deployment environment (e.g., Vercel, Netlify) for production.
 const API_KEY = process.env.AFRO_MESSAGING_API_KEY;
-const IDENTIFIER_ID = process.env.AFRO_MESSAGING_IDENTIFIER_ID;
-const API_URL = 'https://api.afromessage.com/api/send';
+const IDENTIFIER_ID = process.env.AFRO_MESSAGING_IDENTIFIER_ID; // Used as 'from' and as default 'sender'
+const API_URL = 'https://api.afromessage.com/api/send'; // Afro Message POST API endpoint
 
 /**
  * Sends an SMS using the Afro Messaging API. Throws an error on failure.
@@ -18,62 +19,67 @@ const API_URL = 'https://api.afromessage.com/api/send';
  * @throws {Error} If sending fails at any step.
  */
 export async function sendSms(to: string, message: string): Promise<void> {
-  console.log(`\n--- [SMS Service] START (Using GET Method): Attempting to send SMS to: "${to}" ---`);
+  console.log(`\n--- [SMS Service] START: Attempting to send SMS to: "${to}" ---`);
 
   if (!API_KEY || !IDENTIFIER_ID) {
-    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED because one or more required environment variables are not set in the .env file.
+    const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED because one or more required environment variables are not set.
       - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'}
       - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'}`;
     console.error(errorMsg);
-    throw new Error('SMS service is not configured. Please check your .env file and server logs.');
+    throw new Error('SMS service is not configured. Please check your environment variables and server logs.');
   }
   console.log('[SMS Service] Environment variables check PASSED.');
 
   // Using the Identifier ID as the sender name for reliability.
-  // This is a key debugging step. If this works, the issue is likely that the custom sender name "Whale"
-  // is not approved in your Afro Messaging account.
+  // Note: For a custom sender name (e.g., "Whale"), you would need to ensure
+  // that name is approved in your Afro Messaging account and potentially
+  // use a separate environment variable for it if it differs from IDENTIFIER_ID.
   const senderName = IDENTIFIER_ID;
   console.log(`[SMS Service] Using Identifier ID as Sender Name for reliability check: "${senderName}"`);
 
 
   let normalizedPhoneNumber = to.trim().replace(/[-() ]/g, '');
 
+  // Normalize Ethiopian phone numbers to +251 format
   if (normalizedPhoneNumber.startsWith('0')) {
     normalizedPhoneNumber = `+251${normalizedPhoneNumber.substring(1)}`;
   } else if (!normalizedPhoneNumber.startsWith('+251')) {
-    if (normalizedPhoneNumber.length === 9) {
+    if (normalizedPhoneNumber.length === 9 && (normalizedPhoneNumber.startsWith('7') || normalizedPhoneNumber.startsWith('9'))) {
         normalizedPhoneNumber = `+251${normalizedPhoneNumber}`;
     } else if (normalizedPhoneNumber.startsWith('251')) {
         normalizedPhoneNumber = `+${normalizedPhoneNumber}`;
     }
   }
 
+  // Validate the normalized Ethiopian phone number format
+  // Ensures it starts with +251 followed by 7 or 9 and 8 more digits
   if (!/^\+251[79]\d{8}$/.test(normalizedPhoneNumber)) {
-    const errorMsg = `[SMS Service] FAILED: Invalid Ethiopian phone number format. Original: "${to}", Final Normalized: "${normalizedPhoneNumber}". Expected format starting with +251...`;
+    const errorMsg = `[SMS Service] FAILED: Invalid Ethiopian phone number format after normalization. Original: "${to}", Final Normalized: "${normalizedPhoneNumber}". Expected format starting with +2517... or +2519...`;
     console.error(errorMsg);
     throw new Error(`Invalid phone number format for SMS: ${to}`);
   }
   console.log(`[SMS Service] Phone number normalized successfully. Original: "${to}", Normalized: "${normalizedPhoneNumber}"`);
 
-  const params = new URLSearchParams({
-    from: IDENTIFIER_ID,
-    to: normalizedPhoneNumber,
+  // --- Prepare the request body for POST ---
+  const requestBody = {
+    from: IDENTIFIER_ID, // 'from' parameter as per Afro Message docs
+    to: [normalizedPhoneNumber], // 'to' field expects an array of phone numbers
     message: message,
-    sender: senderName,
-  });
+    sender: senderName, // 'sender' parameter
+  };
 
-  const urlWithParams = `${API_URL}?${params.toString()}`;
-
-  console.log('[SMS Service] Preparing to send API GET request.');
-  console.log('[SMS Service] Full Request URL:', urlWithParams);
+  console.log('[SMS Service] Preparing to send API POST request.');
+  console.log('[SMS Service] Request Body:', JSON.stringify(requestBody, null, 2));
 
   try {
-    const response = await fetch(urlWithParams, {
-      method: 'GET',
+    const response = await fetch(API_URL, {
+      method: 'POST', // Changed from GET to POST
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json', // Essential for POST with JSON body
         'Accept': 'application/json',
       },
+      body: JSON.stringify(requestBody), // Send the JSON body
     });
 
     const responseBodyText = await response.text();
@@ -93,6 +99,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
       throw new Error(`SMS provider returned a non-JSON response, although status was OK. Raw text: ${responseBodyText}`);
     }
 
+    // Check Afro Message's specific success indicator
     if (responseData.acknowledge !== 'success') {
       const failureReason = responseData.response?.message || JSON.stringify(responseData.response) || 'Unknown reason.';
       throw new Error(`SMS provider rejected the message: ${failureReason}`);
@@ -141,7 +148,7 @@ export async function getKeyholderPhoneNumbers(): Promise<string[]> {
           return user.phone;
       })
       .filter((phone): phone is string => !!phone && phone.trim() !== '');
-  
+    
     console.log(`[SMS Service] Found ${phoneNumbers.length} unique keyholder phone numbers for notification.`);
     return [...new Set(phoneNumbers)];
 }

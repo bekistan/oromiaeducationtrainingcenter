@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -322,6 +322,9 @@ export default function AdminDormitoriesPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{t('addNewDormitory')}</DialogTitle>
+              <DialogDescription>
+                Fill in the details to register a new dormitory room.
+              </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -470,6 +473,9 @@ export default function AdminDormitoriesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('editDormitory')}</DialogTitle>
+            <DialogDescription>
+              Update the details for the selected dormitory room.
+            </DialogDescription>
           </DialogHeader>
           {currentDormitory && (
             <Form {...editForm}>
