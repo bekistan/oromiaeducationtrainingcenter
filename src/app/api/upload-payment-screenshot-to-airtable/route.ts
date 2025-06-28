@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { getAdminPhoneNumbers } from '@/services/sms-service';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getBuildingAdminPhoneNumbers } from '@/services/sms-service'; // Use the more specific function
+import type { Booking, Dormitory } from '@/types'; // Import necessary types
 
 // --- Cloudinary Configuration ---
 let isCloudinaryConfigured = false;
@@ -85,6 +86,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking ID is required for screenshot upload.' }, { status: 400 });
     }
 
+    // --- START: New logic to find the correct recipient phone number ---
+    let recipientPhoneNumbers: string[] = [];
+    try {
+        const bookingRef = doc(db, "bookings", bookingId);
+        const bookingSnap = await getDoc(bookingRef);
+
+        if (bookingSnap.exists()) {
+            const bookingData = bookingSnap.data() as Booking;
+            // Only proceed if it's a dormitory booking with items
+            if (bookingData.bookingCategory === 'dormitory' && bookingData.items.length > 0) {
+                const firstDormId = bookingData.items[0].id;
+                const dormRef = doc(db, "dormitories", firstDormId);
+                const dormSnap = await getDoc(dormRef);
+
+                if (dormSnap.exists()) {
+                    const dormData = dormSnap.data() as Dormitory;
+                    const buildingName = dormData.buildingName;
+                    if (buildingName) {
+                        console.log(`[Airtable Upload] Found building "${buildingName}" for dorm ${firstDormId}. Fetching admin phone...`);
+                        recipientPhoneNumbers = await getBuildingAdminPhoneNumbers(buildingName);
+                        console.log(`[Airtable Upload] Found ${recipientPhoneNumbers.length} phone numbers for building admin:`, recipientPhoneNumbers.join(', '));
+                    } else {
+                        console.warn(`[Airtable Upload] Dormitory ${firstDormId} does not have a building name assigned.`);
+                    }
+                } else {
+                     console.warn(`[Airtable Upload] Could not find dormitory document with ID: ${firstDormId}`);
+                }
+            }
+        } else {
+             console.warn(`[Airtable Upload] Could not find booking document with ID: ${bookingId}`);
+        }
+    } catch (dbError) {
+        console.error('[Airtable Upload] Error fetching data from Firestore to determine recipient:', dbError);
+        return NextResponse.json({ error: 'Failed to look up booking details to notify the correct admin.' }, { status: 500 });
+    }
+    
+    if (recipientPhoneNumbers.length === 0) {
+        console.warn(`[Airtable Upload] No specific building admin phone number found for booking ${bookingId}. An SMS will not be sent via Airtable automation for this upload.`);
+    }
+    // --- END: New logic ---
+
     // 1. Upload to Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -115,15 +157,12 @@ export async function POST(req: NextRequest) {
 
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     
-    // 2. Fetch admin phone numbers
-    const adminPhoneNumbers = await getAdminPhoneNumbers();
-
-    // 3. Create Airtable record with the Cloudinary URL and phone numbers
+    // 2. Create Airtable record with the Cloudinary URL and specific phone number(s)
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
-      "Recipient Phones": adminPhoneNumbers.join(','), // Add phone numbers as a comma-separated string
+      "Recipient Phones": recipientPhoneNumbers.join(','), // Use the new list of phone numbers
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
@@ -137,7 +176,7 @@ export async function POST(req: NextRequest) {
     
     const airtableRecordId = createdRecords[0].id;
     
-    // 4. Update the Firestore booking document with the screenshot URL and new status
+    // 3. Update the Firestore booking document with the screenshot URL and new status
     try {
         const bookingRef = doc(db, "bookings", bookingId);
         await updateDoc(bookingRef, {
@@ -157,7 +196,7 @@ export async function POST(req: NextRequest) {
 
 
     return NextResponse.json({
-      message: "Payment screenshot uploaded and linked in Airtable successfully.",
+      message: "Payment screenshot uploaded and recipient identified successfully.",
       fileName: file.name,
       bookingId: bookingId,
       cloudinaryUrl: cloudinaryUrl,
