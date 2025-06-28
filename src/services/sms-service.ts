@@ -11,19 +11,19 @@ const IDENTIFIER_ID = process.env.AFRO_MESSAGING_IDENTIFIER_ID;
 const API_URL = 'https://api.afromessage.com/api/send';
 
 /**
- * Sends an SMS using the Afro Messaging POST API. Throws an error on failure.
+ * Sends an SMS using the Afro Messaging API. Throws an error on failure.
  * @param to - The recipient's phone number.
  * @param message - The text message to send.
  * @returns A promise that resolves if the SMS is sent successfully.
  * @throws {Error} If sending fails at any step.
  */
 export async function sendSms(to: string, message: string): Promise<void> {
-  console.log(`\n--- [SMS Service] START (POST Method): Attempting to send SMS to: "${to}" ---`);
+  console.log(`\n--- [SMS Service] START (Using GET Method): Attempting to send SMS to: "${to}" ---`);
 
   if (!API_KEY || !IDENTIFIER_ID) {
     const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED because one or more required environment variables are not set in the .env file.
-      - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'} (The long string of characters from your Afro Messaging dashboard)
-      - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'} (The system identifier/callback from the Afro Messaging dashboard).`;
+      - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'}
+      - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'}`;
     console.error(errorMsg);
     throw new Error('SMS service is not configured. Please check your .env file and server logs.');
   }
@@ -48,26 +48,25 @@ export async function sendSms(to: string, message: string): Promise<void> {
   }
   console.log(`[SMS Service] Phone number normalized successfully. Original: "${to}", Normalized: "${normalizedPhoneNumber}"`);
 
-  const requestBody = {
+  const params = new URLSearchParams({
     from: IDENTIFIER_ID,
-    sender: "Whale",
     to: normalizedPhoneNumber,
     message: message,
-  };
-  
-  console.log('[SMS Service] Preparing to send API POST request.');
-  console.log('[SMS Service] URL:', API_URL);
-  console.log('[SMS Service] Request Body:', JSON.stringify(requestBody, null, 2));
+    sender: "Whale",
+  });
+
+  const urlWithParams = `${API_URL}?${params.toString()}`;
+
+  console.log('[SMS Service] Preparing to send API GET request.');
+  console.log('[SMS Service] Full Request URL:', urlWithParams);
 
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
+    const response = await fetch(urlWithParams, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(requestBody),
     });
 
     const responseBodyText = await response.text();
