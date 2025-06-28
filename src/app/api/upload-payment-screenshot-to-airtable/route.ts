@@ -4,6 +4,7 @@ import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { getAdminPhoneNumbers } from '@/services/sms-service';
 
 // --- Cloudinary Configuration ---
 let isCloudinaryConfigured = false;
@@ -113,12 +114,16 @@ export async function POST(req: NextRequest) {
     }
 
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
+    
+    // 2. Fetch admin phone numbers
+    const adminPhoneNumbers = await getAdminPhoneNumbers();
 
-    // 2. Create Airtable record with the Cloudinary URL
+    // 3. Create Airtable record with the Cloudinary URL and phone numbers
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
+      "Recipient Phones": adminPhoneNumbers.join(','), // Add phone numbers as a comma-separated string
     };
 
     const createdRecords = await airtableBase(airtableTableName).create([
@@ -132,7 +137,7 @@ export async function POST(req: NextRequest) {
     
     const airtableRecordId = createdRecords[0].id;
     
-    // 3. Update the Firestore booking document with the screenshot URL and new status
+    // 4. Update the Firestore booking document with the screenshot URL and new status
     try {
         const bookingRef = doc(db, "bookings", bookingId);
         await updateDoc(bookingRef, {
