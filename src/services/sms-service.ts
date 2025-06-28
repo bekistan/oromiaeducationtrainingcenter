@@ -29,6 +29,13 @@ export async function sendSms(to: string, message: string): Promise<void> {
   }
   console.log('[SMS Service] Environment variables check PASSED.');
 
+  // Using the Identifier ID as the sender name for reliability.
+  // This is a key debugging step. If this works, the issue is likely that the custom sender name "Whale"
+  // is not approved in your Afro Messaging account.
+  const senderName = IDENTIFIER_ID;
+  console.log(`[SMS Service] Using Identifier ID as Sender Name for reliability check: "${senderName}"`);
+
+
   let normalizedPhoneNumber = to.trim().replace(/[-() ]/g, '');
 
   if (normalizedPhoneNumber.startsWith('0')) {
@@ -52,7 +59,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
     from: IDENTIFIER_ID,
     to: normalizedPhoneNumber,
     message: message,
-    sender: "Whale",
+    sender: senderName,
   });
 
   const urlWithParams = `${API_URL}?${params.toString()}`;
