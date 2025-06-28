@@ -7,7 +7,6 @@ import type { User } from '@/types';
 
 // Read all credentials from environment variables.
 const API_KEY = process.env.AFRO_MESSAGING_API_KEY;
-const SENDER_ID = process.env.AFRO_MESSAGING_SENDER_ID;
 const IDENTIFIER_ID = process.env.AFRO_MESSAGING_IDENTIFIER_ID;
 const API_URL = 'https://api.afromessage.com/api/send';
 
@@ -21,10 +20,9 @@ const API_URL = 'https://api.afromessage.com/api/send';
 export async function sendSms(to: string, message: string): Promise<void> {
   console.log(`\n--- [SMS Service] START (POST Method): Attempting to send SMS to: "${to}" ---`);
 
-  if (!API_KEY || !SENDER_ID || !IDENTIFIER_ID) {
+  if (!API_KEY || !IDENTIFIER_ID) {
     const errorMsg = `[SMS Service] FAILED: SMS sending is DISABLED because one or more required environment variables are not set in the .env file.
       - AFRO_MESSAGING_API_KEY: ${API_KEY ? 'SET' : 'MISSING'}
-      - AFRO_MESSAGING_SENDER_ID: ${SENDER_ID ? 'SET' : 'MISSING'} (This is your approved sender name from the Afro Messaging dashboard).
       - AFRO_MESSAGING_IDENTIFIER_ID: ${IDENTIFIER_ID ? 'SET' : 'MISSING'} (This is the system identifier from the Afro Messaging dashboard).`;
     console.error(errorMsg);
     throw new Error('SMS service is not configured. Please check your .env file and server logs.');
@@ -52,7 +50,7 @@ export async function sendSms(to: string, message: string): Promise<void> {
 
   const requestBody = {
     from: IDENTIFIER_ID,
-    sender: SENDER_ID,
+    sender: "Whale",
     to: normalizedPhoneNumber,
     message: message,
   };
