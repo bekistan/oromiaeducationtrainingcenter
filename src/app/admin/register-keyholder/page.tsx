@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
@@ -19,6 +19,7 @@ const keyholderRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  phone: z.string().optional().or(z.literal('')),
 });
 
 type KeyholderRegistrationValues = z.infer<typeof keyholderRegistrationSchema>;
@@ -36,6 +37,7 @@ export default function RegisterKeyholderPage() {
       name: "",
       email: "",
       password: "",
+      phone: "",
     },
   });
 
@@ -46,6 +48,7 @@ export default function RegisterKeyholderPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        phone: data.phone,
       });
       toast({
         title: t('keyholderRegisteredTitle'),
@@ -74,12 +77,12 @@ export default function RegisterKeyholderPage() {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
   }
 
-  if (user?.role !== 'superadmin') { // Changed from admin/superadmin to superadmin only
+  if (user?.role !== 'superadmin') {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-4">
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
-        <p className="text-muted-foreground">{t('superAdminOnlyPage')}</p> {/* Updated message */}
+        <p className="text-muted-foreground">{t('superAdminOnlyPage')}</p>
         <Button onClick={() => router.push(user ? '/admin/dashboard' : '/auth/login')} className="mt-4">
           {user ? t('backToDashboard') : t('login')}
         </Button>
@@ -103,6 +106,7 @@ export default function RegisterKeyholderPage() {
               <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')} ({t('optional')})</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneForSms')} {...field} /></FormControl><FormDescription>{t('phoneForSmsDescription')}</FormDescription><FormMessage /></FormItem> )} />
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t('registerKeyholderButton')}

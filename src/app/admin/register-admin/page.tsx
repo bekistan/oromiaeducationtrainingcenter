@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/hooks/use-language";
@@ -20,7 +20,8 @@ const adminRegistrationSchema = z.object({
   name: z.string().min(2, { message: "Full name must be at least 2 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  buildingAssignment: z.enum(['ifaboru', 'buuraboru', 'none']).optional(), // 'none' or allow undefined
+  phone: z.string().optional().or(z.literal('')),
+  buildingAssignment: z.enum(['ifaboru', 'buuraboru', 'none']).optional(),
 });
 
 type AdminRegistrationValues = z.infer<typeof adminRegistrationSchema>;
@@ -38,6 +39,7 @@ export default function RegisterAdminPage() {
       name: "",
       email: "",
       password: "",
+      phone: "",
       buildingAssignment: undefined, 
     },
   });
@@ -49,6 +51,7 @@ export default function RegisterAdminPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        phone: data.phone,
         buildingAssignment: data.buildingAssignment === 'none' ? undefined : data.buildingAssignment,
       });
       toast({
@@ -107,6 +110,7 @@ export default function RegisterAdminPage() {
               <FormField control={form.control} name="name" render={({ field }) => ( <FormItem><FormLabel>{t('fullName')}</FormLabel><FormControl><Input placeholder={t('enterFullName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')} ({t('optional')})</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhoneForSms')} {...field} /></FormControl><FormDescription>{t('phoneForSmsDescription')}</FormDescription><FormMessage /></FormItem> )} />
               <FormField
                 control={form.control}
                 name="buildingAssignment"
@@ -140,4 +144,3 @@ export default function RegisterAdminPage() {
     </div>
   );
 }
-    

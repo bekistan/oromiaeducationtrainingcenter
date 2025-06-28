@@ -50,10 +50,10 @@ export const ADMIN_NAVS: NavItem[] = [
   },
   { 
     labelKey: 'userManagement',
-    href: '/admin/register-admin',
     authRequired: true,
     roles: ['superadmin'],
     children: [
+      { labelKey: 'listAllUsers', href: '/admin/user-management' },
       { labelKey: 'registerAdmin', href: '/admin/register-admin' },
       { labelKey: 'registerKeyholder', href: '/admin/register-keyholder' },
     ]

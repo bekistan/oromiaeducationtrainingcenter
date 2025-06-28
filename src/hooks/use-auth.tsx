@@ -39,6 +39,7 @@ interface AdminDetails {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   buildingAssignment?: 'ifaboru' | 'buuraboru';
 }
 
@@ -46,6 +47,7 @@ interface KeyholderDetails {
   name: string;
   email: string;
   password: string;
+  phone?: string;
 }
 
 // Define the shape of the context state
@@ -300,6 +302,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const newAdminUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: adminDetails.email,
           name: adminDetails.name,
+          phone: adminDetails.phone || '',
           role: 'admin' as const,
           createdAt: serverTimestamp(),
           buildingAssignment: adminDetails.buildingAssignment || null,
@@ -310,6 +313,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             id: fbUserInstance.uid,
             email: adminDetails.email,
             name: adminDetails.name,
+            phone: adminDetails.phone,
             role: 'admin',
             buildingAssignment: adminDetails.buildingAssignment || null,
             createdAt: new Date().toISOString(), // Approximate
@@ -349,6 +353,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const newKeyholderUserDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
           email: keyholderDetails.email,
           name: keyholderDetails.name,
+          phone: keyholderDetails.phone || '',
           role: 'keyholder' as const,
           createdAt: serverTimestamp(),
         };
@@ -358,6 +363,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             id: fbUserInstance.uid,
             email: keyholderDetails.email,
             name: keyholderDetails.name,
+            phone: keyholderDetails.phone,
             role: 'keyholder',
             createdAt: new Date().toISOString(), // Approximate
         };
@@ -481,4 +487,3 @@ export const useAuth = (): AuthState => {
   }
   return context;
 };
-    
