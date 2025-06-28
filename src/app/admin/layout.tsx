@@ -2,7 +2,7 @@
 "use client"; // Required for SidebarProvider and its hooks
 
 import type { ReactNode } from 'react';
-import React, { useCallback } from 'react'; // Added useCallback import
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -22,6 +22,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { ToastAction } from "@/components/ui/toast";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -34,9 +37,49 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   const router = useRouter();
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const mountTime = useRef(new Date());
 
-  // receivedRouteParams is acknowledged but not directly used in this component's rendering,
-  // to avoid potential enumeration if it were spread or passed down implicitly.
+  // Real-time notification listener
+  useEffect(() => {
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return;
+
+    // We only want to listen for notifications that are created AFTER this component has mounted.
+    const q = query(
+      collection(db, "notifications"),
+      where("recipientRole", "in", ["admin", "superadmin"]),
+      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        // Only react to brand-new notifications added since the component was displayed.
+        // This avoids showing a toast for old, unread notifications on every page load.
+        if (change.type === "added") {
+          const notificationData = change.doc.data();
+          const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
+
+          // A final check to ensure we don't show notifications from before this session started.
+          if (createdAtDate && createdAtDate > mountTime.current) {
+            toast({
+              title: `🔔 ${t('newNotification')}`,
+              description: notificationData.message,
+              action: notificationData.link ? (
+                <ToastAction altText={t('view')} asChild>
+                  <Link href={notificationData.link}>{t('view')}</Link>
+                </ToastAction>
+              ) : undefined,
+              duration: 15000 // Keep notification on screen longer
+            });
+          }
+        }
+      });
+    }, (error) => {
+      console.error("Error with notification listener:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, t, toast]);
+
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
