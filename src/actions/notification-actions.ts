@@ -11,7 +11,9 @@ import { toDateObject } from '@/lib/date-utils';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
 
 /**
- * Notifies admins via SMS and web notification about a new booking.
+ * Notifies relevant parties about a new booking.
+ * - Sends an SMS to Admins for new FACILITY bookings.
+ * - Creates a web notification for ALL new bookings.
  * @param booking - The newly created booking object.
  */
 export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> {
@@ -30,39 +32,47 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const fullLink = `${BASE_URL}${notificationLink}`;
 
     console.log(`[Notification Action] Generated Link: ${fullLink}`);
-
-    const webMessage = `New booking from ${customerName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
-    const smsMessage = `New ${bookingCategoryCapitalized} Booking. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
     
-    console.log('[Notification Action] Getting admin phone numbers...');
-    const adminPhoneNumbers = await getAdminPhoneNumbers();
-    console.log(`[Notification Action] Found ${adminPhoneNumbers.length} admin phone numbers:`, adminPhoneNumbers.join(', '));
+    // --- SMS Notification Logic ---
+    // Only send SMS for new FACILITY bookings
+    if (booking.bookingCategory === 'facility') {
+        const smsMessage = `New Facility Booking from ${customerName}. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
+        
+        console.log('[Notification Action] Facility booking detected. Getting admin phone numbers...');
+        const adminPhoneNumbers = await getAdminPhoneNumbers();
+        console.log(`[Notification Action] Found ${adminPhoneNumbers.length} admin phone numbers:`, adminPhoneNumbers.join(', '));
 
-    if (adminPhoneNumbers.length > 0) {
-      console.log('[Notification Action] Starting SMS loop...');
-      for (const phone of adminPhoneNumbers) {
-        console.log(`[Notification Action] Preparing to send SMS to ${phone}`);
-        try {
-          await sendSms(phone, smsMessage);
-          console.log(`[Notification Action] SMS submission to provider for ${phone} was successful.`);
-        } catch (smsError: any) {
-          console.error(`################################################################`);
-          console.error(`##### [Notification Action] FAILED TO SEND SMS TO ADMIN: ${phone} #####`);
-          console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
-          console.error("The caught error object is below:");
-          console.error(smsError);
-          if (smsError.stack) {
-            console.error("Stack trace:", smsError.stack);
+        if (adminPhoneNumbers.length > 0) {
+          console.log('[Notification Action] Starting SMS loop for facility booking...');
+          for (const phone of adminPhoneNumbers) {
+            console.log(`[Notification Action] Preparing to send SMS to ${phone}`);
+            try {
+              await sendSms(phone, smsMessage);
+              console.log(`[Notification Action] SMS submission to provider for ${phone} was successful.`);
+            } catch (smsError: any) {
+              console.error(`################################################################`);
+              console.error(`##### [Notification Action] FAILED TO SEND SMS TO ADMIN: ${phone} #####`);
+              console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
+              console.error("The caught error object is below:");
+              console.error(smsError);
+              if (smsError.stack) {
+                console.error("Stack trace:", smsError.stack);
+              }
+              console.error("####################### END OF SMS FAILURE #######################");
+            }
           }
-          console.error("####################### END OF SMS FAILURE #######################");
+          console.log('[Notification Action] Finished SMS loop.');
+        } else {
+          console.log('[Notification Action] No admin phone numbers found for facility booking. Skipping SMS sending.');
         }
-      }
-      console.log('[Notification Action] Finished SMS loop.');
     } else {
-      console.log('[Notification Action] No admin phone numbers found. Skipping SMS sending.');
+        console.log(`[Notification Action] Booking category is "${booking.bookingCategory}". Admin SMS notification is only for facility bookings. Skipping.`);
     }
 
-    console.log('[Notification Action] Creating web notification in Firestore...');
+    // --- Web Notification Logic ---
+    // Create web notification for ALL new bookings
+    console.log('[Notification Action] Creating web notification in Firestore for all booking types...');
+    const webMessage = `New ${bookingCategoryCapitalized} booking from ${customerName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
     const notificationType = booking.bookingCategory === 'dormitory' ? 'new_dormitory_booking' : 'new_facility_booking';
     
     const webNotification: Omit<AdminNotification, 'id'> = {
@@ -103,6 +113,12 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
 
   if (booking.bookingCategory !== 'dormitory') {
     console.log('[Notification Action] Not a dormitory booking. Skipping keyholder notification.');
+    console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
+    return;
+  }
+  
+  if (booking.approvalStatus !== 'approved') {
+    console.log(`[Notification Action] Booking status is "${booking.approvalStatus}", not "approved". Skipping keyholder notification.`);
     console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
     return;
   }
