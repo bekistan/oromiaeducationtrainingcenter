@@ -146,6 +146,7 @@ function BookingConfirmationContent() {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+      router.push(`/booking-confirmation?status=telegram_pending&bookingId=${bookingId}&itemName=${itemName}&category=${category}`);
     } catch (uploadError: any) {
       toast({
         variant: "destructive",

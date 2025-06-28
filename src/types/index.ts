@@ -170,7 +170,7 @@ export interface AdminNotification {
     relatedId?: string; 
     recipientRole: 'admin' | 'superadmin'; 
     isRead: boolean;
-    createdAt: import('firebase/firestore').Timestamp | Date | string;
+    createdAt: any; 
     link?: string; 
 }
 

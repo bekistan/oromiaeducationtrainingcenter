@@ -411,10 +411,9 @@ export default function AdminManageDormitoryBookingsPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                {(booking.paymentStatus === 'awaiting_verification' || booking.paymentStatus === 'pending_transfer') && (
+                                {(booking.paymentStatus === 'awaiting_verification') && (
                                   <>
                                     <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
                                       <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
                                     </DropdownMenuItem>
