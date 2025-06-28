@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLanguage } from "@/hooks/use-language";
 import { SUPPORTED_LOCALES } from '@/constants';
-import { ChevronDown } from "lucide-react"; // Changed from Languages
+import { ChevronDown } from "lucide-react";
 import { useMemo } from "react";
 
 export function LanguageSwitcher() {
@@ -18,7 +18,7 @@ export function LanguageSwitcher() {
 
   const currentLanguageDisplay = useMemo(() => {
     const current = SUPPORTED_LOCALES.find(l => l.code === locale);
-    return current ? current.code.toUpperCase() : locale.toUpperCase();
+    return current ? current.name : locale.toUpperCase();
   }, [locale]);
 
   return (
@@ -38,7 +38,7 @@ export function LanguageSwitcher() {
             onClick={() => setLocale(supportedLocale.code)}
             className={locale === supportedLocale.code ? "bg-accent text-accent-foreground" : ""}
           >
-            {supportedLocale.name} ({supportedLocale.code.toUpperCase()})
+            {supportedLocale.name}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

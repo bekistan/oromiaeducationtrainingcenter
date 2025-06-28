@@ -6,7 +6,7 @@ export const SITE_DESCRIPTION = "together we can";
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
-  { code: 'om', name: 'Oromo' },
+  { code: 'om', name: 'Afan Oromo' },
   { code: 'am', name: 'Amharic' },
 ] as const;
 
@@ -180,5 +180,3 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     am: ""
   }
 };
-
-    
