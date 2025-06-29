@@ -10,35 +10,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { SITE_NAME, SITE_DESCRIPTION } from '@/constants';
 import { TawkToWidget } from '@/components/analytics/tawk-to'; // Import Tawk.to widget
 
-// This function checks for required environment variables on the server.
-const checkRequiredServerEnvVars = () => {
-  // This check will only run for Vercel production deployments.
-  // It allows preview and development builds to succeed without all keys,
-  // but ensures the final production site has everything it needs.
-  if (process.env.VERCEL_ENV === 'production') {
-    const requiredVars = [
-      'CLOUDINARY_CLOUD_NAME',
-      'CLOUDINARY_API_KEY',
-      'CLOUDINARY_API_SECRET',
-      'AIRTABLE_API_KEY',
-      'AIRTABLE_BASE_ID',
-      'AIRTABLE_TABLE_NAME',
-      'AFRO_MESSAGING_API_KEY',
-      'AFRO_MESSAGING_IDENTIFIER_ID',
-    ];
-    const missingVars = requiredVars.filter((varName) => !process.env[varName]);
-    if (missingVars.length > 0) {
-      throw new Error(
-        `FATAL: Missing required environment variables for production: ${missingVars.join(
-          ', '
-        )}. Please add these to your Vercel project settings.`
-      );
-    }
-  }
-};
-
-checkRequiredServerEnvVars();
-
 export const metadata: Metadata = {
   title: {
     default: SITE_NAME,
