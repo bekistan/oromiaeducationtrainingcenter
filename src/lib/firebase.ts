@@ -1,33 +1,46 @@
 
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, type FirebaseStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQg", // User Provided
-  authDomain: "oroedu-4a86c.firebaseapp.com", // Derived from User Provided Project ID
-  projectId: "oroedu-4a86c", // User Provided
-  storageBucket: "oroedu-4a86c.appspot.com", // Derived from User Provided Project ID
-  messagingSenderId: "337131238082", // User Provided (Project Number)
-  appId: "1:337131238082:web:fc94369715fbdfff96015b", // Retained as project number matches
-  measurementId: "G-B31H6HWF15" // Retained - User should verify if Analytics is used
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-let app: FirebaseApp;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
-// Ensure Firebase is initialized only once
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+// This flag will be exported to be used in other parts of the app
+export const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+
+if (isFirebaseConfigured) {
+  try {
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+    app = null;
+    auth = null;
+    db = null;
+    storage = null;
+  }
 } else {
-  app = getApp();
+  // Only log this warning if not in production environment
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn("Firebase configuration is missing or incomplete. Firebase services are disabled.");
+  }
 }
-
-const db = getFirestore(app);
-const auth = getAuth(app);
-const storage = getStorage(app); // Initialize Firebase Storage
 
 /**
  * Uploads a file to Firebase Storage and returns its download URL.
@@ -36,6 +49,11 @@ const storage = getStorage(app); // Initialize Firebase Storage
  * @returns A promise that resolves with the download URL of the uploaded file.
  */
 export const uploadFileToFirebaseStorage = async (file: File, path: string): Promise<string> => {
+  if (!storage) {
+    console.error("[uploadFileToFirebaseStorage] Firebase Storage is not initialized due to missing config.");
+    throw new Error("Firebase Storage is not configured.");
+  }
+  
   console.log("[uploadFileToFirebaseStorage] Attempting to upload file:", file.name, "to path:", path);
   if (!file) {
     console.error("[uploadFileToFirebaseStorage] No file provided for upload.");
@@ -68,4 +86,3 @@ export const uploadFileToFirebaseStorage = async (file: File, path: string): Pro
 };
 
 export { app, db, auth, storage };
-
