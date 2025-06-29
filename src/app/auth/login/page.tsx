@@ -15,7 +15,7 @@ import { LockKeyhole, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const { t } = useLanguage();
-  const { login, user } = useAuth(); 
+  const { login, user, loading: authLoading } = useAuth(); 
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,6 +74,11 @@ export default function LoginPage() {
   
   // Redirect if user is already logged in and tries to access login page
   React.useEffect(() => {
+    // Do not run redirect logic until the authentication state is fully resolved.
+    if (authLoading) {
+      return;
+    }
+
     if (user) {
         const redirectParam = searchParams.get('redirect');
         if (redirectParam) {
@@ -91,7 +96,7 @@ export default function LoginPage() {
             }
         }
     }
-  }, [user, router, searchParams]);
+  }, [user, authLoading, router, searchParams]);
 
 
   return (
