@@ -145,9 +145,9 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     am: "ወደ ኦሮሚያ ትምህርት ማዕከል እንኳን በደህና መጡ"
   },
   tagline: {
-    en: "Your one-stop solution for booking facilities and dormitories with ease.",
-    om: "Iddoo jireenyaa fi galmawwan haala salphaan itti qabsiifattu.",
-    am: "ተቋማትን እና መኝታ ቤቶችን በቀላሉ ለማስያዝ የእርስዎ መፍትሄ።"
+    en: "Together we can.",
+    om: "Waloon dandeenya.",
+    am: "አብረን እንችላለን።"
   },
   servicesSectionTitle: {
     en: "Our Services",

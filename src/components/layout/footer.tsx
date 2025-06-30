@@ -2,9 +2,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from 'next/image';
 import { SITE_NAME, FOOTER_LINKS } from "@/constants";
 import { useLanguage } from "@/hooks/use-language";
-import { Logo } from "@/components/shared/logo";
 
 export function Footer() {
   const { t } = useLanguage();
@@ -15,7 +15,16 @@ export function Footer() {
       <div className="container py-8">
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start">
-            <Logo />
+            <Link href="/" className="flex items-center space-x-2" aria-label="Homepage">
+              <Image
+                src="/images/logo.png"
+                alt="Oromia Education Training Center Logo"
+                width={281}
+                height={214}
+                priority
+                className="h-14 w-auto"
+              />
+            </Link>
             <p className="text-sm text-muted-foreground mt-2 max-w-xs text-center md:text-left">
               {t('tagline')}
             </p>
