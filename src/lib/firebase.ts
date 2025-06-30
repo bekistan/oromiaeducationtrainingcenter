@@ -14,13 +14,12 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
-
-// This flag will be exported to be used in other parts of the app
 export const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
 if (isFirebaseConfigured) {
   try {
@@ -30,17 +29,37 @@ if (isFirebaseConfigured) {
     storage = getStorage(app);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
-    app = null;
-    auth = null;
-    db = null;
-    storage = null;
+    // Assign a proxy to throw errors on access if initialization fails
+    const unconfiguredProxy = new Proxy({}, {
+        get(target, prop) {
+          throw new Error(`Firebase initialization failed. Cannot access property "${String(prop)}".`);
+        }
+    });
+    app = unconfiguredProxy as FirebaseApp;
+    auth = unconfiguredProxy as Auth;
+    db = unconfiguredProxy as Firestore;
+    storage = unconfiguredProxy as FirebaseStorage;
   }
 } else {
-  // Only log this warning if not in production environment
   if (process.env.NODE_ENV !== 'production') {
-    console.warn("Firebase configuration is missing or incomplete. Firebase services are disabled.");
+    console.warn(
+      "Firebase configuration is missing or incomplete. Firebase services are disabled. " +
+      "Attempting to use Firebase will result in a runtime error."
+    );
   }
+  // Assign a proxy that will throw an error if any property is accessed.
+  // This satisfies TypeScript's non-null assertion while providing clear runtime errors.
+  const unconfiguredProxy = new Proxy({}, {
+    get(target, prop) {
+      throw new Error(`Firebase is not configured. Cannot access property "${String(prop)}". Please check your environment variables.`);
+    }
+  });
+  app = unconfiguredProxy as FirebaseApp;
+  auth = unconfiguredProxy as Auth;
+  db = unconfiguredProxy as Firestore;
+  storage = unconfiguredProxy as FirebaseStorage;
 }
+
 
 /**
  * Uploads a file to Firebase Storage and returns its download URL.
@@ -49,7 +68,9 @@ if (isFirebaseConfigured) {
  * @returns A promise that resolves with the download URL of the uploaded file.
  */
 export const uploadFileToFirebaseStorage = async (file: File, path: string): Promise<string> => {
-  if (!storage) {
+  // The check below is mostly for type-safety in this function's scope,
+  // but the proxy will throw an error if storage is accessed when not configured.
+  if (!isFirebaseConfigured) {
     console.error("[uploadFileToFirebaseStorage] Firebase Storage is not initialized due to missing config.");
     throw new Error("Firebase Storage is not configured.");
   }
@@ -78,10 +99,9 @@ export const uploadFileToFirebaseStorage = async (file: File, path: string): Pro
     return downloadURL;
   } catch (error: any) {
     console.error("[uploadFileToFirebaseStorage] Error uploading file:", file.name, "to path:", fullStoragePath, "Error object:", error);
-    // Log more details if available, e.g., error.code or error.message from Firebase
     if (error.code) console.error("[uploadFileToFirebaseStorage] Firebase error code:", error.code);
     if (error.message) console.error("[uploadFileToFirebaseStorage] Firebase error message:", error.message);
-    throw error; // Re-throw to be handled by the caller
+    throw error; 
   }
 };
 
