@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -12,7 +11,7 @@ import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/consta
 import { QRCodeDisplay } from "@/components/shared/qr-code-display";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall } from '@/types';
 import {
@@ -35,8 +34,11 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 };
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
-    const dormsSnapshot = await getDocs(doc(db, "dormitories"));
-    const hallsSnapshot = await getDocs(doc(db, "halls"));
+    const dormsQuery = collection(db, "dormitories");
+    const hallsQuery = collection(db, "halls");
+    
+    const dormsSnapshot = await getDocs(dormsQuery);
+    const hallsSnapshot = await getDocs(hallsQuery);
 
     const dormitories = dormsSnapshot.docs
         .map(d => ({ id: d.id, ...d.data() } as Dormitory))
@@ -156,9 +158,44 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      
+      {/* Featured Halls Section */}
+      <section className="py-16 md:py-24 bg-secondary/30">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredHallsAndSections')}</h2>
+          <p className="text-muted-foreground text-center mb-12">{t('featuredHallsAndSectionsSubtitle')}</p>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+             {isLoadingFeaturedItems ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="flex flex-col"><CardHeader><div className="h-48 w-full bg-muted rounded-md animate-pulse"></div></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
+              ))
+            ) : (
+                featuredItems?.halls.map((hall) => (
+                  <Card key={hall.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                     <div className="relative h-48 w-full">
+                      <Image
+                        src={hall.images?.[0] || `https://placehold.co/600x400.png`}
+                        alt={hall.name}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        data-ai-hint={hall.dataAiHint || "meeting space"}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    </div>
+                    <CardHeader><CardTitle>{hall.name}</CardTitle><CardDescription>{t(hall.itemType)}</CardDescription></CardHeader>
+                    <CardContent className="flex-grow"><p className="text-muted-foreground text-sm">{t('capacity')}: {hall.capacity}</p></CardContent>
+                    <CardFooter>
+                      <Button asChild className="w-full"><Link href={`/halls`}>{t('viewAndBook')}</Link></Button>
+                    </CardFooter>
+                  </Card>
+                ))
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Features Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-12">{t('features')}</h2>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -180,7 +217,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
