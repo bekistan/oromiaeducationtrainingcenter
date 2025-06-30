@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem } from '@/types';
-import { db } from '@/lib/firebase';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   Accordion,
   AccordionContent,
@@ -27,15 +27,38 @@ import { cn } from "@/lib/utils";
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
 
+// Helper function for deep merging objects, useful for combining DB data with defaults
+const mergeDeep = (target: any, source: any): any => {
+  const output = { ...target };
+  if (target && typeof target === 'object' && !Array.isArray(target) && source && typeof source === 'object' && !Array.isArray(source)) {
+    Object.keys(source).forEach(key => {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        if (!(key in target)) {
+          Object.assign(output, { [key]: source[key] });
+        } else {
+          output[key] = mergeDeep(target[key], source[key]);
+        }
+      } else if (source[key] !== undefined) {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+  }
+  return output;
+};
+
+
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
   if (!isFirebaseConfigured) return DEFAULT_SITE_CONTENT;
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
-    return { ...DEFAULT_SITE_CONTENT, ...docSnap.data() } as SiteContentSettings;
+    const dbData = docSnap.data();
+    // Deep merge to prevent DB data from completely overwriting nested default objects
+    return mergeDeep(DEFAULT_SITE_CONTENT, dbData) as SiteContentSettings;
   }
   return DEFAULT_SITE_CONTENT;
 };
+
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
     if (!isFirebaseConfigured) return { dormitories: [], halls: [] };
