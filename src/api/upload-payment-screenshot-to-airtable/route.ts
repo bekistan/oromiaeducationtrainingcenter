@@ -146,10 +146,10 @@ export async function POST(req: NextRequest) {
     // 2. Create Airtable record with the Cloudinary URL and corrected field names
     const airtableRecordFields = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }], // Corrected field name
+      "Screenshot": [{ url: cloudinaryUrl }],
       "Original Filename": file.name,
       "Recipient Phones": recipientPhoneNumbers.join(','),
-      "Date": new Date().toISOString(), // Added Date field
+      "Date": new Date().toISOString(),
     };
 
     const createdRecords = await base(airtableTableName).create([
