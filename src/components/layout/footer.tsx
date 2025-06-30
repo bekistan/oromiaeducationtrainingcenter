@@ -36,9 +36,10 @@ export function Footer() {
 
   return (
     <footer className="border-t bg-card text-card-foreground">
-      <div className="container py-8">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex flex-col items-center md:items-start">
+      <div className="container py-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Column 1: Logo & Tagline */}
+          <div className="flex flex-col items-center md:items-start text-center md:text-left">
             <Link href="/" className="flex items-center space-x-2" aria-label="Homepage">
               <Image
                 src="/images/logo.png"
@@ -49,34 +50,36 @@ export function Footer() {
                 className="h-14 w-auto"
               />
             </Link>
-            <p className="text-sm text-muted-foreground mt-2 max-w-xs text-center md:text-left">
+            <p className="text-sm text-muted-foreground mt-2 max-w-xs">
               {tagline}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row gap-8 text-center md:text-left">
-             <div>
-                <h4 className="font-semibold mb-2">{t('quickLinks')}</h4>
-                <ul className="space-y-1">
-                    {FOOTER_LINKS.map(link => (
-                      <li key={link.href}>
-                        <Link href={link.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                            {t(link.labelKey)}
-                        </Link>
-                      </li>
-                    ))}
-                </ul>
-             </div>
-             <div>
-                <h4 className="font-semibold mb-2">{t('contactUs')}</h4>
-                 <ul className="space-y-1">
-                    <li><p className="text-sm text-muted-foreground">{t('addressPlaceholder')}</p></li>
-                    <li><p className="text-sm text-muted-foreground">{t('generalPhoneNumberPlaceholder')}</p></li>
-                    <li><p className="text-sm text-muted-foreground">{t('generalEmailAddressPlaceholder')}</p></li>
-                </ul>
-             </div>
+          
+          {/* Column 2: Quick Links */}
+          <div className="text-center md:text-left">
+            <h4 className="font-semibold mb-3 text-foreground">{t('quickLinks')}</h4>
+            <ul className="space-y-2">
+                {FOOTER_LINKS.map(link => (
+                  <li key={link.href}>
+                    <Link href={link.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                        {t(link.labelKey)}
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </div>
+          
+          {/* Column 3: Contact Info */}
+          <div className="text-center md:text-left">
+            <h4 className="font-semibold mb-3 text-foreground">{t('contactUs')}</h4>
+             <ul className="space-y-2">
+                <li><p className="text-sm text-muted-foreground">{t('addressPlaceholder')}</p></li>
+                <li><p className="text-sm text-muted-foreground">{t('generalPhoneNumberPlaceholder')}</p></li>
+                <li><p className="text-sm text-muted-foreground">{t('generalEmailAddressPlaceholder')}</p></li>
+            </ul>
           </div>
         </div>
-        <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-10 border-t pt-6 text-center text-sm text-muted-foreground">
             &copy; {currentYear} {SITE_NAME}. {t('allRightsReserved')}.
         </div>
       </div>
