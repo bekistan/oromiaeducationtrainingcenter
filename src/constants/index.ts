@@ -23,6 +23,7 @@ export const PUBLIC_NAVS: NavItem[] = [
     ]
   },
   { labelKey: 'halls', href: '/halls' },
+  { labelKey: 'blog', href: '/blog' },
   { labelKey: 'contactUs', href: '/contact' },
 ];
 
@@ -33,7 +34,8 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
   { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
-  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+  { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { 
     labelKey: 'manageSettings', 

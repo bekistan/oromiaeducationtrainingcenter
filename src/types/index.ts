@@ -174,6 +174,20 @@ export interface AdminNotification {
     link?: string; 
 }
 
+export interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  content: string; // Markdown content
+  excerpt?: string;
+  imageUrl?: string;
+  authorName: string;
+  authorId: string;
+  isPublished: boolean;
+  createdAt: any;
+  updatedAt: any;
+}
+
 export interface FAQItem {
   id: string;
   question: { [key in Locale]?: string };

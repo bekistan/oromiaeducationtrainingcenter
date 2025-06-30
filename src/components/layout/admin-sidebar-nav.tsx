@@ -48,6 +48,7 @@ const ICONS: Record<string, LucideIcon> = {
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks,
   manageCompanies: Users,
+  manageBlog: FileText,
   reports: FileText,
   userManagement: UserPlus,
   userProfile: UserCircle,

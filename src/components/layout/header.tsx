@@ -47,14 +47,14 @@ export function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center justify-between">
         <Logo />
         
-        <nav className="hidden md:flex items-center space-x-4 text-xs font-medium">
+        <nav className="hidden md:flex items-center space-x-4 text-sm font-medium">
           {PUBLIC_NAVS.map((item) => {
             if (item.children && item.children.length > 0) {
               const isDropdownActive = item.children.some(child => child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href))));
               return (
                 <DropdownMenu key={item.labelKey}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className={cn("transition-colors hover:text-foreground/80 text-xs font-medium h-auto px-2 py-1", isDropdownActive ? "text-primary font-semibold" : "text-foreground/60")}>
+                    <Button variant="ghost" className={cn("transition-colors hover:text-foreground/80 text-sm font-medium h-auto px-2 py-1", isDropdownActive ? "text-primary font-semibold" : "text-foreground/60")}>
                       {t(item.labelKey)}
                       <ChevronDown className="ml-1 h-4 w-4" />
                     </Button>
