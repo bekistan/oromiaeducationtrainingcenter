@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -26,11 +27,12 @@ export async function POST(req: NextRequest) {
       api_secret: cloudinaryApiSecretEnv,
       secure: true,
     });
+     console.log('[API] Cloudinary configured successfully on-demand.');
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
-  
+
   // --- Airtable Configuration (on-demand) ---
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
@@ -43,6 +45,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+    console.log('[API] Airtable configured successfully on-demand.');
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
@@ -83,12 +88,12 @@ export async function POST(req: NextRequest) {
       cloudinary.uploader.upload_stream({ folder: 'payment_screenshots', resource_type: 'image' }, (error, result) => {
           if (error) {
             console.error('[API] Cloudinary upload_stream callback error:', JSON.stringify(error, null, 2));
-            reject(error);
+            reject({ error: error });
           } else {
             resolve({ secure_url: result?.secure_url });
           }
         }).end(buffer);
-    }).catch(uploadError => ({ error: uploadError }));
+    });
 
     if ('error' in cloudinaryUploadResult || !cloudinaryUploadResult.secure_url) {
       const details = (cloudinaryUploadResult as { error: any })?.error?.message || 'Cloudinary upload failed or did not return a URL.';
@@ -99,9 +104,8 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
-    // 2. Create Airtable record using fetch
-    console.log('[API] Creating Airtable record via fetch...');
-    // Using correct, capitalized field names as identified.
+    // 2. Create Airtable record
+    console.log('[API] Creating Airtable record...');
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }],
@@ -110,31 +114,16 @@ export async function POST(req: NextRequest) {
       "Date": new Date().toISOString(),
     };
 
-    const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${airtableTableName}`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${airtableApiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            records: [{ fields: airtableRecordFields }]
-        })
-    });
-
-    const airtableResponseData = await airtableResponse.json();
-
-    if (!airtableResponse.ok) {
-        console.error('[API] FAILED: Airtable API returned an error.', airtableResponseData);
-        const errorMessage = airtableResponseData?.error?.message || 'Failed to create record in Airtable.';
-        return NextResponse.json({ error: 'Failed to save screenshot info to Airtable after image upload.', details: errorMessage }, { status: 500 });
+    const createdRecords = await base(airtableTableName).create([
+      { fields: airtableRecordFields }
+    ]);
+    
+    if (!createdRecords || createdRecords.length === 0) {
+        throw new Error('Airtable record creation returned no records.');
     }
-
-    const airtableRecordId = airtableResponseData.records?.[0]?.id;
-    if (!airtableRecordId) {
-        console.error('[API] FAILED: Airtable response was successful but did not return a record ID.', airtableResponseData);
-        return NextResponse.json({ error: 'Airtable response was successful but did not return a record ID.' }, { status: 500 });
-    }
-    console.log('[API] Airtable record created successfully via fetch. Record ID:', airtableRecordId);
+    
+    const airtableRecordId = createdRecords[0].id;
+    console.log('[API] Airtable record created successfully. Record ID:', airtableRecordId);
     
     // 3. Update Firestore booking document
     console.log('[API] Updating Firestore document...');
