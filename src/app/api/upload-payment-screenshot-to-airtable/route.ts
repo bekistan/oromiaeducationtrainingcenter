@@ -43,21 +43,12 @@ const airtableApiKey = process.env.AIRTABLE_API_KEY;
 const airtableBaseId = process.env.AIRTABLE_BASE_ID;
 const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
-let isAirtableConfigured = false;
-let airtableConfigErrorMsg: string | null = null;
-let airtableBase: Airtable.Base | null = null;
-
-if (airtableApiKey && airtableBaseId && airtableTableName) {
-    try {
-        airtableBase = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
-        isAirtableConfigured = true;
-    } catch (error: any) {
-        airtableConfigErrorMsg = `Error during Airtable SDK configuration: ${error.message || JSON.stringify(error)}`;
-        console.error(`Critical: ${airtableConfigErrorMsg}`);
-    }
-} else {
-    airtableConfigErrorMsg = "Airtable environment variables (AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME) are not fully set.";
-    console.error(`Critical: ${airtableConfigErrorMsg}`);
+// Configure Airtable globally with the Personal Access Token.
+// This is the correct modern approach.
+if (airtableApiKey) {
+    Airtable.configure({
+        apiKey: airtableApiKey,
+    });
 }
 
 
@@ -68,11 +59,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
 
-  if (!isAirtableConfigured || !airtableBase || !airtableTableName) {
-    const serverConfigErrorMessage = airtableConfigErrorMsg || 'Airtable is not configured for screenshot uploads.';
+  // Re-check config inside the handler
+  if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
+    const serverConfigErrorMessage = "Airtable environment variables (AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME) are not fully set.";
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Database (Airtable) not configured for screenshots. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
+
+  const base = new Airtable().base(airtableBaseId);
 
   try {
     const formData = await req.formData();
@@ -165,7 +159,7 @@ export async function POST(req: NextRequest) {
       "Recipient Phones": recipientPhoneNumbers.join(','), // Use the new list of phone numbers
     };
 
-    const createdRecords = await airtableBase(airtableTableName).create([
+    const createdRecords = await base(airtableTableName).create([
       { fields: airtableRecordFields }
     ]);
 

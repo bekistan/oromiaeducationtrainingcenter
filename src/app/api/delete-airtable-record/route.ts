@@ -24,8 +24,13 @@ export async function DELETE(req: NextRequest) {
       console.error('Airtable environment variables are not fully set.');
       return NextResponse.json({ error: 'Airtable configuration is missing on the server.' }, { status: 500 });
     }
+    
+    // Configure Airtable with the Personal Access Token. This is the correct modern approach.
+    Airtable.configure({
+      apiKey: apiKey,
+    });
 
-    const base = new Airtable({ apiKey }).base(baseId);
+    const base = new Airtable().base(baseId);
     
     // Airtable API expects an array of record IDs for deletion
     const deletedRecords = await base(tableName).destroy([recordId]);
