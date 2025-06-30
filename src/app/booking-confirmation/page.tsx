@@ -16,6 +16,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import type { BankAccountDetails } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
@@ -48,12 +49,78 @@ function BookingConfirmationContent() {
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
   const telegramBotUsername = "oromiaeducationtrainingcenterbot";
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
     queryFn: fetchBankDetailsPublic,
     enabled: !!(status === 'booking_pending_approval' && category === 'dormitory'),
   });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: "destructive",
+          title: t('fileTooLargeTitle'),
+          description: t('fileTooLargeDesc', { size: '5MB' }),
+        });
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !bookingId) return;
+    setIsUploading(true);
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('bookingId', bookingId);
+
+    try {
+      const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (result.error === 'screenshotUploadedButLinkFailed') {
+            toast({
+                variant: 'destructive',
+                title: t('uploadIncompleteTitle'),
+                description: t('uploadIncompleteDesc'),
+            });
+        } else {
+            throw new Error(result.error || t('failedToUploadScreenshot'));
+        }
+      } else {
+         toast({
+            title: t('uploadSuccessTitle'),
+            description: t('uploadSuccessDesc'),
+          });
+         router.push(`/booking-confirmation?status=telegram_pending&bookingId=${bookingId}&itemName=${itemName || ''}&category=${category || ''}`);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: t('uploadError'),
+        description: error.message || t('anUnknownErrorOccurred'),
+      });
+    } finally {
+      setIsUploading(false);
+      setSelectedFile(null);
+      if(fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
 
   if (!bookingId || !status || !itemName || !category) {
     return (
@@ -142,14 +209,23 @@ function BookingConfirmationContent() {
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNameLabel')}:</strong> {bankDetails.accountName || t('notSet')}</p>
             <p className="text-sm text-foreground/80 mb-1"><strong>{t('accountNumberLabel')}:</strong> {bankDetails.accountNumber || t('notSet')}</p>
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
-            <p className="text-xs text-muted-foreground mt-2">Important: To ensure your payment is processed correctly, please include your Booking ID as the payment reference: <strong>{bookingId}</strong></p>
+            <p className="text-xs text-muted-foreground mt-2">{t('paymentReferenceNote', { bookingId: bookingId })}</p>
 
-            <div className="mt-6 border-t pt-4 text-center">
-              <h4 className="font-medium text-sm text-primary mb-2">{t('afterPaymentSubmitProof')}</h4>
-              <p className="text-xs text-muted-foreground mb-3">{t('submitProofOnTelegramDesc', { bookingId: bookingId })}</p>
-              <Button asChild>
-                  <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
-                      <Send className="mr-2 h-4 w-4" /> {t('openTelegram')}
+            <div className="mt-6 border-t pt-4">
+              <h4 className="font-semibold text-primary mb-2 text-center">{t('afterPaymentSubmitProof')}</h4>
+               <div className="flex flex-col gap-3 p-4 border rounded-md bg-background">
+                    <Label htmlFor="payment-screenshot" className="flex items-center gap-2"><UploadCloud className="h-4 w-4"/> {t('uploadScreenshotHere')}</Label>
+                    <Input id="payment-screenshot" type="file" accept="image/png, image/jpeg, image/gif, application/pdf" onChange={handleFileChange} ref={fileInputRef} className="text-xs"/>
+                    {selectedFile && <div className="text-xs text-muted-foreground flex items-center gap-1"><FileIcon className="h-3 w-3"/>{selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)</div>}
+                    <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full">
+                        {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                        {t('submitForVerification')}
+                    </Button>
+               </div>
+               <div className="text-center my-2 text-xs text-muted-foreground">{t('or')}</div>
+               <Button asChild variant="secondary" className="w-full">
+                  <a href={`https://t.me/${telegramBotUsername}?text=${encodeURIComponent(t('telegramPrewrittenMessage', { bookingId: bookingId }))}`} target="_blank" rel="noopener noreferrer">
+                      <Send className="mr-2 h-4 w-4" /> {t('submitViaTelegram')}
                   </a>
               </Button>
             </div>
