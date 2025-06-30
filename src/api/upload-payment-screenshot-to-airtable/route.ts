@@ -90,11 +90,14 @@ export async function POST(req: NextRequest) {
         }).end(buffer);
     }).catch(uploadError => ({ error: uploadError }));
 
-    if (cloudinaryUploadResult.error || !cloudinaryUploadResult.secure_url) {
-      const details = cloudinaryUploadResult.error?.message || 'Cloudinary upload failed or did not return a URL.';
+    // This is the corrected type guard.
+    if ('error' in cloudinaryUploadResult || !cloudinaryUploadResult.secure_url) {
+      const details = (cloudinaryUploadResult as { error: any })?.error?.message || 'Cloudinary upload failed or did not return a URL.';
       console.error('[API] FAILED: Cloudinary upload failed. Details:', details);
       return NextResponse.json({ error: 'Failed to upload screenshot to image server.', details }, { status: 500 });
     }
+    
+    // By this point, TypeScript knows cloudinaryUploadResult has secure_url
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
