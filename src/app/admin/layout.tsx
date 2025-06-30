@@ -157,7 +157,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
                 <span className="text-sm text-muted-foreground">{authLoading ? t('loading') : displayEmail}</span>
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+          <main className="flex-1 p-4 md:p-6 lg:p-8 min-w-0">
             {children}
           </main>
         </SidebarInset>
