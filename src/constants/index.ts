@@ -15,11 +15,16 @@ export const DEFAULT_CALENDAR_SYSTEM = 'gregorian';
 
 export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },
-  { labelKey: 'dormitories', href: '/dormitories' },
+  { 
+    labelKey: 'dormitories', 
+    children: [
+      { labelKey: 'bookADorm', href: '/dormitories' },
+      { labelKey: 'checkMyBooking', href: '/check-my-booking' }
+    ]
+  },
   { labelKey: 'halls', href: '/halls' },
   { labelKey: 'blog', href: '/blog' },
   { labelKey: 'contactUs', href: '/contact' },
-  { labelKey: 'checkMyBooking', href: '/check-my-booking' },
 ];
 
 export const ADMIN_NAVS: NavItem[] = [
