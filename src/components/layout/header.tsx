@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -53,17 +52,6 @@ export function Header() {
           </Link>
         );
       })}
-      {dashboardPath && (
-         <Link
-            href={dashboardPath}
-            className={cn(
-              "transition-colors hover:text-foreground/80 text-sm font-medium",
-              pathname.startsWith('/admin') || pathname.startsWith('/company') || pathname.startsWith('/keyholder') ? "text-primary font-semibold" : "text-foreground/60"
-            )}
-          >
-            {t('dashboard')}
-          </Link>
-      )}
     </>
   );
 
