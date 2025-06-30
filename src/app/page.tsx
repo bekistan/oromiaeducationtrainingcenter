@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -21,12 +22,13 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
 
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
-  if (!db) return DEFAULT_SITE_CONTENT;
+  if (!isFirebaseConfigured) return DEFAULT_SITE_CONTENT;
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -36,7 +38,7 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 };
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
-    if (!db) return { dormitories: [], halls: [] };
+    if (!isFirebaseConfigured) return { dormitories: [], halls: [] };
     const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(1));
     const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(1));
     
@@ -54,6 +56,7 @@ const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: 
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
+  const [activeService, setActiveService] = useState('dormitories');
 
   const { data: siteContent, isLoading: isLoadingContent } = useQuery<SiteContentSettings, Error>({
     queryKey: [SITE_CONTENT_QUERY_KEY],
@@ -96,9 +99,17 @@ export default function HomePage() {
   const servicesSectionTitle = siteContent?.servicesSectionTitle?.[locale as Locale] || t('ourServices');
   const services: ServiceItem[] = siteContent?.services || [];
   const faqs: FAQItem[] = siteContent?.faqs || [];
+
+  const featuredDormitoriesTitle = siteContent?.featuredDormitoriesTitle?.[locale as Locale] || t('featuredDormitories');
+  const featuredDormitoriesSubtitle = siteContent?.featuredDormitoriesSubtitle?.[locale as Locale] || t('featuredDormitoriesSubtitle');
+  const featuredHallsTitle = siteContent?.featuredHallsTitle?.[locale as Locale] || t('featuredHallsAndSections');
+  const featuredHallsSubtitle = siteContent?.featuredHallsSubtitle?.[locale as Locale] || t('featuredHallsAndSectionsSubtitle');
   
   const featuredDormitory = featuredItems?.dormitories?.[0];
   const featuredHall = featuredItems?.halls?.[0];
+
+  const currentServiceImage = siteContent?.services.find(s => s.id === activeService)?.image || "https://placehold.co/800x600/b8c6db/333333?text=Service";
+
 
   return (
     <PublicLayout>
@@ -129,8 +140,8 @@ export default function HomePage() {
       {/* Featured Dormitories Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredDormitories')}</h2>
-          <p className="text-muted-foreground text-center mb-12">{t('featuredDormitoriesSubtitle')}</p>
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredDormitoriesTitle}</h2>
+          <p className="text-muted-foreground text-center mb-12">{featuredDormitoriesSubtitle}</p>
           {isLoadingFeaturedItems ? (
              <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
           ) : featuredDormitory ? (
@@ -169,8 +180,8 @@ export default function HomePage() {
       {/* Featured Halls Section */}
       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredHallsAndSections')}</h2>
-          <p className="text-muted-foreground text-center mb-12">{t('featuredHallsAndSectionsSubtitle')}</p>
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredHallsTitle}</h2>
+          <p className="text-muted-foreground text-center mb-12">{featuredHallsSubtitle}</p>
           {isLoadingFeaturedItems ? (
              <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
           ) : featuredHall ? (
@@ -215,21 +226,22 @@ export default function HomePage() {
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="relative aspect-[4/3] rounded-lg overflow-hidden shadow-lg">
-              <Image
-                src="https://placehold.co/800x600.png"
-                alt={t('ourServices')}
-                fill
-                className="object-cover"
-                data-ai-hint="resort swimming pool"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
+             <div className="relative aspect-square lg:aspect-[4/3] rounded-lg overflow-hidden shadow-lg transition-all duration-500 ease-in-out">
+                <Image
+                  src={currentServiceImage}
+                  alt={activeService}
+                  fill
+                  className="object-cover"
+                  data-ai-hint="resort service"
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  key={activeService} 
+                />
             </div>
-            <div className="space-y-8">
+            <div className="space-y-4">
               {isLoadingContent ? (
                 Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="flex items-start gap-6">
-                    <Skeleton className="h-16 w-16 rounded-full" />
+                  <div key={index} className="flex items-start gap-6 p-4 rounded-lg bg-muted animate-pulse">
+                    <Skeleton className="h-12 w-12 rounded-full" />
                     <div className="space-y-2 flex-1">
                       <Skeleton className="h-5 w-1/3" />
                       <Skeleton className="h-4 w-full" />
@@ -240,11 +252,21 @@ export default function HomePage() {
               ) : (
                 services.map((service) => {
                   const Icon = serviceIcons[service.id] || Settings;
+                  const isActive = activeService === service.id;
                   return (
-                    <div key={service.id} className="flex items-start gap-6">
+                    <div
+                      key={service.id}
+                      className={cn(
+                        "flex items-start gap-6 p-4 rounded-lg cursor-pointer transition-all duration-300",
+                        isActive ? "bg-primary/10 shadow-md" : "hover:bg-muted/50"
+                      )}
+                      onClick={() => setActiveService(service.id)}
+                      onKeyPress={(e) => e.key === 'Enter' && setActiveService(service.id)}
+                      tabIndex={0}
+                    >
                       <div className="flex-shrink-0">
-                        <div className="p-3 bg-primary/10 rounded-full">
-                          <Icon className="h-7 w-7 text-primary" />
+                        <div className={cn("p-3 rounded-full transition-colors", isActive ? "bg-primary" : "bg-primary/10")}>
+                          <Icon className={cn("h-7 w-7", isActive ? "text-primary-foreground" : "text-primary")} />
                         </div>
                       </div>
                       <div>

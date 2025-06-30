@@ -198,12 +198,17 @@ export interface ServiceItem {
   id: string;
   title: { [key in Locale]?: string };
   description: { [key in Locale]?: string };
+  image: string;
 }
 
 export interface SiteContentSettings {
   id?: string;
   welcomeMessage: { [key in Locale]?: string };
   tagline: { [key in Locale]?: string };
+  featuredDormitoriesTitle: { [key in Locale]?: string };
+  featuredDormitoriesSubtitle: { [key in Locale]?: string };
+  featuredHallsTitle: { [key in Locale]?: string };
+  featuredHallsSubtitle: { [key in Locale]?: string };
   servicesSectionTitle: { [key in Locale]?: string };
   services: ServiceItem[];
   faqs: FAQItem[];

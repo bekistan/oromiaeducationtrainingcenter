@@ -40,11 +40,16 @@ const serviceItemSchema = z.object({
   id: z.string(),
   title: localeSchema,
   description: localeSchema,
+  image: z.string(),
 });
 
 const siteContentSchema = z.object({
   welcomeMessage: localeSchema,
   tagline: localeSchema,
+  featuredDormitoriesTitle: localeSchema,
+  featuredDormitoriesSubtitle: localeSchema,
+  featuredHallsTitle: localeSchema,
+  featuredHallsSubtitle: localeSchema,
   servicesSectionTitle: localeSchema,
   services: z.array(serviceItemSchema),
   faqs: z.array(faqItemSchema),
@@ -115,13 +120,8 @@ export default function AdminSiteContentPage() {
   useEffect(() => {
     if (currentContent) {
       form.reset({
-        welcomeMessage: currentContent.welcomeMessage,
-        tagline: currentContent.tagline,
-        servicesSectionTitle: currentContent.servicesSectionTitle,
-        services: currentContent.services,
-        faqs: currentContent.faqs,
-        privacyPolicy: currentContent.privacyPolicy,
-        termsOfService: currentContent.termsOfService,
+        ...DEFAULT_SITE_CONTENT, // Ensure all defaults are present
+        ...currentContent, // Override with fetched content
       });
     }
   }, [currentContent, form]);
@@ -260,6 +260,64 @@ export default function AdminSiteContentPage() {
                         {SUPPORTED_LOCALES.map(lang => (
                             <FormField key={`tagline-${lang.code}`} control={form.control} name={`tagline.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...field} placeholder={t('siteDescriptionPlaceholder')} /></FormControl><FormMessage /></FormItem> )}/>
                         ))}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{t('featuredSections')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Featured Dormitories */}
+                    <div className="space-y-4 rounded-md border p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-base font-semibold">{t('featuredDormitoriesSection')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('featuredDormitoriesTitle', form.getValues('featuredDormitoriesTitle.en'))} disabled={isTranslating['featuredDormitoriesTitle']} >
+                            {isTranslating['featuredDormitoriesTitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                      </div>
+                      <div className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`dorm-title-${lang.code}`} control={form.control} name={`featuredDormitoriesTitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('title')} ({lang.name})</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center mb-2 pt-4">
+                        <h4 className="text-base font-semibold">{t('featuredDormitoriesSubtitle')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('featuredDormitoriesSubtitle', form.getValues('featuredDormitoriesSubtitle.en'))} disabled={isTranslating['featuredDormitoriesSubtitle']} >
+                            {isTranslating['featuredDormitoriesSubtitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                      </div>
+                      <div className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`dorm-subtitle-${lang.code}`} control={form.control} name={`featuredDormitoriesSubtitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('subtitle')} ({lang.name})</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Featured Halls */}
+                    <div className="space-y-4 rounded-md border p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-base font-semibold">{t('featuredHallsSection')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('featuredHallsTitle', form.getValues('featuredHallsTitle.en'))} disabled={isTranslating['featuredHallsTitle']} >
+                            {isTranslating['featuredHallsTitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                      </div>
+                      <div className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`hall-title-${lang.code}`} control={form.control} name={`featuredHallsTitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('title')} ({lang.name})</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center mb-2 pt-4">
+                        <h4 className="text-base font-semibold">{t('featuredHallsSubtitle')}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('featuredHallsSubtitle', form.getValues('featuredHallsSubtitle.en'))} disabled={isTranslating['featuredHallsSubtitle']} >
+                            {isTranslating['featuredHallsSubtitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                        </Button>
+                      </div>
+                      <div className="space-y-3 pl-2 border-l-2">
+                        {SUPPORTED_LOCALES.map(lang => (
+                            <FormField key={`hall-subtitle-${lang.code}`} control={form.control} name={`featuredHallsSubtitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('subtitle')} ({lang.name})</FormLabel><FormControl><Textarea {...field} rows={2} /></FormControl><FormMessage /></FormItem> )}/>
+                        ))}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
