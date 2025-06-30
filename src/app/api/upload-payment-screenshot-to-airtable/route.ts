@@ -156,3 +156,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  return NextResponse.json({ message: 'Payment screenshot upload API route (Airtable integration) is active. Use POST method to upload files.' });
+}
