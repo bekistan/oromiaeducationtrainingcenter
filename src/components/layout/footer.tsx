@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from 'next/image';
+import { Logo } from "@/components/shared/logo";
 import { SITE_NAME, FOOTER_LINKS, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery } from '@tanstack/react-query';
@@ -40,16 +40,7 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Column 1: Logo & Tagline */}
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <Link href="/" className="flex items-center space-x-2" aria-label="Homepage">
-              <Image
-                src="/images/logo.png"
-                alt="Oromia Education Training Center Logo"
-                width={281}
-                height={214}
-                priority
-                className="h-14 w-auto"
-              />
-            </Link>
+            <Logo className="h-14 w-auto" />
             <p className="text-sm text-muted-foreground mt-2 max-w-xs">
               {tagline}
             </p>

@@ -16,6 +16,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -81,7 +83,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <Link href="/" className="mr-4"><Logo /></Link>
+          <Logo />
           <nav className="hidden md:flex items-center gap-6">
             {PUBLIC_NAVS.map((item) => {
               const isParentActive = item.children ? item.children.some(child => child.href && pathname.startsWith(child.href)) : item.href && pathname.startsWith(item.href);
