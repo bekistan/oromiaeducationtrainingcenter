@@ -6,7 +6,7 @@ import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Users, DollarSign, Utensils, Coffee, CheckSquare, Square } from "lucide-react";
+import { Users, DollarSign, CheckSquare, Square } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
@@ -51,20 +51,13 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
     }
 
     if (!user || user.role !== 'company_representative') {
-      alert(t('loginAsCompanyToBook'));
-      const bookingUrl = new URL(window.location.origin);
-      bookingUrl.pathname = `/auth/login`;
-      bookingUrl.searchParams.set('redirect', `/halls/${hallId}/book?startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`);
-      router.push(bookingUrl.pathname + bookingUrl.search);
+      const redirectUrl = `/auth/login?redirect=/halls/${hallId}/book?startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`;
+      router.push(redirectUrl);
       return;
     }
 
-    const bookingUrl = new URL(window.location.origin);
-    bookingUrl.pathname = `/halls/${hallId}/book`;
-    bookingUrl.searchParams.set('startDate', selectedDateRange.from.toISOString());
-    bookingUrl.searchParams.set('endDate', selectedDateRange.to.toISOString());
-
-    router.push(bookingUrl.pathname + bookingUrl.search);
+    const bookingUrl = `/halls/${hallId}/book?startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`;
+    router.push(bookingUrl);
   };
 
   if (!halls || halls.length === 0) {
@@ -117,7 +110,7 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                     className="w-full" 
                     disabled={!hall.isAvailable || loading || !selectedDateRange?.from} 
                     onClick={(e) => {
-                        e.stopPropagation(); // Prevent card's onClick from firing
+                        e.stopPropagation();
                         handleBookNowClick(hall.id);
                     }}
                     title={!selectedDateRange?.from ? t('selectDateRangeFirst') : ''}

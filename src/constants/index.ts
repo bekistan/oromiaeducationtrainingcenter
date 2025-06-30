@@ -1,8 +1,8 @@
 
 import type { NavItem, User, SiteContentSettings } from '@/types'; 
 
-export const SITE_NAME = "Oromia Education Research and Training Center";
-export const SITE_DESCRIPTION = "together we can";
+export const SITE_NAME = "Oromia Education Center";
+export const SITE_DESCRIPTION = "Your premier destination for educational facilities and comfortable accommodations. Book with us for a seamless experience.";
 
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
@@ -15,25 +15,34 @@ export const DEFAULT_CALENDAR_SYSTEM = 'gregorian';
 
 export const PUBLIC_NAVS: NavItem[] = [
   { labelKey: 'home', href: '/' },
-  {
-    labelKey: 'dormitories',
-    children: [
-      { labelKey: 'bookDorm', href: '/dormitories' },
-      { labelKey: 'checkMyBooking', href: '/check-my-booking' },
-    ]
-  },
+  { labelKey: 'dormitories', href: '/dormitories' },
   { labelKey: 'halls', href: '/halls' },
   { labelKey: 'blog', href: '/blog' },
   { labelKey: 'contactUs', href: '/contact' },
+  { labelKey: 'checkMyBooking', href: '/check-my-booking' },
 ];
 
 export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'dashboard', href: '/admin/dashboard', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
-  { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+  { 
+    labelKey: 'bookings',
+    authRequired: true,
+    roles: ['admin', 'superadmin'],
+    children: [
+      { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', roles: ['admin', 'superadmin'] },
+      { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+    ]
+  },
+  { 
+    labelKey: 'facilities',
+    authRequired: true,
+    roles: ['admin', 'superadmin'],
+    children: [
+      { labelKey: 'manageDormitories', href: '/admin/dormitories', roles: ['admin', 'superadmin'] },
+      { labelKey: 'manageHalls', href: '/admin/halls', roles: ['admin', 'superadmin'], generalAdminOnly: true }, 
+    ]
+  },
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
   { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
@@ -66,12 +75,15 @@ export const ADMIN_NAVS: NavItem[] = [
 export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'keyholderDashboard', href: '/keyholder/dashboard', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
+  { labelKey: 'dailyReports', href: '/keyholder/daily-reports', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'reports', href: '/keyholder/reports', authRequired: true, roles: ['keyholder'] },
 ];
 
 export const FOOTER_LINKS = [
   { labelKey: 'privacyPolicy', href: '/privacy-policy' },
   { labelKey: 'termsOfService', href: '/terms-of-service' },
+  { labelKey: 'contactUs', href: '/contact' },
+  { labelKey: 'blog', href: '/blog' },
 ];
 
 export const PLACEHOLDER_IMAGE_SIZE = "600x400";

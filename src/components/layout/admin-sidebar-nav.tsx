@@ -3,17 +3,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; 
 import { ADMIN_NAVS } from "@/constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   SidebarMenu, 
-  SidebarMenuItem, 
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
 } from "@/components/ui/sidebar"; 
 import { 
   LayoutDashboard, 
@@ -29,7 +25,8 @@ import {
   Settings,
   DollarSign,
   Bell,
-  ChevronDown
+  ChevronDown,
+  BookMarked
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react"
@@ -39,7 +36,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
-
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   notifications: Bell,
@@ -48,7 +44,7 @@ const ICONS: Record<string, LucideIcon> = {
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks,
   manageCompanies: Users,
-  manageBlog: FileText,
+  manageBlog: BookMarked,
   reports: FileText,
   userManagement: UserPlus,
   userProfile: UserCircle,
@@ -76,73 +72,78 @@ export function AdminSidebarNav() {
     return <ScrollArea className="h-full py-4"><p className="p-4 text-muted-foreground">{t('loading')}...</p></ScrollArea>;
   }
 
-  return (
-    <ScrollArea className="h-full py-4">
-      <SidebarMenu>
-        <SidebarGroup>
-          <SidebarGroupLabel className="sr-only">{t('adminNavigation')}</SidebarGroupLabel>
-            {ADMIN_NAVS.filter(item => {
-              if (!item.roles || item.roles.length === 0) return true; 
-              if (!user || !item.roles.includes(user.role)) return false; 
-              if (user.role === 'admin' && user.buildingAssignment && item.generalAdminOnly) {
-                  return false;
-              }
-              return true;
-            }).map((item) => {
-              const Icon = ICONS[item.labelKey] || LayoutDashboard; 
-              
-              if (item.children && item.children.length > 0) {
-                 const isParentActive = item.children.some(child => isSubpathActive(child.href));
-                 return (
-                  <Collapsible key={item.labelKey} defaultOpen={isParentActive} className="w-full">
-                     <CollapsibleTrigger asChild>
-                       <SidebarMenuButton
-                         isActive={isParentActive}
-                         tooltip={t(item.labelKey)}
-                         className="justify-between w-full group-data-[collapsible=icon]:justify-center"
-                       >
-                         <div className="flex items-center gap-2">
-                           <Icon className="h-5 w-5" />
-                           <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
-                         </div>
-                         <ChevronDown className="h-4 w-4 group-data-[collapsible=icon]:hidden transition-transform [&[data-state=open]]:-rotate-180" />
-                       </SidebarMenuButton>
-                     </CollapsibleTrigger>
-                     <CollapsibleContent>
-                        <div className="pl-4 group-data-[collapsible=icon]:hidden">
-                            {item.children.map(child => (
-                                <Link key={child.href} href={child.href!} passHref legacyBehavior>
-                                    <SidebarMenuButton
-                                      isActive={isSubpathActive(child.href, child.href === item.href)}
-                                      className="justify-start w-full h-8 mt-1 text-sm font-normal"
-                                      variant="ghost"
-                                    >
-                                     <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            ))}
-                        </div>
-                     </CollapsibleContent>
-                  </Collapsible>
-                 )
-              }
+  const renderNavs = ADMIN_NAVS.filter(item => {
+    if (!item.roles || item.roles.length === 0) return true; 
+    if (!user || !item.roles.includes(user.role)) return false; 
+    if (user.role === 'admin' && user.buildingAssignment && item.generalAdminOnly) {
+        return false;
+    }
+    return true;
+  });
 
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href!} passHref legacyBehavior>
-                    <SidebarMenuButton
-                      isActive={isSubpathActive(item.href)}
-                      tooltip={t(item.labelKey)}
-                      className="justify-start"
-                    >
-                      <Icon className="mr-2 h-5 w-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              );
-            })}
-        </SidebarGroup>
+  return (
+    <ScrollArea className="h-full p-2">
+      <SidebarMenu>
+        {renderNavs.map((item) => {
+          const Icon = ICONS[item.labelKey] || LayoutDashboard; 
+          const isParentActive = item.children ? item.children.some(child => isSubpathActive(child.href)) : isSubpathActive(item.href, true);
+          
+          if (item.children && item.children.length > 0) {
+             const filteredChildren = item.children.filter(child => {
+                if (!child.roles || child.roles.length === 0) return true;
+                if (!user || !child.roles.includes(user.role)) return false;
+                return true;
+             });
+
+             if (filteredChildren.length === 0) return null;
+
+             return (
+              <Collapsible key={item.labelKey} defaultOpen={isParentActive} className="w-full">
+                 <CollapsibleTrigger asChild>
+                   <SidebarMenuButton
+                     isActive={isParentActive}
+                     tooltip={t(item.labelKey)}
+                     className="justify-between w-full group-data-[collapsible=icon]:justify-center"
+                   >
+                     <div className="flex items-center gap-2">
+                       <Icon className="h-5 w-5" />
+                       <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
+                     </div>
+                     <ChevronDown className="h-4 w-4 group-data-[collapsible=icon]:hidden transition-transform [&[data-state=open]]:-rotate-180" />
+                   </SidebarMenuButton>
+                 </CollapsibleTrigger>
+                 <CollapsibleContent>
+                    <div className="pl-6 group-data-[collapsible=icon]:hidden space-y-1 py-1">
+                        {filteredChildren.map(child => (
+                            <Link key={child.href} href={child.href!} passHref legacyBehavior>
+                                <SidebarMenuButton
+                                  isActive={isSubpathActive(child.href, child.href === item.href)}
+                                  className="justify-start w-full h-8 text-sm font-normal"
+                                  variant="ghost"
+                                >
+                                 <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
+                                </SidebarMenuButton>
+                            </Link>
+                        ))}
+                    </div>
+                 </CollapsibleContent>
+              </Collapsible>
+             )
+          }
+
+          return (
+            <Link key={item.href} href={item.href!} passHref legacyBehavior>
+                <SidebarMenuButton
+                  isActive={isParentActive}
+                  tooltip={t(item.labelKey)}
+                  className="justify-start"
+                >
+                  <Icon className="mr-2 h-5 w-5" />
+                  <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
+                </SidebarMenuButton>
+            </Link>
+          );
+        })}
       </SidebarMenu>
     </ScrollArea>
   );

@@ -117,7 +117,7 @@ export default function DormitoriesPage() {
     canNextPage,
     canPreviousPage,
     totalItems,
-  } = useSimpleTable<Dormitory>({
+  } = useSimpleTable({
     data: dormsToDisplayBeforePaging,
     rowsPerPage: 12,
     searchKeys: ['roomNumber'], 

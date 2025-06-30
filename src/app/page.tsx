@@ -8,13 +8,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
 import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle, Loader2 } from "lucide-react";
-import { PLACEHOLDER_IMAGE_SIZE, SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
+import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
 import { QRCodeDisplay } from "@/components/shared/qr-code-display";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { SiteContentSettings, Locale, FAQItem } from '@/types';
+import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall } from '@/types';
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/accordion";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
+const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
 
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
@@ -32,6 +33,24 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
   }
   return DEFAULT_SITE_CONTENT;
 };
+
+const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
+    const dormsSnapshot = await getDocs(doc(db, "dormitories"));
+    const hallsSnapshot = await getDocs(doc(db, "halls"));
+
+    const dormitories = dormsSnapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as Dormitory))
+        .filter(d => d.isAvailable)
+        .slice(0, 3);
+        
+    const halls = hallsSnapshot.docs
+        .map(h => ({ id: h.id, ...h.data() } as Hall))
+        .filter(h => h.isAvailable)
+        .slice(0, 3);
+
+    return { dormitories, halls };
+};
+
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
@@ -43,32 +62,17 @@ export default function HomePage() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+   const { data: featuredItems, isLoading: isLoadingFeaturedItems } = useQuery<{ dormitories: Dormitory[]; halls: Hall[] }, Error>({
+    queryKey: [FEATURED_ITEMS_QUERY_KEY],
+    queryFn: fetchFeaturedItems,
+    staleTime: 1000 * 60 * 5,
+  });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setBrochureUrl(window.location.origin + '/brochure');
     }
   }, []);
-
-  const serviceStaticData = {
-    dormitories: {
-      icon: <BedDouble className="h-10 w-10 text-primary" />,
-      link: "/dormitories",
-      image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "modern dormitory",
-    },
-    halls: {
-      icon: <Presentation className="h-10 w-10 text-primary" />,
-      link: "/halls",
-      image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "conference hall",
-    },
-    catering: {
-      icon: <Utensils className="h-10 w-10 text-primary" />,
-      link: "/halls#catering", // This might need to be a more specific page in the future
-      image: `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`,
-      imageHint: "catering food",
-    },
-  };
 
   const features = [
     {
@@ -90,10 +94,8 @@ export default function HomePage() {
 
   const welcomeMessage = siteContent?.welcomeMessage?.[locale as Locale] || t('homePageWelcomeMessage');
   const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
-  const servicesSectionTitle = siteContent?.servicesSectionTitle?.[locale as Locale] || t('services');
   const faqs: FAQItem[] = siteContent?.faqs || [];
-  const services = siteContent?.services || [];
-
+  
   return (
     <PublicLayout>
       {/* Hero Section */}
@@ -120,50 +122,36 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Services Section */}
+      {/* Featured Dormitories Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-12">
-            {servicesSectionTitle}
-          </h2>
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredDormitories')}</h2>
+          <p className="text-muted-foreground text-center mb-12">{t('featuredDormitoriesSubtitle')}</p>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {isLoadingContent ? (
+             {isLoadingFeaturedItems ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} className="flex flex-col"><CardHeader><Loader2 className="h-8 w-8 animate-spin"/></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
+                <Card key={i} className="flex flex-col"><CardHeader><div className="h-48 w-full bg-muted rounded-md animate-pulse"></div></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
               ))
             ) : (
-                services.map((service) => {
-                const staticData = serviceStaticData[service.id as keyof typeof serviceStaticData];
-                if (!staticData) return null;
-                const serviceTitle = service.title[locale as Locale] || service.title['en'] || t(service.id);
-                const serviceDescription = service.description[locale as Locale] || service.description['en'] || t('tagline');
-                return (
-                  <Card key={service.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader className="items-center text-center p-6">
-                      <div className="p-3 rounded-full bg-primary/10 mb-4">
-                        {staticData.icon}
-                      </div>
-                      <CardTitle className="text-2xl">{serviceTitle}</CardTitle>
-                    </CardHeader>
-                    <div className="relative h-48 w-full">
+                featuredItems?.dormitories.map((dorm) => (
+                  <Card key={dorm.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                     <div className="relative h-48 w-full">
                       <Image
-                        src={staticData.image}
-                        alt={serviceTitle}
+                        src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
+                        alt={dorm.roomNumber}
                         fill
                         style={{ objectFit: 'cover' }}
-                        data-ai-hint={staticData.imageHint}
+                        data-ai-hint={dorm.dataAiHint || "dormitory room"}
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                     </div>
-                    <CardContent className="p-6 text-center">
-                      <CardDescription className="mb-6">{serviceDescription}</CardDescription>
-                      <Link href={staticData.link} passHref>
-                        <Button variant="default" className="w-full">{t('bookNow')}</Button>
-                      </Link>
-                    </CardContent>
+                    <CardHeader><CardTitle>{t('roomNumber')} {dorm.roomNumber}</CardTitle><CardDescription>{t('floor')} {dorm.floor}</CardDescription></CardHeader>
+                    <CardContent className="flex-grow"><p className="text-muted-foreground text-sm">{t('capacity')}: {dorm.capacity} {t('beds')}</p></CardContent>
+                    <CardFooter>
+                      <Button asChild className="w-full"><Link href={`/dormitories`}>{t('viewAndBook')}</Link></Button>
+                    </CardFooter>
                   </Card>
-                );
-              })
+                ))
             )}
           </div>
         </div>
@@ -213,32 +201,6 @@ export default function HomePage() {
                 ))}
               </Accordion>
             }
-        </div>
-      </section>
-
-      {/* Brochure QR Code Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
-        <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold text-primary mb-4">{t('discoverMoreTitle')}</h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto">{t('discoverMoreSubtitle')}</p>
-          <Card className="max-w-xs mx-auto shadow-xl p-6 md:p-8">
-            <CardHeader className="p-0 mb-4">
-              <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
-                <QrCode className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle className="text-xl">{t('scanForBrochureTitle')}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex justify-center">
-              {brochureUrl ? (
-                <QRCodeDisplay value={brochureUrl} size={160} />
-              ) : (
-                <div className="w-[160px] h-[160px] bg-muted rounded-md flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">{t('generatingQrCode')}</p>
-                </div>
-              )}
-            </CardContent>
-            <CardDescription className="mt-4 text-sm">{t('scanForBrochureDesc')}</CardDescription>
-          </Card>
         </div>
       </section>
     </PublicLayout>

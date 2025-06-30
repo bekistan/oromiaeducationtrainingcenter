@@ -1,10 +1,11 @@
+
 "use client";
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/hooks/use-language';
 import { Frown } from 'lucide-react';
-import { PublicLayout } from '@/components/layout/public-layout'; // Use public layout for consistency
+import { PublicLayout } from '@/components/layout/public-layout';
 
 export default function NotFound() {
   const { t } = useLanguage();

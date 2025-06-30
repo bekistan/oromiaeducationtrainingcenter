@@ -1,5 +1,5 @@
 
-"use client"; // Required for SidebarProvider and its hooks
+"use client";
 
 import type { ReactNode } from 'react';
 import React, { useCallback, useEffect, useRef } from 'react';
@@ -15,7 +15,7 @@ import {
 import { AdminSidebarNav } from "@/components/layout/admin-sidebar-nav";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, UserCircle, Loader2 } from "lucide-react";
+import { LogOut, UserCircle, Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
@@ -28,10 +28,10 @@ import { ToastAction } from "@/components/ui/toast";
 
 interface AdminLayoutProps {
   children: ReactNode;
-  params?: Record<string, string | string[] | undefined>; // Explicitly type params to acknowledge its potential presence
+  params?: Record<string, string | string[] | undefined>;
 }
 
-export default function AdminLayout({ children, params: receivedRouteParams }: AdminLayoutProps) { // Destructure params
+export default function AdminLayout({ children, params: receivedRouteParams }: AdminLayoutProps) {
   const { t } = useLanguage();
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -39,26 +39,26 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const mountTime = useRef(new Date());
 
-  // Real-time notification listener
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+      // Redirect non-admins trying to access this layout
+      router.push('/auth/login?redirect=/admin/dashboard');
+    }
+  }, [user, authLoading, router]);
+
   useEffect(() => {
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return;
-
-    // We only want to listen for notifications that are created AFTER this component has mounted.
     const q = query(
       collection(db, "notifications"),
       where("recipientRole", "in", ["admin", "superadmin"]),
       where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
     );
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        // Only react to brand-new notifications added since the component was displayed.
-        // This avoids showing a toast for old, unread notifications on every page load.
         if (change.type === "added") {
           const notificationData = change.doc.data();
           const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
-
-          // A final check to ensure we don't show notifications from before this session started.
           if (createdAtDate && createdAtDate > mountTime.current) {
             toast({
               title: `🔔 ${t('newNotification')}`,
@@ -68,7 +68,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
                   <Link href={notificationData.link}>{t('view')}</Link>
                 </ToastAction>
               ) : undefined,
-              duration: 15000 // Keep notification on screen longer
+              duration: 15000 
             });
           }
         }
@@ -79,7 +79,6 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
 
     return () => unsubscribe();
   }, [user, t, toast]);
-
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
@@ -94,6 +93,21 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     }
   }, [logout, router, t, toast]);
 
+  if (authLoading) {
+     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}</p></div>;
+  }
+  
+  if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
+     return (
+      <div className="flex flex-col items-center justify-center h-screen text-center p-4">
+        <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
+        <p className="text-muted-foreground">{t('adminOrSuperAdminOnlyPage')}</p>
+        <Button onClick={() => router.push('/auth/login')} className="mt-4">{t('login')}</Button>
+      </div>
+    );
+  }
+
   const displayName = user?.name || user?.email || t('adminUser');
   const displayEmail = user?.email || t('notAvailable');
 
@@ -102,17 +116,11 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
         <Sidebar collapsible="icon" variant="sidebar" side="left">
           <SidebarHeader className="p-4 border-b border-sidebar-border">
             <div className="flex items-center h-full">
-              {/* Logo: shown when expanded, hidden when collapsed to icon mode */}
-              <div className={cn(
-                "flex-grow", // Takes available space, pushing trigger to the right
-                "group-data-[collapsible=icon]:group-data-[state=collapsed]:hidden"
-              )}>
+              <div className={cn("flex-grow", "group-data-[collapsible=icon]:group-data-[state=collapsed]:hidden")}>
                  <Logo />
               </div>
-              
-              {/* Desktop Sidebar Toggle Button - always at the end */}
-              <div className="hidden md:flex"> {/* Only show on desktop */}
-                <SidebarTrigger /> {/* This component handles toggling expanded/icon state */}
+              <div className="hidden md:flex">
+                <SidebarTrigger />
               </div>
             </div>
           </SidebarHeader>
@@ -142,7 +150,6 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
         
         <SidebarInset>
           <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4 md:px-6 md:justify-end">
-            {/* Mobile Sidebar Trigger (for off-canvas mobile sidebar) */}
             <div className="md:hidden">
               <SidebarTrigger />
             </div>

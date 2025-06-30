@@ -4,29 +4,47 @@
 import Link from "next/link";
 import { SITE_NAME, FOOTER_LINKS } from "@/constants";
 import { useLanguage } from "@/hooks/use-language";
+import { Logo } from "@/components/shared/logo";
 
 export function Footer() {
   const { t } = useLanguage();
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border/40">
-      <div className="container flex flex-col items-center justify-between gap-4 py-12 md:h-24 md:flex-row md:py-0"> {/* Changed py-10 to py-12 and md:h-20 to md:h-24 */}
-        <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
-          <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-            &copy; {currentYear} {SITE_NAME}. {t('allRightsReserved')}.
-          </p>
+    <footer className="border-t bg-card text-card-foreground">
+      <div className="container py-8">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex flex-col items-center md:items-start">
+            <Logo />
+            <p className="text-sm text-muted-foreground mt-2 max-w-xs text-center md:text-left">
+              {t('tagline')}
+            </p>
+          </div>
+          <div className="flex flex-col md:flex-row gap-8 text-center md:text-left">
+             <div>
+                <h4 className="font-semibold mb-2">{t('quickLinks')}</h4>
+                <ul className="space-y-1">
+                    {FOOTER_LINKS.map(link => (
+                      <li key={link.href}>
+                        <Link href={link.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                            {t(link.labelKey)}
+                        </Link>
+                      </li>
+                    ))}
+                </ul>
+             </div>
+             <div>
+                <h4 className="font-semibold mb-2">{t('contactUs')}</h4>
+                 <ul className="space-y-1">
+                    <li><p className="text-sm text-muted-foreground">{t('addressPlaceholder')}</p></li>
+                    <li><p className="text-sm text-muted-foreground">{t('generalPhoneNumberPlaceholder')}</p></li>
+                    <li><p className="text-sm text-muted-foreground">{t('generalEmailAddressPlaceholder')}</p></li>
+                </ul>
+             </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          {FOOTER_LINKS.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {t(link.labelKey)}
-            </Link>
-          ))}
+        <div className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
+            &copy; {currentYear} {SITE_NAME}. {t('allRightsReserved')}.
         </div>
       </div>
     </footer>

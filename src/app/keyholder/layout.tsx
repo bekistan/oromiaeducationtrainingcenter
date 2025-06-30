@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -15,14 +15,13 @@ import {
 import { KeyholderSidebarNav } from "@/components/layout/keyholder-sidebar-nav"; 
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, UserCircle, Loader2 } from "lucide-react";
+import { LogOut, UserCircle, Loader2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { ShieldAlert } from 'lucide-react';
 
 interface KeyholderLayoutProps {
   children: ReactNode;
@@ -35,7 +34,7 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
   const { toast } = useToast();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     try {
       await logout();
@@ -46,15 +45,10 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
       toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') });
       setIsLoggingOut(false);
     }
-  };
+  }, [logout, router, t, toast]);
 
   if (authLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2">{t('loading')}</p>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}</p></div>;
   }
 
   if (user?.role !== 'keyholder') {
@@ -63,9 +57,7 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
         <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive mb-2">{t('accessDenied')}</h1>
         <p className="text-muted-foreground">{t('keyholderOnlyPage')}</p>
-        <Button onClick={() => router.push(user ? '/auth/login' : '/auth/login')} className="mt-4">
-          {t('login')}
-        </Button>
+        <Button onClick={() => router.push(user ? '/auth/login' : '/auth/login')} className="mt-4">{t('login')}</Button>
       </div>
     );
   }

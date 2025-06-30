@@ -3,17 +3,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth"; 
 import { KEYHOLDER_NAVS } from "@/constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   SidebarMenu, 
-  SidebarMenuItem, 
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel
 } from "@/components/ui/sidebar"; 
 import { 
   LayoutDashboard,
@@ -43,28 +39,23 @@ export function KeyholderSidebarNav() {
   }
 
   return (
-    <ScrollArea className="h-full py-4">
+    <ScrollArea className="h-full p-2">
       <SidebarMenu>
-        <SidebarGroup>
-          <SidebarGroupLabel className="sr-only">{t('keyholderNavigation')}</SidebarGroupLabel>
-            {KEYHOLDER_NAVS.map((item) => {
-              const Icon = ICONS[item.labelKey] || LayoutDashboard; 
-              return (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href} passHref legacyBehavior>
-                    <SidebarMenuButton
-                      isActive={pathname === item.href || (item.href !== '/keyholder/dashboard' && pathname.startsWith(item.href))}
-                      tooltip={t(item.labelKey)}
-                      className="justify-start"
-                    >
-                      <Icon className="mr-2 h-5 w-5" />
-                      <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              );
-            })}
-        </SidebarGroup>
+        {KEYHOLDER_NAVS.map((item) => {
+          const Icon = ICONS[item.labelKey] || LayoutDashboard; 
+          return (
+            <Link key={item.href} href={item.href} passHref legacyBehavior>
+              <SidebarMenuButton
+                isActive={pathname === item.href || (item.href !== '/keyholder/dashboard' && pathname.startsWith(item.href))}
+                tooltip={t(item.labelKey)}
+                className="justify-start"
+              >
+                <Icon className="mr-2 h-5 w-5" />
+                <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
+              </SidebarMenuButton>
+            </Link>
+          );
+        })}
       </SidebarMenu>
     </ScrollArea>
   );

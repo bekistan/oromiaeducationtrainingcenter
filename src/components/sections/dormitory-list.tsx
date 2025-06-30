@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Dormitory } from "@/types";
@@ -5,7 +6,7 @@ import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { BedDouble, Users, DollarSign, CheckCircle } from "lucide-react";
+import { Users, DollarSign, CheckCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
