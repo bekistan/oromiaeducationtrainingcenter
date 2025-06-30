@@ -1,7 +1,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import Airtable from 'airtable';
 
 export async function DELETE(req: NextRequest) {
+  // --- Airtable Configuration (on-demand) ---
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
+
+  if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
+    console.error('Airtable environment variables are not fully set for deletion.');
+    return NextResponse.json({ error: 'Airtable configuration is missing on the server.' }, { status: 500 });
+  }
+
   try {
     const body = await req.json();
     const { recordId } = body;
@@ -9,42 +20,21 @@ export async function DELETE(req: NextRequest) {
     if (!recordId) {
       return NextResponse.json({ error: 'Record ID is required' }, { status: 400 });
     }
-
-    const apiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableName = process.env.AIRTABLE_TABLE_NAME;
-
-    if (!apiKey || !baseId || !tableName) {
-      console.error('Airtable environment variables are not fully set for deletion.');
-      return NextResponse.json({ error: 'Airtable configuration is missing on the server.' }, { status: 500 });
-    }
     
-    const airtableApiUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?records[]=${recordId}`;
-    
-    const response = await fetch(airtableApiUrl, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
+    Airtable.configure({ apiKey: airtableApiKey });
+    const base = new Airtable().base(airtableBaseId);
 
-    if (response.ok) {
-      const responseData = await response.json();
-      const deletedRecordId = responseData.records?.[0]?.id;
-      if (deletedRecordId === recordId) {
+    const deletedRecords = await base(airtableTableName).destroy([recordId]);
+    
+    if (deletedRecords && deletedRecords.length > 0 && (deletedRecords[0] as any).id === recordId) {
         return NextResponse.json({ message: `Record ${recordId} deleted successfully.` }, { status: 200 });
-      } else {
-        return NextResponse.json({ error: `Failed to confirm deletion of record ${recordId}, or record not found.` }, { status: 404 });
-      }
     } else {
-        const errorData = await response.json();
-        const errorMessage = errorData?.error?.message || `Airtable API returned status ${response.status}`;
-        console.error('Error deleting record from Airtable:', errorMessage, errorData);
-        return NextResponse.json({ error: errorMessage, details: errorData }, { status: response.status });
+        // This case might occur if the record was already deleted or never existed.
+        return NextResponse.json({ error: `Failed to confirm deletion of record ${recordId}, or record not found.` }, { status: 404 });
     }
 
   } catch (error: any) {
-    console.error('Error processing DELETE request:', error);
+    console.error('Error processing DELETE request to Airtable:', error);
     return NextResponse.json({ error: 'Failed to process delete request.', details: error.toString() }, { status: 500 });
   }
 }
