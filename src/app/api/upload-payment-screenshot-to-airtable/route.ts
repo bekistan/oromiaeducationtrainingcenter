@@ -101,6 +101,7 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record using fetch
     console.log('[API] Creating Airtable record via fetch...');
+    // Using correct, capitalized field names as identified.
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }],
