@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 const fetchBlogPostBySlug = async (slug: string): Promise<BlogPost | null> => {
-  if (!slug) return null;
+  if (!slug || !db) return null;
   const q = query(
     collection(db, "blog"),
     where("slug", "==", slug),

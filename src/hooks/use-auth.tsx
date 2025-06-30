@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = useCallback(async (email: string, pass: string): Promise<AppUserType | null> => {
     if (!isFirebaseConfigured || !auth || !db) {
-      throw new Error("Firebase is not configured. Please add your API keys to the .env.local file.");
+      throw new Error("Firebase is not configured. Please check your environment variables.");
     }
     
     setLoading(true);

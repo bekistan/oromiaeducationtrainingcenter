@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall } from '@/types';
+import { db } from '@/lib/firebase';
 import {
   Accordion,
   AccordionContent,
@@ -24,6 +25,7 @@ const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
 
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
+  if (!db) return DEFAULT_SITE_CONTENT;
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -33,6 +35,7 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 };
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
+    if (!db) return { dormitories: [], halls: [] };
     const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(1));
     const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(1));
     
@@ -181,7 +184,7 @@ export default function HomePage() {
                         </CardHeader>
                         <CardContent className="p-0 pt-4 flex-grow">
                              <p className="text-muted-foreground text-sm">{t('capacity')}: {featuredHall.capacity} {t('people')}</p>
-                             <p className="text-muted-foreground text-sm line-clamp-3 mt-2">{hall.description}</p>
+                             <p className="text-muted-foreground text-sm line-clamp-3 mt-2">{featuredHall.description}</p>
                         </CardContent>
                         <CardFooter className="p-0 pt-6">
                             <Button asChild className="w-full" size="lg">

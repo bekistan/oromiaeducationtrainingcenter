@@ -19,6 +19,7 @@ import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 const BLOG_POSTS_QUERY_KEY_PUBLIC = "publicBlogPosts";
 
 const fetchPublishedBlogPosts = async (): Promise<BlogPost[]> => {
+  if (!db) return [];
   const q = query(
     collection(db, "blog"),
     where("isPublished", "==", true),

@@ -2,7 +2,7 @@
 import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, type FirebaseStorage } from "firebase/storage";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,10 +16,10 @@ const firebaseConfig = {
 
 export const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (isFirebaseConfigured) {
   try {
@@ -29,80 +29,14 @@ if (isFirebaseConfigured) {
     storage = getStorage(app);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
-    // Assign a proxy to throw errors on access if initialization fails
-    const unconfiguredProxy = new Proxy({}, {
-        get(target, prop) {
-          throw new Error(`Firebase initialization failed. Cannot access property "${String(prop)}".`);
-        }
-    });
-    app = unconfiguredProxy as FirebaseApp;
-    auth = unconfiguredProxy as Auth;
-    db = unconfiguredProxy as Firestore;
-    storage = unconfiguredProxy as FirebaseStorage;
   }
 } else {
   if (process.env.NODE_ENV !== 'production') {
     console.warn(
       "Firebase configuration is missing or incomplete. Firebase services are disabled. " +
-      "Attempting to use Firebase will result in a runtime error."
+      "The app will run in a limited, offline mode."
     );
   }
-  // Assign a proxy that will throw an error if any property is accessed.
-  // This satisfies TypeScript's non-null assertion while providing clear runtime errors.
-  const unconfiguredProxy = new Proxy({}, {
-    get(target, prop) {
-      throw new Error(`Firebase is not configured. Cannot access property "${String(prop)}". Please check your environment variables.`);
-    }
-  });
-  app = unconfiguredProxy as FirebaseApp;
-  auth = unconfiguredProxy as Auth;
-  db = unconfiguredProxy as Firestore;
-  storage = unconfiguredProxy as FirebaseStorage;
 }
-
-
-/**
- * Uploads a file to Firebase Storage and returns its download URL.
- * @param file The file to upload.
- * @param path The storage path (e.g., "id_scans/"). Must end with a slash.
- * @returns A promise that resolves with the download URL of the uploaded file.
- */
-export const uploadFileToFirebaseStorage = async (file: File, path: string): Promise<string> => {
-  // The check below is mostly for type-safety in this function's scope,
-  // but the proxy will throw an error if storage is accessed when not configured.
-  if (!isFirebaseConfigured) {
-    console.error("[uploadFileToFirebaseStorage] Firebase Storage is not initialized due to missing config.");
-    throw new Error("Firebase Storage is not configured.");
-  }
-  
-  console.log("[uploadFileToFirebaseStorage] Attempting to upload file:", file.name, "to path:", path);
-  if (!file) {
-    console.error("[uploadFileToFirebaseStorage] No file provided for upload.");
-    throw new Error("No file provided for upload.");
-  }
-  if (!path.endsWith('/')) {
-    console.warn(`[uploadFileToFirebaseStorage] Storage path "${path}" does not end with a slash. Appending one.`);
-    path += '/';
-  }
-  
-  const uniqueFileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`; // Make filename URL-friendly
-  const fullStoragePath = `${path}${uniqueFileName}`;
-  const fileStorageRef = storageRef(storage, fullStoragePath);
-  console.log("[uploadFileToFirebaseStorage] Full storage reference path:", fileStorageRef.fullPath);
-
-  try {
-    console.log("[uploadFileToFirebaseStorage] Starting upload for:", file.name);
-    const snapshot = await uploadBytes(fileStorageRef, file);
-    console.log("[uploadFileToFirebaseStorage] Upload successful for:", file.name, "Snapshot:", snapshot);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    console.log("[uploadFileToFirebaseStorage] Got download URL:", downloadURL);
-    return downloadURL;
-  } catch (error: any) {
-    console.error("[uploadFileToFirebaseStorage] Error uploading file:", file.name, "to path:", fullStoragePath, "Error object:", error);
-    if (error.code) console.error("[uploadFileToFirebaseStorage] Firebase error code:", error.code);
-    if (error.message) console.error("[uploadFileToFirebaseStorage] Firebase error message:", error.message);
-    throw error; 
-  }
-};
 
 export { app, db, auth, storage };
