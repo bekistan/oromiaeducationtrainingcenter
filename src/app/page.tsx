@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -6,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, Utensils, ShieldCheck, Settings, Languages, QrCode, HelpCircle, Loader2 } from "lucide-react";
+import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2 } from "lucide-react";
 import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
-import { QRCodeDisplay } from "@/components/shared/qr-code-display";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc, getDocs, collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall } from '@/types';
 import {
   Accordion,
@@ -34,21 +33,16 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 };
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
-    const dormsQuery = collection(db, "dormitories");
-    const hallsQuery = collection(db, "halls");
+    const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(1));
+    const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(1));
     
-    const dormsSnapshot = await getDocs(dormsQuery);
-    const hallsSnapshot = await getDocs(hallsQuery);
+    const [dormsSnapshot, hallsSnapshot] = await Promise.all([
+      getDocs(dormsQuery),
+      getDocs(hallsQuery)
+    ]);
 
-    const dormitories = dormsSnapshot.docs
-        .map(d => ({ id: d.id, ...d.data() } as Dormitory))
-        .filter(d => d.isAvailable)
-        .slice(0, 3);
-        
-    const halls = hallsSnapshot.docs
-        .map(h => ({ id: h.id, ...h.data() } as Hall))
-        .filter(h => h.isAvailable)
-        .slice(0, 3);
+    const dormitories = dormsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Dormitory));
+    const halls = hallsSnapshot.docs.map(h => ({ id: h.id, ...h.data() } as Hall));
 
     return { dormitories, halls };
 };
@@ -56,7 +50,6 @@ const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: 
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
-  const [brochureUrl, setBrochureUrl] = useState('');
 
   const { data: siteContent, isLoading: isLoadingContent } = useQuery<SiteContentSettings, Error>({
     queryKey: [SITE_CONTENT_QUERY_KEY],
@@ -69,12 +62,6 @@ export default function HomePage() {
     queryFn: fetchFeaturedItems,
     staleTime: 1000 * 60 * 5,
   });
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setBrochureUrl(window.location.origin + '/brochure');
-    }
-  }, []);
 
   const features = [
     {
@@ -98,6 +85,9 @@ export default function HomePage() {
   const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
   const faqs: FAQItem[] = siteContent?.faqs || [];
   
+  const featuredDormitory = featuredItems?.dormitories?.[0];
+  const featuredHall = featuredItems?.halls?.[0];
+
   return (
     <PublicLayout>
       {/* Hero Section */}
@@ -129,33 +119,38 @@ export default function HomePage() {
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredDormitories')}</h2>
           <p className="text-muted-foreground text-center mb-12">{t('featuredDormitoriesSubtitle')}</p>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-             {isLoadingFeaturedItems ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} className="flex flex-col"><CardHeader><div className="h-48 w-full bg-muted rounded-md animate-pulse"></div></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
-              ))
-            ) : (
-                featuredItems?.dormitories.map((dorm) => (
-                  <Card key={dorm.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                     <div className="relative h-48 w-full">
-                      <Image
-                        src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
-                        alt={dorm.roomNumber}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        data-ai-hint={dorm.dataAiHint || "dormitory room"}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
+          {isLoadingFeaturedItems ? (
+             <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
+          ) : featuredDormitory ? (
+             <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
+                    <div className="relative h-64 md:h-96 w-full">
+                        <Image
+                            src={featuredDormitory.images?.[0] || `https://placehold.co/600x400.png`}
+                            alt={featuredDormitory.roomNumber}
+                            fill
+                            className="object-cover"
+                            data-ai-hint={featuredDormitory.dataAiHint || "dormitory room"}
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                        />
                     </div>
-                    <CardHeader><CardTitle>{t('roomNumber')} {dorm.roomNumber}</CardTitle><CardDescription>{t('floor')} {dorm.floor}</CardDescription></CardHeader>
-                    <CardContent className="flex-grow"><p className="text-muted-foreground text-sm">{t('capacity')}: {dorm.capacity} {t('beds')}</p></CardContent>
-                    <CardFooter>
-                      <Button asChild className="w-full"><Link href={`/dormitories`}>{t('viewAndBook')}</Link></Button>
-                    </CardFooter>
-                  </Card>
-                ))
-            )}
-          </div>
+                    <div className="flex flex-col p-8 justify-center">
+                        <CardHeader className="p-0">
+                            <CardTitle className="text-2xl">{t('roomNumber')} {featuredDormitory.roomNumber}</CardTitle>
+                            <CardDescription>{t('floor')} {featuredDormitory.floor}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0 pt-4 flex-grow">
+                            <p className="text-muted-foreground">{t('capacity')}: {featuredDormitory.capacity} {t('beds')}</p>
+                        </CardContent>
+                        <CardFooter className="p-0 pt-6">
+                            <Button asChild className="w-full" size="lg">
+                                <Link href={`/dormitories`}>{t('bookNow')}</Link>
+                            </Button>
+                        </CardFooter>
+                    </div>
+                </div>
+            </Card>
+          ) : null}
         </div>
       </section>
       
@@ -164,33 +159,39 @@ export default function HomePage() {
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('featuredHallsAndSections')}</h2>
           <p className="text-muted-foreground text-center mb-12">{t('featuredHallsAndSectionsSubtitle')}</p>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-             {isLoadingFeaturedItems ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i} className="flex flex-col"><CardHeader><div className="h-48 w-full bg-muted rounded-md animate-pulse"></div></CardHeader><CardContent className="flex-grow"><div className="h-24 bg-muted rounded-md animate-pulse"></div></CardContent><CardFooter><Button disabled className="w-full"></Button></CardFooter></Card>
-              ))
-            ) : (
-                featuredItems?.halls.map((hall) => (
-                  <Card key={hall.id} className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                     <div className="relative h-48 w-full">
-                      <Image
-                        src={hall.images?.[0] || `https://placehold.co/600x400.png`}
-                        alt={hall.name}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        data-ai-hint={hall.dataAiHint || "meeting space"}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      />
+          {isLoadingFeaturedItems ? (
+             <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
+          ) : featuredHall ? (
+             <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
+                    <div className="relative h-64 md:h-96 w-full">
+                        <Image
+                            src={featuredHall.images?.[0] || `https://placehold.co/600x400.png`}
+                            alt={featuredHall.name}
+                            fill
+                            className="object-cover"
+                            data-ai-hint={featuredHall.dataAiHint || "meeting space"}
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                        />
                     </div>
-                    <CardHeader><CardTitle>{hall.name}</CardTitle><CardDescription>{t(hall.itemType)}</CardDescription></CardHeader>
-                    <CardContent className="flex-grow"><p className="text-muted-foreground text-sm">{t('capacity')}: {hall.capacity}</p></CardContent>
-                    <CardFooter>
-                      <Button asChild className="w-full"><Link href={`/halls`}>{t('viewAndBook')}</Link></Button>
-                    </CardFooter>
-                  </Card>
-                ))
-            )}
-          </div>
+                    <div className="flex flex-col p-8 justify-center">
+                        <CardHeader className="p-0">
+                            <CardTitle className="text-2xl">{featuredHall.name}</CardTitle>
+                            <CardDescription className="capitalize">{t(featuredHall.itemType)}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-0 pt-4 flex-grow">
+                             <p className="text-muted-foreground text-sm">{t('capacity')}: {featuredHall.capacity} {t('people')}</p>
+                             <p className="text-muted-foreground text-sm line-clamp-3 mt-2">{hall.description}</p>
+                        </CardContent>
+                        <CardFooter className="p-0 pt-6">
+                            <Button asChild className="w-full" size="lg">
+                                <Link href={`/halls`}>{t('bookNow')}</Link>
+                            </Button>
+                        </CardFooter>
+                    </div>
+                </div>
+            </Card>
+          ) : null}
         </div>
       </section>
 
