@@ -170,7 +170,7 @@ export default function HomePage() {
           ) : featuredDormitory ? (
              <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
-                    <div className="relative h-64 md:h-96 w-full">
+                    <div className="relative h-64 md:h-80 w-full">
                         <Image
                             src={featuredDormitory.images?.[0] || `https://placehold.co/600x400.png`}
                             alt={featuredDormitory.roomNumber}
@@ -210,7 +210,7 @@ export default function HomePage() {
           ) : featuredHall ? (
              <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
-                    <div className="relative h-64 md:h-96 w-full">
+                    <div className="relative h-64 md:h-80 w-full">
                         <Image
                             src={featuredHall.images?.[0] || `https://placehold.co/600x400.png`}
                             alt={featuredHall.name}
