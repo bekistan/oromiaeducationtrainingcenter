@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
   
-  // --- Airtable Configuration (Moved inside handler) ---
+  // --- Airtable Configuration (Moved inside handler for robustness) ---
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
@@ -143,12 +143,13 @@ export async function POST(req: NextRequest) {
 
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     
-    // 2. Create Airtable record with the Cloudinary URL and specific phone number(s)
+    // 2. Create Airtable record with the Cloudinary URL and corrected field names
     const airtableRecordFields = {
       "Booking ID": bookingId,             
-      "paymentScreenshot": [{ url: cloudinaryUrl }], 
+      "Screenshots": [{ url: cloudinaryUrl }], // Corrected field name
       "Original Filename": file.name,
       "Recipient Phones": recipientPhoneNumbers.join(','),
+      "Date": new Date().toISOString(), // Added Date field
     };
 
     const createdRecords = await base(airtableTableName).create([
