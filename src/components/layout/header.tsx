@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -69,8 +70,10 @@ export function Header() {
   const userMenu = user && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <UserCircle className="h-8 w-8" />
+        <Button variant="outline" className="flex items-center gap-1.5 px-3">
+          <UserCircle className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium truncate max-w-[100px]">{user.name || user.companyName}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -86,7 +89,13 @@ export function Header() {
             <Link href={dashboardPath}><LayoutDashboard className="mr-2 h-4 w-4" /><span>{t('dashboard')}</span></Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10">
+        {(user.role === 'admin' || user.role === 'superadmin') && (
+            <DropdownMenuItem asChild>
+                <Link href="/admin/profile"><UserCircle className="mr-2 h-4 w-4" /><span>{t('userProfile')}</span></Link>
+            </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
           <LogOutIcon className="mr-2 h-4 w-4" />
           <span>{t('logout')}</span>
         </DropdownMenuItem>

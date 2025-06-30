@@ -15,13 +15,22 @@ import {
 import { KeyholderSidebarNav } from "@/components/layout/keyholder-sidebar-nav"; 
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, UserCircle, Loader2, ShieldAlert } from "lucide-react";
+import { LogOut, UserCircle, Loader2, ShieldAlert, LayoutDashboard, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LanguageSwitcher } from '@/components/layout/language-switcher';
 
 interface KeyholderLayoutProps {
   children: ReactNode;
@@ -32,10 +41,8 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   const handleLogout = useCallback(async () => {
-    setIsLoggingOut(true);
     try {
       await logout();
       toast({ title: t('logoutSuccessfulTitle'), description: t('logoutSuccessfulMessage') });
@@ -43,7 +50,6 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
     } catch (error) {
       console.error("Logout failed:", error);
       toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') });
-      setIsLoggingOut(false);
     }
   }, [logout, router, t, toast]);
 
@@ -62,8 +68,34 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
     );
   }
 
-  const displayName = user?.name || user?.email || t('keyholderUser');
-  const displayEmail = user?.email || t('notAvailable');
+  const userMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="flex items-center gap-1.5 px-3">
+          <UserCircle className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium truncate max-w-[100px]">{user.name}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/keyholder/dashboard"><LayoutDashboard className="mr-2 h-4 w-4" /><span>{t('dashboard')}</span></Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>{t('logout')}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <SidebarProvider defaultOpen>
@@ -81,24 +113,10 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
           <SidebarContent>
             <KeyholderSidebarNav />
           </SidebarContent>
-          <SidebarFooter className="p-4 border-t border-sidebar-border">
-            <div className="flex flex-col items-start group-data-[collapsible=icon]:items-center gap-2">
-               <div className="w-full">
-                <Button variant="ghost" className="w-full justify-start group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-                  <UserCircle className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0" />
-                  <span className="group-data-[collapsible=icon]:hidden truncate max-w-[120px]">{authLoading ? t('loading') : displayName}</span>
-                </Button>
-              </div>
-              <Button 
-                variant="ghost" 
-                onClick={handleLogout} 
-                disabled={isLoggingOut || authLoading}
-                className="w-full text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-              >
-                {isLoggingOut ? <Loader2 className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0 animate-spin" /> : <LogOut className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0" />}
-                <span className="group-data-[collapsible=icon]:hidden">{t('logout')}</span>
-              </Button>
-            </div>
+           <SidebarFooter className="p-4 border-t border-sidebar-border">
+            <p className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                © {new Date().getFullYear()} {t('allRightsReserved')}
+            </p>
           </SidebarFooter>
         </Sidebar>
         
@@ -107,8 +125,9 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
             <div className="md:hidden">
               <SidebarTrigger />
             </div>
-            <div className="hidden md:flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">{authLoading ? t('loading') : displayEmail}</span>
+             <div className="flex items-center gap-4">
+                <LanguageSwitcher />
+                {userMenu}
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 min-w-0">

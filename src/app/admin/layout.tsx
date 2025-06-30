@@ -15,7 +15,7 @@ import {
 import { AdminSidebarNav } from "@/components/layout/admin-sidebar-nav";
 import { Logo } from "@/components/shared/logo";
 import { Button } from "@/components/ui/button";
-import { LogOut, UserCircle, Loader2, ShieldAlert } from "lucide-react";
+import { LogOut, UserCircle, Loader2, ShieldAlert, LayoutDashboard, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
@@ -25,6 +25,15 @@ import { cn } from '@/lib/utils';
 import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ToastAction } from "@/components/ui/toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LanguageSwitcher } from '@/components/layout/language-switcher';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -36,13 +45,11 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const mountTime = useRef(new Date());
 
   useEffect(() => {
     if (authLoading) return;
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) {
-      // Redirect non-admins trying to access this layout
       router.push('/auth/login?redirect=/admin/dashboard');
     }
   }, [user, authLoading, router]);
@@ -81,7 +88,6 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   }, [user, t, toast]);
 
   const handleLogout = useCallback(async () => {
-    setIsLoggingOut(true);
     try {
       await logout();
       toast({ title: t('logoutSuccessfulTitle'), description: t('logoutSuccessfulMessage') });
@@ -89,7 +95,6 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     } catch (error) {
       console.error("Logout failed:", error);
       toast({ variant: "destructive", title: t('logoutFailedTitle'), description: t('logoutFailedMessage') });
-      setIsLoggingOut(false);
     }
   }, [logout, router, t, toast]);
 
@@ -108,8 +113,37 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     );
   }
 
-  const displayName = user?.name || user?.email || t('adminUser');
-  const displayEmail = user?.email || t('notAvailable');
+  const userMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="flex items-center gap-1.5 px-3">
+          <UserCircle className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium truncate max-w-[100px]">{user.name}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/admin/dashboard"><LayoutDashboard className="mr-2 h-4 w-4" /><span>{t('dashboard')}</span></Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/admin/profile"><UserCircle className="mr-2 h-4 w-4" /><span>{t('userProfile')}</span></Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>{t('logout')}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <SidebarProvider defaultOpen>
@@ -128,23 +162,9 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
             <AdminSidebarNav />
           </SidebarContent>
           <SidebarFooter className="p-4 border-t border-sidebar-border">
-            <div className="flex flex-col items-start group-data-[collapsible=icon]:items-center gap-2">
-               <Link href="/admin/profile" className="w-full">
-                <Button variant="ghost" className="w-full justify-start group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2">
-                  <UserCircle className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0" />
-                  <span className="group-data-[collapsible=icon]:hidden truncate max-w-[120px]">{authLoading ? t('loading') : displayName}</span>
-                </Button>
-              </Link>
-              <Button 
-                variant="ghost" 
-                onClick={handleLogout} 
-                disabled={isLoggingOut || authLoading}
-                className="w-full text-destructive hover:text-destructive-foreground hover:bg-destructive justify-start group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-              >
-                {isLoggingOut ? <Loader2 className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0 animate-spin" /> : <LogOut className="h-5 w-5 mr-2 group-data-[collapsible=icon]:mr-0" />}
-                <span className="group-data-[collapsible=icon]:hidden">{t('logout')}</span>
-              </Button>
-            </div>
+            <p className="text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+                © {new Date().getFullYear()} {t('allRightsReserved')}
+            </p>
           </SidebarFooter>
         </Sidebar>
         
@@ -153,8 +173,9 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
             <div className="md:hidden">
               <SidebarTrigger />
             </div>
-            <div className="hidden md:flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">{authLoading ? t('loading') : displayEmail}</span>
+            <div className="flex items-center gap-4">
+                <LanguageSwitcher />
+                {userMenu}
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 min-w-0">
