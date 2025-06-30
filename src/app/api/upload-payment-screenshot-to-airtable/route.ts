@@ -38,35 +38,26 @@ if (cloudName && cloudinaryApiKeyEnv && cloudinaryApiSecretEnv) {
   console.error(`Critical: ${cloudinaryConfigError}`);
 }
 
-// --- Airtable Configuration ---
-const airtableApiKey = process.env.AIRTABLE_API_KEY;
-const airtableBaseId = process.env.AIRTABLE_BASE_ID;
-const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
-
-// Configure Airtable globally with the Personal Access Token.
-// This is the correct modern approach.
-if (airtableApiKey) {
-    Airtable.configure({
-        apiKey: airtableApiKey,
-    });
-}
-
-
 export async function POST(req: NextRequest) {
   if (!isCloudinaryConfigured) {
     const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured for screenshot uploads.';
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
+  
+  // --- Airtable Configuration (Read fresh on every request) ---
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
-  // Re-check config inside the handler
   if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
     const serverConfigErrorMessage = "Airtable environment variables (AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME) are not fully set.";
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Database (Airtable) not configured for screenshots. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
 
-  const base = new Airtable().base(airtableBaseId);
+  // **FIX:** Instantiate Airtable with the API key on every request for reliability.
+  const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
 
   try {
     const formData = await req.formData();
@@ -151,12 +142,13 @@ export async function POST(req: NextRequest) {
 
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     
-    // 2. Create Airtable record with the Cloudinary URL and specific phone number(s)
+    // **FIX:** Ensure all specified column names are used.
     const airtableRecordFields = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }], 
+      "Screenshot": [{ url: cloudinaryUrl }],
       "Original Filename": file.name,
-      "Recipient Phones": recipientPhoneNumbers.join(','), // Use the new list of phone numbers
+      "Recipient Phones": recipientPhoneNumbers.join(','),
+      "Date": new Date().toISOString(),
     };
 
     const createdRecords = await base(airtableTableName).create([
