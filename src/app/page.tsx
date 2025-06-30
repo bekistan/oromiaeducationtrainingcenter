@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -7,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2 } from "lucide-react";
+import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2, Utensils } from "lucide-react";
 import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
-import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall } from '@/types';
+import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem } from '@/types';
 import { db } from '@/lib/firebase';
 import {
   Accordion,
@@ -20,6 +19,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { LucideIcon } from "lucide-react";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
@@ -83,9 +84,17 @@ export default function HomePage() {
       descriptionKey: "powerfulManagement",
     },
   ];
+  
+  const serviceIcons: Record<string, LucideIcon> = {
+    dormitories: BedDouble,
+    halls: Presentation,
+    catering: Utensils,
+  };
 
   const welcomeMessage = siteContent?.welcomeMessage?.[locale as Locale] || t('homePageWelcomeMessage');
   const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
+  const servicesSectionTitle = siteContent?.servicesSectionTitle?.[locale as Locale] || t('ourServices');
+  const services: ServiceItem[] = siteContent?.services || [];
   const faqs: FAQItem[] = siteContent?.faqs || [];
   
   const featuredDormitory = featuredItems?.dormitories?.[0];
@@ -198,8 +207,65 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Our Services Section */}
       <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-primary">{servicesSectionTitle}</h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="relative aspect-[4/3] rounded-lg overflow-hidden shadow-lg">
+              <Image
+                src="https://placehold.co/800x600.png"
+                alt={t('ourServices')}
+                fill
+                className="object-cover"
+                data-ai-hint="resort swimming pool"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            </div>
+            <div className="space-y-8">
+              {isLoadingContent ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-start gap-6">
+                    <Skeleton className="h-16 w-16 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-5 w-1/3" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                services.map((service) => {
+                  const Icon = serviceIcons[service.id] || Settings;
+                  return (
+                    <div key={service.id} className="flex items-start gap-6">
+                      <div className="flex-shrink-0">
+                        <div className="p-3 bg-primary/10 rounded-full">
+                          <Icon className="h-7 w-7 text-primary" />
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-bold text-foreground">
+                          {service.title[locale as Locale] || service.title['en']}
+                        </h4>
+                        <p className="mt-1 text-muted-foreground">
+                          {service.description[locale as Locale] || service.description['en']}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-12">{t('features')}</h2>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -221,7 +287,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
