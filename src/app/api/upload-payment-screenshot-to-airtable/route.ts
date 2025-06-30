@@ -1,6 +1,5 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -11,7 +10,6 @@ export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-screenshot] START ---');
 
   // --- Cloudinary Configuration (on-demand) ---
-  console.log('[API] Configuring Cloudinary...');
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
@@ -28,14 +26,12 @@ export async function POST(req: NextRequest) {
       api_secret: cloudinaryApiSecretEnv,
       secure: true,
     });
-    console.log('[API] Cloudinary configured successfully.');
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
   
   // --- Airtable Configuration (on-demand) ---
-  console.log('[API] Configuring Airtable...');
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
@@ -45,9 +41,6 @@ export async function POST(req: NextRequest) {
     console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg, details: "Check AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME." }, { status: 500 });
   }
-  const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
-  console.log('[API] Airtable configured successfully.');
-
 
   try {
     const formData = await req.formData();
@@ -97,16 +90,17 @@ export async function POST(req: NextRequest) {
         }).end(buffer);
     }).catch(uploadError => ({ error: uploadError }));
 
-    if (cloudinaryUploadResult.error || !cloudinaryUploadResult.secure_url) {
-      const details = cloudinaryUploadResult.error?.message || 'Cloudinary upload failed or did not return a URL.';
+    if ('error' in cloudinaryUploadResult || !cloudinaryUploadResult.secure_url) {
+      const details = (cloudinaryUploadResult as { error: any })?.error?.message || 'Cloudinary upload failed or did not return a URL.';
       console.error('[API] FAILED: Cloudinary upload failed. Details:', details);
       return NextResponse.json({ error: 'Failed to upload screenshot to image server.', details }, { status: 500 });
     }
+    
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
-    // 2. Create Airtable record
-    console.log('[API] Creating Airtable record...');
+    // 2. Create Airtable record using fetch
+    console.log('[API] Creating Airtable record via fetch...');
     const airtableRecordFields = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }],
@@ -115,14 +109,31 @@ export async function POST(req: NextRequest) {
       "Date": new Date().toISOString(),
     };
 
-    const createdRecords = await base(airtableTableName).create([{ fields: airtableRecordFields }]);
-    
-    if (!createdRecords || createdRecords.length === 0) {
-        console.error('[API] FAILED: Airtable record creation did not return any records.');
-        return NextResponse.json({ error: 'Failed to save screenshot info to Airtable after image upload.' }, { status: 500 });
+    const airtableResponse = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${airtableTableName}`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${airtableApiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            records: [{ fields: airtableRecordFields }]
+        })
+    });
+
+    const airtableResponseData = await airtableResponse.json();
+
+    if (!airtableResponse.ok) {
+        console.error('[API] FAILED: Airtable API returned an error.', airtableResponseData);
+        const errorMessage = airtableResponseData?.error?.message || 'Failed to create record in Airtable.';
+        return NextResponse.json({ error: 'Failed to save screenshot info to Airtable after image upload.', details: errorMessage }, { status: 500 });
     }
-    const airtableRecordId = createdRecords[0].id;
-    console.log('[API] Airtable record created successfully. Record ID:', airtableRecordId);
+
+    const airtableRecordId = airtableResponseData.records?.[0]?.id;
+    if (!airtableRecordId) {
+        console.error('[API] FAILED: Airtable response was successful but did not return a record ID.', airtableResponseData);
+        return NextResponse.json({ error: 'Airtable response was successful but did not return a record ID.' }, { status: 500 });
+    }
+    console.log('[API] Airtable record created successfully via fetch. Record ID:', airtableRecordId);
     
     // 3. Update Firestore booking document
     console.log('[API] Updating Firestore document...');
@@ -146,10 +157,6 @@ export async function POST(req: NextRequest) {
     let errorMessage = 'Failed to process screenshot upload on server.';
     if (error.message) {
         errorMessage = error.message;
-    } else if (error.error && typeof error.error === 'object' && error.error.message) {
-        errorMessage = `Airtable Error: ${error.error.message}`;
-    } else if (typeof error.error === 'string') {
-        errorMessage = `Airtable Error: ${error.error}`;
     }
     
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
