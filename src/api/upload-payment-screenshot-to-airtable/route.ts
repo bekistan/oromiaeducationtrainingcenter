@@ -38,34 +38,26 @@ if (cloudName && cloudinaryApiKeyEnv && cloudinaryApiSecretEnv) {
   console.error(`Critical: ${cloudinaryConfigError}`);
 }
 
-// --- Airtable Configuration ---
-const airtableApiKey = process.env.AIRTABLE_API_KEY;
-const airtableBaseId = process.env.AIRTABLE_BASE_ID;
-const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
-
-// Configure Airtable globally with the Personal Access Token.
-// This is the correct modern approach.
-if (airtableApiKey) {
-    Airtable.configure({
-        apiKey: airtableApiKey,
-    });
-}
-
-
 export async function POST(req: NextRequest) {
   if (!isCloudinaryConfigured) {
     const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured for screenshot uploads.';
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Image server (Cloudinary) not configured. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
+  
+  // --- Airtable Configuration (Moved inside handler) ---
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
-  // Re-check config inside the handler
   if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
     const serverConfigErrorMessage = "Airtable environment variables (AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME) are not fully set.";
     console.error(`API Call to /api/upload-payment-screenshot-to-airtable: ${serverConfigErrorMessage}`);
     return NextResponse.json({ error: 'Database (Airtable) not configured for screenshots. Please check server logs and environment variables.', details: serverConfigErrorMessage }, { status: 500 });
   }
 
+  // Configure Airtable on every request using the PAT. This is the robust way.
+  Airtable.configure({ apiKey: airtableApiKey });
   const base = new Airtable().base(airtableBaseId);
 
   try {
