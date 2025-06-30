@@ -49,115 +49,11 @@ function BookingConfirmationContent() {
   const category = searchParams.get('category');
   const telegramBotUsername = "oromiaeducationtrainingcenterbot";
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const { data: bankDetails, isLoading: isLoadingBankDetails, error: bankDetailsError } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
     queryFn: fetchBankDetailsPublic,
     enabled: !!(status === 'booking_pending_approval' && category === 'dormitory'),
   });
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
-      const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
-
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          variant: "destructive",
-          title: t('error'),
-          description: t('invalidFileTypeForScreenshot'),
-        });
-        setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-
-      if (file.size > maxSize) {
-        toast({
-          variant: "destructive",
-          title: t('error'),
-          description: t('fileTooLargeForScreenshot', { maxSize: '5MB' }),
-        });
-        setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        return;
-      }
-      setSelectedFile(file);
-    } else {
-      setSelectedFile(null);
-    }
-  };
-
-  const handleUploadPaymentScreenshot = async () => {
-    if (!selectedFile) {
-      toast({
-        variant: "destructive",
-        title: t('error'),
-        description: t('pleaseSelectFileToUpload'),
-      });
-      return;
-    }
-    if (!bookingId) {
-        toast({ variant: "destructive", title: t('error'), description: t('bookingIdMissingForUpload') });
-        return;
-    }
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('bookingId', bookingId);
-
-    try {
-      const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        let errorDetailMessage;
-        if (contentType && contentType.includes("application/json")) {
-          try {
-            const errorData = await response.json();
-            errorDetailMessage = errorData.error || errorData.details || t('uploadApiJsonErrorNoDetails', { status: response.status });
-          } catch (jsonError) {
-            console.error("Failed to parse JSON error response:", jsonError);
-            errorDetailMessage = t('uploadApiJsonErrorNoDetails', { status: response.status });
-          }
-        } else {
-          const textResponse = await response.text();
-          console.error("Raw non-JSON error response from server for /api/upload-payment-screenshot-to-airtable:", textResponse);
-          if (textResponse.toLowerCase().includes("<!doctype html>")) {
-             errorDetailMessage = t('apiReturnedHtmlError');
-          } else {
-             errorDetailMessage = t('uploadApiNonJsonError', { statusText: response.statusText || `Status ${response.status}` });
-          }
-        }
-        throw new Error(errorDetailMessage);
-      }
-
-      const result = await response.json(); // Assuming success means JSON response with details
-      toast({ title: t('success'), description: t('paymentScreenshotUploadedSuccessfullyAirtable') });
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      router.push(`/booking-confirmation?status=telegram_pending&bookingId=${bookingId}&itemName=${itemName}&category=${category}`);
-    } catch (uploadError: any) {
-      toast({
-        variant: "destructive",
-        title: t('uploadFailedTitle'),
-        description: uploadError.message || t('failedToUploadScreenshotAirtable')
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
 
   if (!bookingId || !status || !itemName || !category) {
     return (
@@ -248,32 +144,14 @@ function BookingConfirmationContent() {
             <p className="text-sm text-foreground/80 font-bold"><strong>{t('amountToPayLabel')}:</strong> {amount} {t('currencySymbol')}</p>
             <p className="text-xs text-muted-foreground mt-2">Important: To ensure your payment is processed correctly, please include your Booking ID as the payment reference: <strong>{bookingId}</strong></p>
 
-            <div className="mt-4 space-y-3">
-                <h4 className="font-medium text-sm text-primary">Upload Payment Proof</h4>
-                <Input
-                    id="paymentScreenshot"
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="text-sm"
-                    accept="image/png, image/jpeg, image/jpg, application/pdf"
-                />
-                {selectedFile && (
-                    <div className="text-xs text-muted-foreground flex items-center">
-                        <FileIcon className="w-3 h-3 mr-1" />
-                        {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                    </div>
-                )}
-                <Button
-                    onClick={handleUploadPaymentScreenshot}
-                    disabled={isUploading || !selectedFile}
-                    className="w-full"
-                    variant="outline"
-                >
-                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                    {t('uploadPaymentScreenshotButton')}
-                </Button>
-                 <p className="text-xs text-muted-foreground">{t('fileUploadLimitNote', { maxSize: '5MB'})}</p>
+            <div className="mt-6 border-t pt-4 text-center">
+              <h4 className="font-medium text-sm text-primary mb-2">{t('afterPaymentSubmitProof')}</h4>
+              <p className="text-xs text-muted-foreground mb-3">{t('submitProofOnTelegramDesc', { bookingId: bookingId })}</p>
+              <Button asChild>
+                  <a href={`https://t.me/${telegramBotUsername}`} target="_blank" rel="noopener noreferrer">
+                      <Send className="mr-2 h-4 w-4" /> {t('openTelegram')}
+                  </a>
+              </Button>
             </div>
           </div>
         )}

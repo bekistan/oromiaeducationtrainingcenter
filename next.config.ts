@@ -31,12 +31,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'res.cloudinary.com', // Added for Cloudinary
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
         hostname: 'i.ibb.co', // Added for the new logo provider
         port: '',
         pathname: '/**',

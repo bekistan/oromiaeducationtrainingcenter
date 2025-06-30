@@ -27,10 +27,6 @@ export default function CompanyDashboardPage() {
   const router = useRouter();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
-  const [isUploadingAgreementId, setIsUploadingAgreementId] = useState<string | null>(null); 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [currentBookingIdForUpload, setCurrentBookingIdForUpload] = useState<string | null>(null);
-
 
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
@@ -97,78 +93,6 @@ export default function CompanyDashboardPage() {
       rowsPerPage: 10,
       searchKeys: ['id'], 
   });
-
-  const handleTriggerFileUpload = (bookingId: string) => {
-    setCurrentBookingIdForUpload(bookingId);
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelectedAndConfirm = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && currentBookingIdForUpload && user?.companyId) {
-      const bookingId = currentBookingIdForUpload;
-      setIsUploadingAgreementId(bookingId);
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('bookingId', bookingId);
-      formData.append('companyId', user.companyId);
-
-      try {
-        const response = await fetch('/api/upload-agreement', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) {
-            let serverErrorDetails = t('uploadServerError'); 
-            try {
-                const errorResult = await response.json();
-                serverErrorDetails = errorResult.error || errorResult.details || serverErrorDetails;
-            } catch (jsonError) {
-                serverErrorDetails = response.statusText || serverErrorDetails;
-                console.warn("Could not parse error JSON from API, using status text:", response.statusText);
-            }
-            throw new Error(serverErrorDetails);
-        }
-        
-        const result = await response.json();
-        const cloudinaryUrl = result.url;
-
-        const bookingRef = doc(db, "bookings", bookingId);
-        await updateDoc(bookingRef, {
-          agreementStatus: 'signed_by_client',
-          agreementSignedAt: Timestamp.now(),
-          signedAgreementUrl: cloudinaryUrl,
-        });
-        toast({ title: t('uploadSuccessfulTitle'), description: t('agreementUploadedSuccessfully') });
-        if (user?.companyId) fetchBookings(user.companyId); 
-      } catch (error: any) {
-        console.error("Error uploading signed agreement:", error);
-        let errorMessage = t('errorUploadingAgreementActual'); 
-
-        if (error.message && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) {
-            errorMessage = t('uploadApiConnectionError');
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-        
-        toast({ variant: "destructive", title: t('uploadFailedTitle'), description: errorMessage });
-      } finally {
-        setIsUploadingAgreementId(null);
-        setCurrentBookingIdForUpload(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ""; 
-        }
-      }
-    } else {
-        setCurrentBookingIdForUpload(null);
-        if (fileInputRef.current) { 
-          fileInputRef.current.value = "";
-        }
-    }
-  };
-
 
   if (authLoading) {
     return (
@@ -292,13 +216,6 @@ export default function CompanyDashboardPage() {
   return (
     <PublicLayout>
       <div className="container mx-auto py-8 px-4 space-y-8">
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          onChange={handleFileSelectedAndConfirm} 
-          accept=".pdf,.doc,.docx,.jpg,.png" 
-        />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <h1 className="text-3xl font-bold text-primary">{t('companyDashboardTitle')}</h1>
@@ -389,16 +306,7 @@ export default function CompanyDashboardPage() {
                                     <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
                                 </Button>
                               </Link>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleTriggerFileUpload(booking.id)}
-                                disabled={isUploadingAgreementId === booking.id}
-                                className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700"
-                              >
-                                {isUploadingAgreementId === booking.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" /> }
-                                {t('uploadAndConfirmSignedAgreement')} 
-                              </Button>
+                              <div className="text-xs text-muted-foreground italic p-2">{t('uploadDisabledContactAdmin')}</div>
                             </>
                           )}
                            {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (

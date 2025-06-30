@@ -1,122 +1,13 @@
 
 import { NextResponse } from 'next/server';
-import { v2 as cloudinary } from 'cloudinary';
 import type { NextRequest } from 'next/server';
 
-let isCloudinaryConfigured = false;
-let cloudinaryConfigError: string | null = null;
-
-// Attempt to configure Cloudinary at the module level
-const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-const apiKey = process.env.CLOUDINARY_API_KEY;
-const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-if (cloudName && apiKey && apiSecret) {
-  try {
-    cloudinary.config({
-      cloud_name: cloudName,
-      api_key: apiKey,
-      api_secret: apiSecret,
-      secure: true,
-    });
-    if (cloudinary.config().api_key && cloudinary.config().api_secret && cloudinary.config().cloud_name) {
-        isCloudinaryConfigured = true;
-        console.log("Cloudinary SDK configured successfully at module level. Cloud Name:", cloudinary.config().cloud_name);
-    } else {
-        cloudinaryConfigError = "Cloudinary config object incomplete after setting. Check variable integrity. Ensure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are correct and the server was restarted.";
-        console.error(`Critical: ${cloudinaryConfigError}`);
-    }
-  } catch (error: any) {
-    cloudinaryConfigError = `Error during Cloudinary SDK configuration: ${error.message || JSON.stringify(error)}`;
-    console.error(`Critical: ${cloudinaryConfigError}`);
-  }
-} else {
-  cloudinaryConfigError = "Cloudinary environment variables (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) are not fully set. Upload API will not function.";
-  console.error(`Critical: ${cloudinaryConfigError}`);
-}
-
-
 export async function POST(request: NextRequest) {
-  if (!isCloudinaryConfigured) {
-    const serverConfigErrorMessage = cloudinaryConfigError || 'Cloudinary is not configured due to missing or invalid environment variables.';
-    console.error(`API Call to /api/upload-agreement: ${serverConfigErrorMessage}`);
-    return NextResponse.json({ error: 'Cloudinary not configured on server. Please check server logs and environment variable setup. Ensure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET are correct in .env.local and the server was restarted.', details: serverConfigErrorMessage }, { status: 500 });
-  }
-
-  try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const bookingId = formData.get('bookingId') as string | null;
-    const companyId = formData.get('companyId') as string | null;
-
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
-    }
-    if (!bookingId || !companyId) { 
-        return NextResponse.json({ error: 'Missing bookingId or companyId for context.' }, { status: 400 });
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const uploadResult = await new Promise<{ secure_url?: string; public_id?: string; error?: any; full_result?: any }>((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          folder: 'signed_agreements', 
-          resource_type: 'raw', // Use 'raw' for non-image files like PDFs
-          access_mode: 'public', 
-        },
-        (error, result) => {
-          if (error) {
-            console.error('Cloudinary upload_stream error object:', JSON.stringify(error, null, 2));
-            if (error.http_code === 401 || (error.message && error.message.toLowerCase().includes('authentication failed'))) {
-                console.error('Cloudinary returned an authentication error (401). This usually means your API Key, API Secret, or Cloud Name is incorrect. Please double-check these values in your .env.local file and ensure the server was restarted after any changes.');
-            }
-            reject({ error }); // Pass the error object as { error: actualError }
-          } else {
-            console.log('Cloudinary upload_stream successful result object:', JSON.stringify(result, null, 2));
-            resolve({ secure_url: result?.secure_url, public_id: result?.public_id, full_result: result });
-          }
-        }
-      ).end(buffer);
-    });
-
-    if (uploadResult.error || !uploadResult.secure_url) {
-      console.error('Failed to upload to Cloudinary or secure_url missing. Full uploadResult:', JSON.stringify(uploadResult, null, 2));
-      let detailMessage = 'Unknown Cloudinary upload error';
-      
-      // Correctly access the nested error object from the promise rejection
-      const nestedError = uploadResult.error?.error; 
-
-      if (nestedError) {
-        detailMessage = typeof nestedError === 'string' 
-            ? nestedError 
-            : (nestedError.message || JSON.stringify(nestedError));
-        if (nestedError.http_code === 401) {
-            detailMessage = 'Cloudinary authentication failed (401). Check credentials in .env.local and restart server. Original error: ' + detailMessage;
-        }
-      } else if (!uploadResult.secure_url) {
-        detailMessage = 'Upload succeeded but no secure_url was returned by Cloudinary.';
-      }
-
-      return NextResponse.json({ error: 'Failed to upload file to Cloudinary.', details: detailMessage }, { status: 500 });
-    }
-
-    return NextResponse.json({ url: uploadResult.secure_url, publicId: uploadResult.public_id });
-
-  } catch (error: any) {
-    const errorDetails = (typeof error === 'object' && error !== null) ? JSON.stringify(error, Object.getOwnPropertyNames(error)) : String(error);
-    console.error('Full error object in /api/upload-agreement POST handler:', errorDetails);
-    
-    let detailMessage = 'Unknown server error during upload process.';
-    if (error.error && typeof error.error === 'object' && error.error !== null && error.error.message) {
-      detailMessage = error.error.message;
-    } else if (error.message) {
-      detailMessage = error.message;
-    } else if (typeof error.error === 'string') {
-      detailMessage = error.error;
-    }
-    
-    return NextResponse.json({ error: 'Internal server error during file upload.', details: detailMessage }, { status: 500 });
-  }
+  return NextResponse.json(
+    {
+      error: 'File upload service is not configured or has been disabled.',
+      details: 'The Cloudinary service was removed from this application.',
+    },
+    { status: 501 } // 501 Not Implemented
+  );
 }
