@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -86,7 +85,7 @@ export function Header() {
 
   const authButtons = !user && (
     <>
-      <Button asChild variant="ghost" size="sm"><Link href="/auth/login">{t('login')}</Link></Button>
+      <Button asChild variant="outline" size="sm"><Link href="/auth/login">{t('login')}</Link></Button>
       <Button asChild size="sm"><Link href="/auth/register-company">{t('register')}</Link></Button>
     </>
   );
