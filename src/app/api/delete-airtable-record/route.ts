@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import Airtable from 'airtable';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -19,32 +20,24 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Airtable configuration is missing on the server.' }, { status: 500 });
     }
     
-    const airtableApiUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?records[]=${recordId}`;
-    
-    const response = await fetch(airtableApiUrl, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
+    // Configure Airtable on every request
+    Airtable.configure({ apiKey: apiKey });
+    const base = new Airtable().base(baseId);
 
-    if (response.ok) {
-      const responseData = await response.json();
-      const deletedRecordId = responseData.records?.[0]?.id;
-      if (deletedRecordId === recordId) {
-        return NextResponse.json({ message: `Record ${recordId} deleted successfully.` }, { status: 200 });
-      } else {
-        return NextResponse.json({ error: `Failed to confirm deletion of record ${recordId}, or record not found.` }, { status: 404 });
-      }
+    const deletedRecords = await base(tableName).destroy([recordId]);
+
+    if (deletedRecords && deletedRecords.length > 0 && deletedRecords[0].id === recordId) {
+       return NextResponse.json({ message: `Record ${recordId} deleted successfully.` }, { status: 200 });
     } else {
-        const errorData = await response.json();
-        const errorMessage = errorData?.error?.message || `Airtable API returned status ${response.status}`;
-        console.error('Error deleting record from Airtable:', errorMessage, errorData);
-        return NextResponse.json({ error: errorMessage, details: errorData }, { status: response.status });
+       return NextResponse.json({ error: `Failed to confirm deletion of record ${recordId}, or record not found.` }, { status: 404 });
     }
 
   } catch (error: any) {
     console.error('Error processing DELETE request:', error);
-    return NextResponse.json({ error: 'Failed to process delete request.', details: error.toString() }, { status: 500 });
+    let errorMessage = 'Failed to process delete request.';
+    if (error.message) {
+        errorMessage = error.message;
+    }
+    return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
 }
