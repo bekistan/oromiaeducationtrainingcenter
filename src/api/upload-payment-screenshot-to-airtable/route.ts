@@ -146,9 +146,9 @@ export async function POST(req: NextRequest) {
     // 2. Create Airtable record with the Cloudinary URL and specific phone number(s)
     const airtableRecordFields = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }], 
+      "paymentScreenshot": [{ url: cloudinaryUrl }], 
       "Original Filename": file.name,
-      "Recipient Phones": recipientPhoneNumbers.join(','), // Use the new list of phone numbers
+      "Recipient Phones": recipientPhoneNumbers.join(','),
     };
 
     const createdRecords = await base(airtableTableName).create([

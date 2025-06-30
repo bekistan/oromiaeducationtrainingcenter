@@ -48,7 +48,6 @@ function BookingConfirmationContent() {
   const itemName = searchParams.get('itemName');
   const amount = searchParams.get('amount');
   const category = searchParams.get('category');
-  const telegramBotUsername = "oromiaeducationtrainingcenterbot";
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -222,12 +221,6 @@ function BookingConfirmationContent() {
                         {t('submitForVerification')}
                     </Button>
                </div>
-               <div className="text-center my-2 text-xs text-muted-foreground">{t('or')}</div>
-               <Button asChild variant="secondary" className="w-full">
-                  <a href={`https://t.me/${telegramBotUsername}?text=${encodeURIComponent(t('telegramPrewrittenMessage', { bookingId: bookingId }))}`} target="_blank" rel="noopener noreferrer">
-                      <Send className="mr-2 h-4 w-4" /> {t('submitViaTelegram')}
-                  </a>
-              </Button>
             </div>
           </div>
         )}
