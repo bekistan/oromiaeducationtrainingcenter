@@ -4,15 +4,22 @@
 import Image from "next/image";
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
 import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2, Utensils } from "lucide-react";
-import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
+import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, DEFAULT_PRICING_SETTINGS, PRICING_SETTINGS_DOC_PATH } from "@/constants";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
-import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem } from '@/types';
+import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem, PricingSettings } from '@/types';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   Accordion,
@@ -26,6 +33,7 @@ import { cn } from "@/lib/utils";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
+const PRICING_SETTINGS_QUERY_KEY_PUBLIC = "pricingSettingsPublic";
 
 // Helper function for deep merging objects, useful for combining DB data with defaults
 const mergeDeep = (target: any, source: any): any => {
@@ -62,8 +70,8 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
     if (!isFirebaseConfigured) return { dormitories: [], halls: [] };
-    const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(1));
-    const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(1));
+    const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(3));
+    const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(3));
     
     const [dormsSnapshot, hallsSnapshot] = await Promise.all([
       getDocs(dormsQuery),
@@ -74,6 +82,16 @@ const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: 
     const halls = hallsSnapshot.docs.map(h => ({ id: h.id, ...h.data() } as Hall));
 
     return { dormitories, halls };
+};
+
+const fetchPricingSettingsPublic = async (): Promise<PricingSettings> => {
+  if (!isFirebaseConfigured) return DEFAULT_PRICING_SETTINGS;
+  const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { ...DEFAULT_PRICING_SETTINGS, ...docSnap.data() } as PricingSettings;
+  }
+  return DEFAULT_PRICING_SETTINGS;
 };
 
 
@@ -91,6 +109,12 @@ export default function HomePage() {
     queryKey: [FEATURED_ITEMS_QUERY_KEY],
     queryFn: fetchFeaturedItems,
     staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: pricingSettings, isLoading: isLoadingPricing } = useQuery<PricingSettings, Error>({
+    queryKey: [PRICING_SETTINGS_QUERY_KEY_PUBLIC],
+    queryFn: fetchPricingSettingsPublic,
+    staleTime: 1000 * 60 * 10,
   });
 
   const features = [
@@ -128,8 +152,8 @@ export default function HomePage() {
   const featuredHallsTitle = siteContent?.featuredHallsTitle?.[locale as Locale] || t('featuredHallsAndSections');
   const featuredHallsSubtitle = siteContent?.featuredHallsSubtitle?.[locale as Locale] || t('featuredHallsAndSectionsSubtitle');
   
-  const featuredDormitory = featuredItems?.dormitories?.[0];
-  const featuredHall = featuredItems?.halls?.[0];
+  const featuredDormitories = featuredItems?.dormitories || [];
+  const featuredHalls = featuredItems?.halls || [];
 
   const currentServiceImage = siteContent?.services.find(s => s.id === activeService)?.image || "https://placehold.co/800x600/b8c6db/333333?text=Service";
 
@@ -161,83 +185,104 @@ export default function HomePage() {
       </section>
 
       {/* Featured Dormitories Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-gray-900 text-gray-200">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredDormitoriesTitle}</h2>
-          <p className="text-muted-foreground text-center mb-12">{featuredDormitoriesSubtitle}</p>
-          {isLoadingFeaturedItems ? (
-             <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
-          ) : featuredDormitory ? (
-             <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
-                    <div className="relative h-64 md:h-80 w-full">
-                        <Image
-                            src={featuredDormitory.images?.[0] || `https://placehold.co/600x400.png`}
-                            alt={featuredDormitory.roomNumber}
-                            fill
-                            className="object-cover"
-                            data-ai-hint={featuredDormitory.dataAiHint || "dormitory room"}
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                        />
+          <h2 className="text-3xl font-bold text-center text-accent mb-2">{featuredDormitoriesTitle}</h2>
+          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+          </svg>
+          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{featuredDormitoriesSubtitle}</p>
+          
+          {isLoadingFeaturedItems || isLoadingPricing ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full bg-gray-700" />)}
+            </div>
+          ) : featuredDormitories.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredDormitories.map((dorm) => (
+                <Card key={dorm.id} className="bg-gray-800 border-gray-700 overflow-hidden flex flex-col group text-white">
+                  <div className="relative overflow-hidden">
+                    <Image
+                      src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
+                      alt={dorm.roomNumber}
+                      width={600}
+                      height={400}
+                      className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
+                      data-ai-hint={dorm.dataAiHint || "hotel room"}
+                    />
+                    <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
+                      {(dorm.pricePerDay ?? pricingSettings?.defaultDormitoryPricePerDay ?? 0).toLocaleString()} {t('currencySymbol')} / {t('night')}
                     </div>
-                    <div className="flex flex-col p-8 justify-center">
-                        <CardHeader className="p-0">
-                            <CardTitle className="text-2xl">{t('roomNumber')} {featuredDormitory.roomNumber}</CardTitle>
-                            <CardDescription>{t('floor')} {featuredDormitory.floor}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0 pt-4 flex-grow">
-                            <p className="text-muted-foreground">{t('capacity')}: {featuredDormitory.capacity} {t('beds')}</p>
-                        </CardContent>
-                        <CardFooter className="p-0 pt-6">
-                            <Button asChild className="w-full" size="lg">
-                                <Link href={`/dormitories`}>{t('bookNow')}</Link>
-                            </Button>
-                        </CardFooter>
-                    </div>
-                </div>
-            </Card>
-          ) : null}
+                  </div>
+                  <div className="p-4 mt-auto bg-gray-900/50 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">{t('roomNumber')} {dorm.roomNumber}</h3>
+                    <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+                      <Link href="/dormitories">{t('viewDetails')}</Link>
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+             <div className="text-center py-8 text-gray-400">{t('noFeaturedDormitories')}</div>
+          )}
+
+          <div className="text-center mt-12">
+            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+              <Link href="/dormitories">{t('viewAllDormitories')}</Link>
+            </Button>
+          </div>
         </div>
       </section>
-      
+
       {/* Featured Halls Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-gray-800 text-gray-200">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredHallsTitle}</h2>
-          <p className="text-muted-foreground text-center mb-12">{featuredHallsSubtitle}</p>
-          {isLoadingFeaturedItems ? (
-             <Card className="overflow-hidden shadow-lg"><div className="md:grid md:grid-cols-2 md:gap-6 items-center"><div className="relative h-64 md:h-full w-full bg-muted rounded-t-lg md:rounded-l-lg md:rounded-t-none animate-pulse"></div><div className="flex flex-col p-6"><div className="h-6 w-3/4 bg-muted rounded-md animate-pulse mb-2"></div><div className="h-4 w-1/2 bg-muted rounded-md animate-pulse mb-4"></div><div className="h-20 bg-muted rounded-md animate-pulse mb-6"></div><Button disabled className="w-full"></Button></div></div></Card>
-          ) : featuredHall ? (
-             <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <div className="md:grid md:grid-cols-2 md:gap-0 items-stretch">
-                    <div className="relative h-64 md:h-80 w-full">
-                        <Image
-                            src={featuredHall.images?.[0] || `https://placehold.co/600x400.png`}
-                            alt={featuredHall.name}
-                            fill
-                            className="object-cover"
-                            data-ai-hint={featuredHall.dataAiHint || "meeting space"}
-                            sizes="(max-width: 768px) 100vw, 50vw"
-                        />
+          <h2 className="text-3xl font-bold text-center text-accent mb-2">{featuredHallsTitle}</h2>
+          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+          </svg>
+          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{featuredHallsSubtitle}</p>
+          
+          {isLoadingFeaturedItems || isLoadingPricing ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full bg-gray-700" />)}
+            </div>
+          ) : featuredHalls.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {featuredHalls.map((hall) => (
+                <Card key={hall.id} className="bg-gray-900 border-gray-700 overflow-hidden flex flex-col group text-white">
+                  <div className="relative overflow-hidden">
+                    <Image
+                      src={hall.images?.[0] || `https://placehold.co/600x400.png`}
+                      alt={hall.name}
+                      width={600}
+                      height={400}
+                      className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
+                      data-ai-hint={hall.dataAiHint || "meeting space"}
+                    />
+                    <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
+                       {(hall.rentalCost ?? (hall.itemType === 'hall' ? pricingSettings?.defaultHallRentalCostPerDay : pricingSettings?.defaultSectionRentalCostPerDay) ?? 0).toLocaleString()} {t('currencySymbol')} / {t('day')}
                     </div>
-                    <div className="flex flex-col p-8 justify-center">
-                        <CardHeader className="p-0">
-                            <CardTitle className="text-2xl">{featuredHall.name}</CardTitle>
-                            <CardDescription className="capitalize">{t(featuredHall.itemType)}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-0 pt-4 flex-grow">
-                             <p className="text-muted-foreground text-sm">{t('capacity')}: {featuredHall.capacity} {t('people')}</p>
-                             <p className="text-muted-foreground text-sm line-clamp-3 mt-2">{featuredHall.description}</p>
-                        </CardContent>
-                        <CardFooter className="p-0 pt-6">
-                            <Button asChild className="w-full" size="lg">
-                                <Link href={`/halls`}>{t('bookNow')}</Link>
-                            </Button>
-                        </CardFooter>
-                    </div>
-                </div>
-            </Card>
-          ) : null}
+                  </div>
+                  <div className="p-4 mt-auto bg-gray-800/50 flex justify-between items-center">
+                    <h3 className="text-lg font-semibold">{hall.name}</h3>
+                    <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+                      <Link href="/halls">{t('viewDetails')}</Link>
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">{t('noFeaturedHalls')}</div>
+          )}
+
+          <div className="text-center mt-12">
+            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+              <Link href="/halls">{t('viewAllHalls')}</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -249,7 +294,7 @@ export default function HomePage() {
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-             <div className="relative aspect-square lg:aspect-[4/3] rounded-lg overflow-hidden shadow-lg transition-all duration-500 ease-in-out">
+             <div className="relative aspect-[4/3] rounded-lg overflow-hidden shadow-lg transition-all duration-500 ease-in-out">
                 <Image
                   src={currentServiceImage}
                   alt={activeService}
@@ -358,3 +403,5 @@ export default function HomePage() {
     </PublicLayout>
   );
 }
+
+    
