@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -31,7 +31,7 @@ const blogPostSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   content: z.string().min(10, { message: "Content must be at least 10 characters." }),
   excerpt: z.string().max(200, { message: "Excerpt cannot exceed 200 characters." }).optional(),
-  imageUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
+  imageUrl: z.string().optional().or(z.literal('')),
   isPublished: z.boolean().default(false),
 });
 
@@ -223,7 +223,25 @@ export default function AdminBlogPage() {
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>{t('title')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>{t('content')} ({t('markdownSupported')})</FormLabel><FormControl><Textarea {...field} rows={15} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="excerpt" render={({ field }) => (<FormItem><FormLabel>{t('excerpt')} ({t('optional')})</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="imageUrl" render={({ field }) => (<FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input {...field} placeholder="https://placehold.co/1200x630.png" /></FormControl><FormMessage /></FormItem>)} />
+              <FormField
+                control={form.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="/images/blog/example-post.png"
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('localImagePathInstruction')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField control={form.control} name="isPublished" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>{t('publishPost')}</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
               <DialogFooter><Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>{t('cancel')}</Button><Button type="submit" disabled={mutation.isPending}>{mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t('savePost')}</Button></DialogFooter>
             </form>
