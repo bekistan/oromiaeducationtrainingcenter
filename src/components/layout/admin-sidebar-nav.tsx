@@ -39,6 +39,8 @@ import {
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard, 
   notifications: Bell,
+  dormitories: Bed,
+  halls: Building,
   manageBookings: ListChecks,
   manageDormitories: Bed, 
   manageHalls: Building, 
