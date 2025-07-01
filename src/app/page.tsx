@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -14,12 +13,12 @@ import {
 } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
-import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2, Utensils } from "lucide-react";
+import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2, Utensils, User, Calendar } from "lucide-react";
 import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, DEFAULT_PRICING_SETTINGS, PRICING_SETTINGS_DOC_PATH } from "@/constants";
 import { useEffect, useState } from "react";
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
-import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem, PricingSettings } from '@/types';
+import { doc, getDoc, getDocs, collection, query, where, limit, orderBy } from 'firebase/firestore';
+import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem, PricingSettings, BlogPost } from '@/types';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
 import {
   Accordion,
@@ -30,10 +29,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDualDate } from "@/lib/date-utils";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
 const PRICING_SETTINGS_QUERY_KEY_PUBLIC = "pricingSettingsPublic";
+const LATEST_POSTS_QUERY_KEY = "latestPostsPublic";
 
 // Helper function for deep merging objects, useful for combining DB data with defaults
 const mergeDeep = (target: any, source: any): any => {
@@ -94,6 +95,18 @@ const fetchPricingSettingsPublic = async (): Promise<PricingSettings> => {
   return DEFAULT_PRICING_SETTINGS;
 };
 
+const fetchLatestPosts = async (): Promise<BlogPost[]> => {
+  if (!isFirebaseConfigured) return [];
+  const postsQuery = query(
+    collection(db, "blog"),
+    where("isPublished", "==", true),
+    orderBy("createdAt", "desc"),
+    limit(4)
+  );
+  const postsSnapshot = await getDocs(postsQuery);
+  return postsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+};
+
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
@@ -115,6 +128,12 @@ export default function HomePage() {
     queryKey: [PRICING_SETTINGS_QUERY_KEY_PUBLIC],
     queryFn: fetchPricingSettingsPublic,
     staleTime: 1000 * 60 * 10,
+  });
+
+  const { data: latestPosts, isLoading: isLoadingLatestPosts } = useQuery<BlogPost[], Error>({
+    queryKey: [LATEST_POSTS_QUERY_KEY],
+    queryFn: fetchLatestPosts,
+    staleTime: 1000 * 60 * 5,
   });
 
   const features = [
@@ -281,6 +300,60 @@ export default function HomePage() {
           <div className="text-center mt-12">
             <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
               <Link href="/halls">{t('viewAllHalls')}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Latest News Section */}
+      <section className="py-16 md:py-24 bg-gray-900 text-gray-200">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center text-accent mb-2">{t('latestNewsAndEvents')}</h2>
+          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+          </svg>
+          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
+          
+          {isLoadingLatestPosts ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-48 w-full bg-gray-700" />)}
+            </div>
+          ) : latestPosts && latestPosts.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {latestPosts.map(post => (
+                <Card key={post.id} className="bg-gray-800 border-gray-700 overflow-hidden flex flex-row group text-white">
+                  <div className="relative w-1/3 overflow-hidden">
+                    <Image
+                      src={post.imageUrl || `https://placehold.co/400x400.png`}
+                      alt={post.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      sizes="(max-width: 768px) 33vw, 16vw"
+                      data-ai-hint="news event"
+                    />
+                  </div>
+                  <div className="w-2/3 p-4 md:p-6 flex flex-col">
+                    <CardTitle className="text-lg md:text-xl mb-2 text-accent leading-tight">
+                      <Link href={`/blog/${post.slug}`} className="hover:underline">{post.title}</Link>
+                    </CardTitle>
+                    <CardDescription className="text-gray-400 text-sm mb-4 line-clamp-3 flex-grow">
+                      {post.excerpt || post.content.substring(0, 120) + '...'}
+                    </CardDescription>
+                    <div className="text-xs text-gray-500 flex items-center flex-wrap gap-x-4 gap-y-1 mt-auto">
+                      <span className="flex items-center gap-1"><User className="h-3 w-3" /> {post.authorName}</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDualDate(post.createdAt, 'MMM d, yyyy', 'MMM D, YYYY')}</span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400">{t('noNewsFound')}</div>
+          )}
+          
+          <div className="text-center mt-12">
+            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+              <Link href="/blog">{t('viewAllNews')}</Link>
             </Button>
           </div>
         </div>

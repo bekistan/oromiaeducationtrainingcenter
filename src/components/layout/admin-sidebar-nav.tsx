@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -91,7 +90,7 @@ export function AdminSidebarNav() {
           if (item.children && item.children.length > 0) {
              const filteredChildren = item.children.filter(child => {
                 if (!child.roles || child.roles.length === 0) return true;
-                if (!user || !child.roles.includes(user.role)) return false;
+                if (!user || !child.roles.includes(child.role)) return false;
                 return true;
              });
 
