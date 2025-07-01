@@ -8,8 +8,8 @@ import { LanguageSwitcher } from "./language-switcher";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from "@/components/ui/sheet";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import {
@@ -39,10 +39,10 @@ export function Header() {
   const userMenu = user && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-1.5 px-3">
-          <UserCircle className="h-5 w-5 text-muted-foreground" />
+        <Button variant="ghost" className="flex items-center gap-1.5 px-2 text-white hover:bg-white/10 hover:text-white">
+          <UserCircle className="h-5 w-5" />
           <span className="font-medium truncate max-w-[100px]">{user.name || user.companyName}</span>
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -73,18 +73,43 @@ export function Header() {
   );
 
   const authButtons = !user && (
-    <>
-      <Button asChild variant="outline" size="sm"><Link href="/auth/login">{t('login')}</Link></Button>
-      <Button asChild size="sm"><Link href="/auth/register-company">{t('register')}</Link></Button>
-    </>
+    <div className="flex items-center gap-x-2">
+      <Button asChild variant="link" size="sm" className="text-white hover:text-gray-200 px-1">
+        <Link href="/auth/login">{t('login')}</Link>
+      </Button>
+      <span className="text-white/50">|</span>
+      <Button asChild variant="link" size="sm" className="text-white hover:text-gray-200 px-1">
+        <Link href="/auth/register-company">{t('register')}</Link>
+      </Button>
+    </div>
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Logo />
-          <nav className="hidden md:flex items-center gap-6">
+    <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-indigo-700 text-white shadow-lg">
+      {/* Top Bar */}
+      <div className="hidden md:block border-b border-white/20">
+        <div className="container flex h-10 items-center justify-end text-xs font-medium">
+          <div className="flex items-center gap-x-6">
+            <a href={`tel:${t('generalPhoneNumberPlaceholder')}`} className="flex items-center gap-1.5 hover:text-gray-200 transition-colors">
+              <Phone className="h-4 w-4" />
+              <span>{t('generalPhoneNumberPlaceholder')}</span>
+            </a>
+            <a href={`mailto:${t('generalEmailAddressPlaceholder')}`} className="flex items-center gap-1.5 hover:text-gray-200 transition-colors">
+              <Mail className="h-4 w-4" />
+              <span>{t('generalEmailAddressPlaceholder')}</span>
+            </a>
+            <LanguageSwitcher />
+            <div className="w-px h-5 bg-white/20"></div>
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : user ? userMenu : authButtons}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Header Bar */}
+      <div className="container flex h-20 items-center justify-between">
+        <Logo className="h-12 w-auto" />
+
+        <nav className="hidden md:flex items-center gap-8">
             {PUBLIC_NAVS.map((item) => {
               const isParentActive = item.children ? item.children.some(child => child.href && pathname.startsWith(child.href)) : item.href && pathname.startsWith(item.href);
               
@@ -93,9 +118,8 @@ export function Header() {
                   <DropdownMenu key={item.labelKey}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className={cn(
-                        "flex items-center gap-1 p-0 text-sm font-medium focus-visible:ring-0",
-                        isParentActive ? "text-primary font-semibold" : "text-foreground/60",
-                        "hover:text-foreground/80"
+                        "flex items-center gap-1 p-0 text-base font-medium focus-visible:ring-0 text-white hover:bg-transparent hover:text-accent data-[state=open]:text-accent",
+                        isParentActive ? "text-accent font-semibold" : ""
                       )}>
                         {t(item.labelKey)}
                         <ChevronDown className="h-4 w-4" />
@@ -118,8 +142,8 @@ export function Header() {
                   key={item.labelKey}
                   href={item.href!}
                   className={cn(
-                    "transition-colors hover:text-foreground/80 text-sm font-medium",
-                    isActive ? "text-primary font-semibold" : "text-foreground/60"
+                    "transition-colors text-base font-medium hover:text-accent",
+                    isActive ? "text-accent font-semibold" : "text-white"
                   )}
                 >
                   {t(item.labelKey)}
@@ -127,20 +151,25 @@ export function Header() {
               );
             })}
           </nav>
+
+        <div className="hidden md:flex items-center gap-4">
+            <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold tracking-wide rounded-full px-8 py-6">
+                <Link href="/dormitories">
+                    <Calendar className="mr-2 h-5 w-5" />
+                    {t('bookNow')}
+                </Link>
+            </Button>
         </div>
         
-        <div className="flex items-center gap-2">
-          <div className="hidden md:flex items-center gap-2">
-            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : user ? userMenu : authButtons}
-          </div>
-          <LanguageSwitcher />
-          <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild><Button variant="ghost" size="icon"><Menu className="h-6 w-6" /></Button></SheetTrigger>
-              <SheetContent side="right">
+        {/* Mobile Menu Trigger */}
+        <div className="md:hidden flex items-center gap-2">
+           <LanguageSwitcher />
+          <Sheet>
+              <SheetTrigger asChild><Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white"><Menu className="h-6 w-6" /></Button></SheetTrigger>
+              <SheetContent side="right" className="flex flex-col">
                 <SheetTitle><Logo /></SheetTitle>
-                <div className="flex flex-col h-full">
-                  <nav className="flex flex-col gap-2 mt-8">
+                <div className="flex flex-col h-full mt-4">
+                   <nav className="flex flex-col gap-1 text-lg">
                      {PUBLIC_NAVS.map((item) => {
                         if (item.children) {
                           return (
@@ -150,9 +179,11 @@ export function Header() {
                                 {item.children.map((child) => {
                                   const isActive = child.href && (pathname === child.href || (child.href !== '/' && pathname.startsWith(child.href)));
                                   return (
-                                    <Link key={child.labelKey} href={child.href!} className={cn("rounded-md p-2 transition-colors hover:bg-muted", isActive ? "text-primary font-semibold bg-muted" : "")}>
-                                      {t(child.labelKey)}
-                                    </Link>
+                                    <SheetClose asChild key={child.labelKey}>
+                                      <Link href={child.href!} className={cn("rounded-md p-2 transition-colors hover:bg-muted", isActive ? "text-primary font-semibold bg-muted" : "")}>
+                                        {t(child.labelKey)}
+                                      </Link>
+                                    </SheetClose>
                                   )
                                 })}
                               </div>
@@ -161,14 +192,28 @@ export function Header() {
                         }
                         const isActive = item.href && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)));
                         return (
-                          <Link key={item.labelKey} href={item.href!} className={cn("rounded-md p-2 transition-colors hover:bg-muted", isActive ? "text-primary font-semibold bg-muted" : "")}>
-                            {t(item.labelKey)}
-                          </Link>
+                          <SheetClose asChild key={item.labelKey}>
+                              <Link href={item.href!} className={cn("rounded-md p-2 transition-colors hover:bg-muted", isActive ? "text-primary font-semibold bg-muted" : "")}>
+                                {t(item.labelKey)}
+                              </Link>
+                          </SheetClose>
                         )
                       })}
                   </nav>
-                  <div className="mt-auto pt-4 border-t">
-                    {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : user ? (
+
+                  <div className="mt-6">
+                    <SheetClose asChild>
+                        <Button asChild size="lg" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                            <Link href="/dormitories">
+                                <Calendar className="mr-2 h-5 w-5" />
+                                {t('bookNow')}
+                            </Link>
+                        </Button>
+                    </SheetClose>
+                  </div>
+
+                  <div className="mt-auto pt-6 border-t">
+                    {loading ? <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : user ? (
                       <div className="flex items-center justify-between">
                         <div className="text-sm">
                           <p className="font-semibold">{user.name || user.companyName}</p>
@@ -183,9 +228,9 @@ export function Header() {
                 </div>
               </SheetContent>
             </Sheet>
-          </div>
         </div>
       </div>
     </header>
   );
 }
+
