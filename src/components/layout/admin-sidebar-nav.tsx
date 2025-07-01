@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -36,16 +37,17 @@ import {
 } from "@/components/ui/collapsible"
 
 const ICONS: Record<string, LucideIcon> = {
-  dashboard: LayoutDashboard,
+  dashboard: LayoutDashboard, 
   notifications: Bell,
-  manageDormitories: Bed,
-  manageHalls: Building,
+  manageBookings: ListChecks,
+  manageDormitories: Bed, 
+  manageHalls: Building, 
   manageDormitoryBookings: BedDouble,
-  manageFacilityBookings: ListChecks,
+  manageFacilityBookings: ListChecks, 
   manageCompanies: Users,
   manageBlog: BookMarked,
-  reports: FileText,
-  userManagement: UserPlus,
+  reports: FileText, 
+  userManagement: UserPlus, 
   userProfile: UserCircle,
   manageSettings: Settings, 
   generalSettings: Settings,
