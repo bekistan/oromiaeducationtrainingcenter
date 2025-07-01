@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable from 'airtable';
+import Airtable, { type FieldSet } from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -10,16 +10,31 @@ import type { Booking, Dormitory } from '@/types';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-screenshot] START ---');
 
-  // --- Cloudinary Configuration (on-demand) ---
+  // --- Configuration Checks ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
   if (!cloudName || !cloudinaryApiKeyEnv || !cloudinaryApiSecretEnv) {
     const errorMsg = "Cloudinary environment variables are not fully set on the server.";
     console.error(`[API] FAILED: ${errorMsg}`);
-    return NextResponse.json({ error: errorMsg, details: "Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET." }, { status: 500 });
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
+  if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
+    const errorMsg = "Airtable environment variables are not fully set on the server.";
+    console.error(`[API] FAILED: ${errorMsg}`);
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
+  }
+  if (!db) {
+    const errorMsg = "Firebase is not configured. Database is unavailable.";
+    console.error(`[API] FAILED: ${errorMsg}`);
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
+  }
+
+  // --- Configure Services ---
   try {
     cloudinary.config({
       cloud_name: cloudName,
@@ -27,28 +42,16 @@ export async function POST(req: NextRequest) {
       api_secret: cloudinaryApiSecretEnv,
       secure: true,
     });
-     console.log('[API] Cloudinary configured successfully on-demand.');
+    console.log('[API] Cloudinary configured successfully on-demand.');
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
-
-  // --- Airtable Configuration (on-demand) ---
-  const airtableApiKey = process.env.AIRTABLE_API_KEY;
-  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
-  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
-
-  if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
-    const errorMsg = "Airtable environment variables are not fully set on the server.";
-    console.error(`[API] FAILED: ${errorMsg}`);
-    return NextResponse.json({ error: errorMsg, details: "Check AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME." }, { status: 500 });
-  }
+  
+  const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+  console.log('[API] Airtable configured successfully on-demand.');
 
   try {
-    Airtable.configure({ apiKey: airtableApiKey });
-    const base = new Airtable().base(airtableBaseId);
-    console.log('[API] Airtable configured successfully on-demand.');
-
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
@@ -107,9 +110,9 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record
     console.log('[API] Creating Airtable record...');
-    const airtableRecordFields = {
+    const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }],
+      "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
       "Recipient Phones": recipientPhoneNumbers.join(','),
       "Date": new Date().toISOString(),
