@@ -89,14 +89,14 @@ export function Header() {
       {/* Top Bar */}
       <div className="hidden md:block border-b border-border">
         <div className="container flex h-10 items-center justify-end text-xs font-medium">
-          <div className="flex items-center gap-x-6">
+          <div className="flex items-center gap-x-4 lg:gap-x-6">
             <a href={`tel:${t('generalPhoneNumberPlaceholder')}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
               <Phone className="h-4 w-4" />
-              <span>{t('generalPhoneNumberPlaceholder')}</span>
+              <span className="truncate">{t('generalPhoneNumberPlaceholder')}</span>
             </a>
             <a href={`mailto:${t('generalEmailAddressPlaceholder')}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
               <Mail className="h-4 w-4" />
-              <span>{t('generalEmailAddressPlaceholder')}</span>
+              <span className="truncate">{t('generalEmailAddressPlaceholder')}</span>
             </a>
             <LanguageSwitcher />
             <div className="w-px h-5 bg-border"></div>
@@ -107,9 +107,9 @@ export function Header() {
 
       {/* Main Header Bar */}
       <div className="container flex h-20 items-center justify-between">
-        <Logo className="h-12 w-auto" />
+        <Logo />
 
-        <nav className="hidden md:flex items-center gap-x-8">
+        <nav className="hidden md:flex items-center gap-x-4 lg:gap-x-8">
             {PUBLIC_NAVS.map((item) => {
               const isParentActive = item.children ? item.children.some(child => child.href && pathname.startsWith(child.href)) : item.href && pathname.startsWith(item.href);
               
