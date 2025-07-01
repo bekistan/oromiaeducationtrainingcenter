@@ -32,9 +32,12 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'] },
   { 
     labelKey: 'manageBookings', 
-    href: '/admin/bookings', 
     authRequired: true, 
-    roles: ['admin', 'superadmin'] 
+    roles: ['admin', 'superadmin'],
+    children: [
+        { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', roles: ['admin', 'superadmin'] },
+        { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', roles: ['admin', 'superadmin'], generalAdminOnly: true },
+    ]
   },
   { 
     labelKey: 'facilities',

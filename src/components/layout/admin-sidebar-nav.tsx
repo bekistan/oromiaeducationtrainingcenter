@@ -93,6 +93,9 @@ export function AdminSidebarNav() {
              const filteredChildren = item.children.filter(child => {
                 if (!child.roles || child.roles.length === 0) return true;
                 if (!user || !child.roles.includes(child.role)) return false;
+                if (user.role === 'admin' && user.buildingAssignment && child.generalAdminOnly) {
+                    return false;
+                }
                 return true;
              });
 
