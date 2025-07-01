@@ -1,10 +1,9 @@
-
 "use client";
 
 import Script from 'next/script';
 
-const TAWK_TO_PROPERTY_ID = '684ca64dea835c190b6d6d04';
-const TAWK_TO_WIDGET_ID = '1itlmj8if';
+const TAWK_TO_PROPERTY_ID = '664ca64dea835c190b6d6d04';
+const TAWK_TO_WIDGET_ID = '1hvlmj8if';
 
 export function TawkToWidget() {
   return (
