@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail, Calendar } from "lucide-react";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import {
@@ -39,7 +39,7 @@ export function Header() {
   const userMenu = user && (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="flex items-center gap-1.5 px-2 text-white hover:bg-white/10 hover:text-white">
+        <Button variant="ghost" className="flex items-center gap-1.5 px-2">
           <UserCircle className="h-5 w-5" />
           <span className="font-medium truncate max-w-[100px]">{user.name || user.companyName}</span>
           <ChevronDown className="h-4 w-4" />
@@ -74,32 +74,32 @@ export function Header() {
 
   const authButtons = !user && (
     <div className="flex items-center gap-x-2">
-      <Button asChild variant="link" size="sm" className="text-white hover:text-gray-200 px-1">
+      <Button asChild variant="link" size="sm" className="px-1">
         <Link href="/auth/login">{t('login')}</Link>
       </Button>
-      <span className="text-white/50">|</span>
-      <Button asChild variant="link" size="sm" className="text-white hover:text-gray-200 px-1">
+      <span className="text-muted-foreground">|</span>
+      <Button asChild variant="link" size="sm" className="px-1">
         <Link href="/auth/register-company">{t('register')}</Link>
       </Button>
     </div>
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-purple-600 via-indigo-500 to-indigo-700 text-white shadow-lg">
+    <header className="sticky top-0 z-50 w-full bg-background text-foreground shadow-lg">
       {/* Top Bar */}
-      <div className="hidden md:block border-b border-white/20">
+      <div className="hidden md:block border-b border-border">
         <div className="container flex h-10 items-center justify-end text-xs font-medium">
           <div className="flex items-center gap-x-6">
-            <a href={`tel:${t('generalPhoneNumberPlaceholder')}`} className="flex items-center gap-1.5 hover:text-gray-200 transition-colors">
+            <a href={`tel:${t('generalPhoneNumberPlaceholder')}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
               <Phone className="h-4 w-4" />
               <span>{t('generalPhoneNumberPlaceholder')}</span>
             </a>
-            <a href={`mailto:${t('generalEmailAddressPlaceholder')}`} className="flex items-center gap-1.5 hover:text-gray-200 transition-colors">
+            <a href={`mailto:${t('generalEmailAddressPlaceholder')}`} className="flex items-center gap-1.5 hover:text-primary transition-colors">
               <Mail className="h-4 w-4" />
               <span>{t('generalEmailAddressPlaceholder')}</span>
             </a>
             <LanguageSwitcher />
-            <div className="w-px h-5 bg-white/20"></div>
+            <div className="w-px h-5 bg-border"></div>
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : user ? userMenu : authButtons}
           </div>
         </div>
@@ -109,7 +109,7 @@ export function Header() {
       <div className="container flex h-20 items-center justify-between">
         <Logo className="h-12 w-auto" />
 
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-x-8">
             {PUBLIC_NAVS.map((item) => {
               const isParentActive = item.children ? item.children.some(child => child.href && pathname.startsWith(child.href)) : item.href && pathname.startsWith(item.href);
               
@@ -118,8 +118,8 @@ export function Header() {
                   <DropdownMenu key={item.labelKey}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className={cn(
-                        "flex items-center gap-1 p-0 text-base font-medium focus-visible:ring-0 text-white hover:bg-transparent hover:text-accent data-[state=open]:text-accent",
-                        isParentActive ? "text-accent font-semibold" : ""
+                        "flex items-center gap-1 p-0 text-base font-medium focus-visible:ring-0 hover:bg-transparent hover:text-primary data-[state=open]:text-primary",
+                        isParentActive ? "text-primary font-semibold" : "text-foreground"
                       )}>
                         {t(item.labelKey)}
                         <ChevronDown className="h-4 w-4" />
@@ -142,8 +142,8 @@ export function Header() {
                   key={item.labelKey}
                   href={item.href!}
                   className={cn(
-                    "transition-colors text-base font-medium hover:text-accent",
-                    isActive ? "text-accent font-semibold" : "text-white"
+                    "transition-colors text-base font-medium hover:text-primary",
+                    isActive ? "text-primary font-semibold" : "text-foreground"
                   )}
                 >
                   {t(item.labelKey)}
@@ -151,21 +151,12 @@ export function Header() {
               );
             })}
           </nav>
-
-        <div className="hidden md:flex items-center gap-4">
-            <Button asChild size="lg" className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold tracking-wide rounded-full px-8 py-6">
-                <Link href="/dormitories">
-                    <Calendar className="mr-2 h-5 w-5" />
-                    {t('bookNow')}
-                </Link>
-            </Button>
-        </div>
         
         {/* Mobile Menu Trigger */}
         <div className="md:hidden flex items-center gap-2">
            <LanguageSwitcher />
           <Sheet>
-              <SheetTrigger asChild><Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white"><Menu className="h-6 w-6" /></Button></SheetTrigger>
+              <SheetTrigger asChild><Button variant="ghost" size="icon" className="text-foreground hover:bg-secondary"><Menu className="h-6 w-6" /></Button></SheetTrigger>
               <SheetContent side="right" className="flex flex-col">
                 <SheetTitle><Logo /></SheetTitle>
                 <div className="flex flex-col h-full mt-4">
@@ -201,17 +192,6 @@ export function Header() {
                       })}
                   </nav>
 
-                  <div className="mt-6">
-                    <SheetClose asChild>
-                        <Button asChild size="lg" className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
-                            <Link href="/dormitories">
-                                <Calendar className="mr-2 h-5 w-5" />
-                                {t('bookNow')}
-                            </Link>
-                        </Button>
-                    </SheetClose>
-                  </div>
-
                   <div className="mt-auto pt-6 border-t">
                     {loading ? <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div> : user ? (
                       <div className="flex items-center justify-between">
@@ -233,4 +213,3 @@ export function Header() {
     </header>
   );
 }
-

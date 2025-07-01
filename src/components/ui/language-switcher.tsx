@@ -25,7 +25,7 @@ export function LanguageSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="flex items-center gap-1 px-2 text-white hover:bg-white/10 hover:text-white focus-visible:ring-offset-0 focus-visible:ring-white/50">
+        <Button variant="ghost" size="sm" className="flex items-center gap-1 px-2 focus-visible:ring-offset-0 focus-visible:ring-ring/50">
           <Globe className="h-4 w-4" />
           <span className="hidden sm:inline">{currentLanguageDisplay}</span>
           <ChevronDown className="h-4 w-4 opacity-70" />
