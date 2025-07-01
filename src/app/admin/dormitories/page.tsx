@@ -77,12 +77,18 @@ export default function AdminDormitoriesPage() {
 
   const filteredDormitoriesForAdmin = useMemo(() => {
     if (isLoadingDormitories || !allDormitoriesFromDb) return [];
-    if (user?.role === 'superadmin') {
-      return allDormitoriesFromDb;
-    }
+    
+    // Building-specific admins see only their assigned building's dorms
     if (user?.role === 'admin' && user.buildingAssignment) {
       return allDormitoriesFromDb.filter(dorm => dorm.buildingName === user.buildingAssignment);
     }
+    
+    // Superadmins and General Admins (admin without assignment) see all dorms
+    if (user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment)) {
+        return allDormitoriesFromDb;
+    }
+
+    // Default to empty if no authorized role matches (shouldn't happen with page-level guard)
     return [];
   }, [allDormitoriesFromDb, user, isLoadingDormitories]);
 
@@ -388,7 +394,7 @@ export default function AdminDormitoriesPage() {
       {!isLoadingDormitories && displayedDormitories.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-center">
-            <p>{searchTerm ? t('noDormitoriesMatchSearch') : (user?.role === 'admin' && !user.buildingAssignment) ? t('adminNoBuildingAssignmentDormView') : t('noDormitoriesFoundPleaseAdd')}</p>
+            <p>{searchTerm ? t('noDormitoriesMatchSearch') : t('noDormitoriesFoundPleaseAdd')}</p>
           </CardContent>
         </Card>
       )}
