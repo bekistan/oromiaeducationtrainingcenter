@@ -30,15 +30,8 @@ export const PUBLIC_NAVS: NavItem[] = [
 export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'dashboard', href: '/admin/dashboard', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'] },
-  { 
-    labelKey: 'manageBookings',
-    authRequired: true, 
-    roles: ['admin', 'superadmin'],
-    children: [
-        { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', roles: ['admin', 'superadmin'] },
-        { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', roles: ['admin', 'superadmin'], generalAdminOnly: true },
-    ]
-  },
+  { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
+  { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
   { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
   { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
   { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
