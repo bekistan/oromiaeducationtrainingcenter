@@ -89,11 +89,11 @@ export async function POST(req: NextRequest) {
     console.log('[API] Step 1 COMPLETE. Cloudinary upload successful. URL:', cloudinaryUrl);
     
     // 2. Create Airtable record
-    console.log('[API] Step 2: Creating Airtable record...');
+    console.log('[API] Step 2: Creating Airtable record with simplified payload for debugging...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
+      // "Screenshot": [{ url: cloudinaryUrl }] as any, // Temporarily disabled for debugging
     };
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Original Filename") and field types in your Airtable base. The "Screenshot" field was intentionally omitted for this debugging attempt.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
