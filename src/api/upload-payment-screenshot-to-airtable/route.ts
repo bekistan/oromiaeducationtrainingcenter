@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
       secure: true,
     });
      console.log('[API] Cloudinary configured successfully on-demand.');
-  } catch (configError: any) {
+  } catch (configError: any)
+{
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
@@ -51,9 +52,7 @@ export async function POST(req: NextRequest) {
 
 
   try {
-    // Reverted to older, stable Airtable configuration method for robustness
-    Airtable.configure({ apiKey: airtableApiKey });
-    const base = new Airtable().base(airtableBaseId);
+    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
     console.log('[API] Airtable configured successfully on-demand.');
 
     const formData = await req.formData();
@@ -147,7 +146,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Date") and field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Date", "Original Filename") and field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
