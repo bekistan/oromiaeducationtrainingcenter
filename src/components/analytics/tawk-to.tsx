@@ -3,12 +3,26 @@
 
 import Script from 'next/script';
 
-// NOTE: The 404 (Not Found) error for this script means the IDs below are incorrect for your Tawk.to account.
-// Please log in to Tawk.to, go to Administration > Chat Widget, and find your correct Property ID and Widget ID.
-const TAWK_TO_PROPERTY_ID = '664ca64dea835c190b6d6d04';
-const TAWK_TO_WIDGET_ID = '1hvlmj8if';
+// To enable the Tawk.to chat widget, add the following to your .env.local file
+// with your actual Property and Widget IDs from your Tawk.to dashboard.
+// NEXT_PUBLIC_TAWK_TO_PROPERTY_ID=your_property_id
+// NEXT_PUBLIC_TAWK_TO_WIDGET_ID=your_widget_id
+// If these are not set, the widget will not be rendered.
+
+const TAWK_TO_PROPERTY_ID = process.env.NEXT_PUBLIC_TAWK_TO_PROPERTY_ID;
+const TAWK_TO_WIDGET_ID = process.env.NEXT_PUBLIC_TAWK_TO_WIDGET_ID;
 
 export function TawkToWidget() {
+
+  if (!TAWK_TO_PROPERTY_ID || !TAWK_TO_WIDGET_ID) {
+    // If IDs are not set in environment variables, do not render the widget.
+    // This prevents 404 errors for users who have not configured Tawk.to.
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[OromiaEduRent Tawk.to] Widget not rendered. Set NEXT_PUBLIC_TAWK_TO_PROPERTY_ID and NEXT_PUBLIC_TAWK_TO_WIDGET_ID in .env.local to enable.");
+    }
+    return null;
+  }
+
   return (
     <Script
       id="tawkto-script"
@@ -26,7 +40,7 @@ export function TawkToWidget() {
             s1.charset = 'UTF-8';
             s1.setAttribute('crossorigin','*');
             s1.onerror = function() {
-              console.error("[OromiaEduRent Tawk.to] Tawk.to script failed to load. Potential issues: network connectivity, adblocker, incorrect Property ID or Widget ID, or Tawk.to service interruption.");
+              console.error("[OromiaEduRent Tawk.to] Tawk.to script failed to load. Please verify that your NEXT_PUBLIC_TAWK_TO_PROPERTY_ID ('${TAWK_TO_PROPERTY_ID}') and NEXT_PUBLIC_TAWK_TO_WIDGET_ID ('${TAWK_TO_WIDGET_ID}') are correct in your .env.local file. Other causes could be network issues or ad-blockers.");
             };
             
             if (s0 && s0.parentNode) {
