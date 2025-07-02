@@ -1,14 +1,14 @@
 
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
-// Removed GeistMono import as it was causing issues and not explicitly used for main font
 import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
-import { AuthProvider } from '@/hooks/use-auth'; // Import AuthProvider
-import { QueryProvider } from '@/components/providers/query-provider'; // Import QueryProvider
+import { AuthProvider } from '@/hooks/use-auth'; 
+import { QueryProvider } from '@/components/providers/query-provider'; 
 import { Toaster } from "@/components/ui/toaster";
 import { SITE_NAME, SITE_DESCRIPTION } from '@/constants';
-import { TawkToWidget } from '@/components/analytics/tawk-to'; // Import Tawk.to widget
+import { TawkToWidget } from '@/components/analytics/tawk-to';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: {
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={GeistSans.variable}>
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className={cn("min-h-screen bg-background font-sans antialiased", GeistSans.className)}>
         <AuthProvider>
           <LanguageProvider>
             <QueryProvider> {/* Wrap with QueryProvider */}

@@ -179,8 +179,8 @@ export interface BlogPost {
   authorName: string;
   authorId: string;
   isPublished: boolean;
-  createdAt: any;
-  updatedAt: any;
+  createdAt: string | import('firebase/firestore').Timestamp;
+  updatedAt: string | import('firebase/firestore').Timestamp;
 }
 
 
