@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import Airtable, { type FieldSet, type Records } from 'airtable';
+import Airtable from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -10,25 +10,40 @@ import type { Booking, Dormitory } from '@/types';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-screenshot] START ---');
 
-  // --- Configuration Checks ---
+  // --- Cloudinary Configuration (on-demand) ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
-  const airtableApiKey = process.env.AIRTABLE_API_KEY;
-  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
-  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
 
-  // Check for all required environment variables at the start
   if (!cloudName || !cloudinaryApiKeyEnv || !cloudinaryApiSecretEnv) {
     const errorMsg = "Cloudinary environment variables are not fully set on the server.";
     console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg, details: "Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET." }, { status: 500 });
   }
+  try {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: cloudinaryApiKeyEnv,
+      api_secret: cloudinaryApiSecretEnv,
+      secure: true,
+    });
+     console.log('[API] Cloudinary configured successfully on-demand.');
+  } catch (configError: any) {
+    console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
+    return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
+  }
+
+  // --- Airtable Configuration (on-demand) ---
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const airtableBaseId = process.env.AIRTABLE_BASE_ID;
+  const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
+
   if (!airtableApiKey || !airtableBaseId || !airtableTableName) {
     const errorMsg = "Airtable environment variables are not fully set on the server.";
     console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg, details: "Check AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME." }, { status: 500 });
   }
+
   if (!db) {
     const errorMsg = "Firebase is not configured. Database is unavailable.";
     console.error(`[API] FAILED: ${errorMsg}`);
@@ -36,15 +51,6 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // --- Configure Services ---
-    cloudinary.config({
-      cloud_name: cloudName,
-      api_key: cloudinaryApiKeyEnv,
-      api_secret: cloudinaryApiSecretEnv,
-      secure: true,
-    });
-    console.log('[API] Cloudinary configured successfully on-demand.');
-    
     const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
     console.log('[API] Airtable configured successfully on-demand.');
 
@@ -106,15 +112,15 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record
     console.log('[API] Creating Airtable record...');
-    const airtableRecordFields: FieldSet = {
+    const airtableRecordFields = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }] as any, // Cast to any to bypass strict Attachment type checking which is inconsistent for creation
+      "Screenshot": [{ url: cloudinaryUrl }],
       "Original Filename": file.name,
-      "Recipient Phones": recipientPhoneNumbers.join(','),
+      "Recipient phones": recipientPhoneNumbers.join(','),
       "Date": new Date().toISOString(),
     };
 
-    const createdRecords: Records<FieldSet> = await base(airtableTableName).create([
+    const createdRecords = await base(airtableTableName).create([
       { fields: airtableRecordFields }
     ]);
     
@@ -143,31 +149,14 @@ export async function POST(req: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('[API] FAILED: Unhandled error in POST handler.', {
-      message: error.message,
-      statusCode: error.statusCode,
-      error: error.error,
-      stack: error.stack,
-    });
-    
-    let errorMessage = 'Failed to process screenshot upload on the server.';
-    let errorDetails = 'An unknown error occurred.';
-
-    if (error.statusCode === 401) {
-        errorMessage = 'Airtable Authentication Error. Please check if your AIRTABLE_API_KEY is correct and has the required permissions.';
-        errorDetails = error.message;
-    } else if (error.statusCode === 404) {
-        errorMessage = `Airtable Error: Not Found. Please check if your AIRTABLE_BASE_ID ('${airtableBaseId}') and AIRTABLE_TABLE_NAME ('${airtableTableName}') are correct.`;
-        errorDetails = error.message;
-    } else if (error.statusCode === 422) {
-        errorMessage = 'Airtable Schema Mismatch. One or more fields could not be processed.';
-        errorDetails = `Error: ${error.message}. This usually means a column in your Airtable table is missing or has the wrong type. Ensure you have columns named "Booking ID", "Screenshot" (as Attachment type), "Original Filename", etc.`;
-    } else if (error.message) {
-        errorDetails = error.message;
+    console.error('[API] FAILED: Unhandled error in POST handler. Error:', error);
+    let errorMessage = 'Failed to process screenshot upload on server.';
+    if (error.message) {
+        errorMessage = error.message;
     }
     
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
-    return NextResponse.json({ error: errorMessage, details: errorDetails }, { status: 500 });
+    return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
 }
 
