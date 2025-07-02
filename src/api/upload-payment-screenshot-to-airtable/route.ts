@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import type { FieldSet, Record as AirtableRecord } from 'airtable';
