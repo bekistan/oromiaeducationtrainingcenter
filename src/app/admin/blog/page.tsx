@@ -267,7 +267,7 @@ export default function AdminBlogPage() {
                   <FormItem>
                     <FormLabel>{t('featuredImage')}</FormLabel>
                     <FormControl>
-                      <>
+                      <div>
                         <Input
                           id="image-upload"
                           type="file"
@@ -316,7 +316,7 @@ export default function AdminBlogPage() {
                             </div>
                           )}
                         </div>
-                      </>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
