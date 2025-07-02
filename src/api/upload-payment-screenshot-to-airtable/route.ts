@@ -49,12 +49,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 
-
+  let step = 'START';
   try {
-    Airtable.configure({ apiKey: airtableApiKey });
-    const base = new Airtable().base(airtableBaseId);
-    console.log('[API] Airtable configured successfully on-demand.');
+    step = 'CONFIG_AIRTABLE';
+    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+    console.log('[API] Airtable configured with instance-based setup.');
 
+    step = 'READ_FORM_DATA';
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
     console.log(`[API] Received file: ${file.name}, for Booking ID: ${bookingId}`);
 
     // 1. Upload to Cloudinary
+    step = 'UPLOAD_TO_CLOUDINARY';
     console.log('[API] Step 1: Uploading to Cloudinary...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -81,20 +83,22 @@ export async function POST(req: NextRequest) {
 
     if ('error' in cloudinaryUploadResult || !cloudinaryUploadResult.secure_url) {
       const details = (cloudinaryUploadResult as { error: any })?.error?.message || 'Cloudinary upload failed or did not return a URL.';
-      console.error('[API] FAILED at Step 1: Cloudinary upload failed. Details:', details);
-      return NextResponse.json({ error: 'Failed to upload screenshot to image server.', details }, { status: 500 });
+      throw new Error(`Cloudinary upload failed: ${details}`);
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Step 1 COMPLETE. Cloudinary upload successful. URL:', cloudinaryUrl);
     
     // 2. Create Airtable record
+    step = 'CREATE_AIRTABLE_RECORD';
     console.log('[API] Step 2: Creating Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
     };
+    
+    console.log('[API] Airtable Payload to be sent:', JSON.stringify(airtableRecordFields, null, 2));
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
       { fields: airtableRecordFields }
@@ -108,6 +112,7 @@ export async function POST(req: NextRequest) {
     console.log('[API] Step 2 COMPLETE. Airtable record created successfully. Record ID:', airtableRecordId);
     
     // 3. Update Firestore document
+    step = 'UPDATE_FIRESTORE';
     console.log('[API] Step 3: Updating Firestore document...');
     const bookingRef = doc(db, "bookings", bookingId);
     await updateDoc(bookingRef, {
@@ -117,6 +122,7 @@ export async function POST(req: NextRequest) {
     });
     console.log('[API] Step 3 COMPLETE. Firestore document updated successfully.');
 
+    step = 'SUCCESS';
     console.log('--- [API /upload-payment-screenshot] END: Success ---');
     return NextResponse.json({
       message: "Payment screenshot uploaded successfully.",
@@ -126,15 +132,14 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('############################################################');
-    console.error('##### [API] UNHANDLED ERROR IN SCREENSHOT UPLOAD ROUTE #####');
+    console.error(`##### [API] UNHANDLED ERROR IN SCREENSHOT UPLOAD ROUTE AT STEP: ${step} #####`);
     console.error('############################################################');
     console.error('Error Object:', JSON.stringify(error, null, 2));
     if (error.stack) {
         console.error("Stack Trace:", error.stack);
     }
-    console.error('##################### END OF ERROR #####################');
     
-    let errorMessage = 'Failed to process screenshot upload on server.';
+    let errorMessage = `Failed to process screenshot upload on server at step: ${step}.`;
     if (error.message) {
         errorMessage = error.message;
     }
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base. This error means the data sent does not match what Airtable expects.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
