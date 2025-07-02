@@ -94,7 +94,6 @@ export async function POST(req: NextRequest) {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
-      "Date": new Date().toISOString(),
     };
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
@@ -145,7 +144,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Date", "Original Filename") and field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
