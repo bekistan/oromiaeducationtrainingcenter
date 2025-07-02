@@ -7,10 +7,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Home, Loader2, Hourglass, MessageSquare, Send, AlertCircle, UploadCloud, FileIcon } from 'lucide-react';
+import { CheckCircle, Home, Loader2, Hourglass, AlertCircle, UploadCloud, FileIcon, Send } from 'lucide-react';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
-import { SITE_NAME } from '@/constants';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import type { BankAccountDetails } from '@/types';
@@ -95,22 +94,15 @@ function BookingConfirmationContent() {
       const result = await response.json();
 
       if (!response.ok) {
-        if (result.error === 'screenshotUploadedButLinkFailed') {
-            toast({
-                variant: 'destructive',
-                title: t('uploadIncompleteTitle'),
-                description: t('uploadIncompleteDesc'),
-            });
-        } else {
-            throw new Error(result.error || t('failedToUploadScreenshot'));
-        }
-      } else {
-         toast({
-            title: t('uploadSuccessTitle'),
-            description: t('uploadSuccessDesc'),
-          });
-         router.push(`/booking-confirmation?status=telegram_pending&bookingId=${bookingId}&itemName=${itemName || ''}&category=${category || ''}`);
+        throw new Error(result.error || t('failedToUploadScreenshot'));
       }
+      
+      toast({
+        title: t('uploadSuccessTitle'),
+        description: t('uploadSuccessDesc'),
+      });
+      router.push(`/booking-confirmation?status=upload_complete&bookingId=${bookingId}&itemName=${itemName || ''}&category=${category || ''}`);
+
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -119,8 +111,6 @@ function BookingConfirmationContent() {
       });
     } finally {
       setIsUploading(false);
-      setSelectedFile(null);
-      if(fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -144,10 +134,10 @@ function BookingConfirmationContent() {
   let icon = <CheckCircle className="w-16 h-16 text-green-600" />;
   let showDormitoryPaymentInstructions = false;
 
-  if (status === 'telegram_pending') {
-    titleText = t('paymentAwaitingTelegramVerificationTitle');
-    descriptionText = t('paymentAwaitingTelegramVerificationDesc');
-    icon = <MessageSquare className="w-16 h-16 text-sky-500" />;
+  if (status === 'upload_complete') {
+    titleText = t('paymentAwaitingVerificationTitle');
+    descriptionText = t('paymentAwaitingVerificationDesc');
+    icon = <CheckCircle className="w-16 h-16 text-green-500" />;
   } else if (status === 'booking_pending_approval') {
     if (category === 'facility') {
       titleText = t('facilityBookingReceived');

@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 import type { FieldSet, Record as AirtableRecord } from 'airtable';
@@ -8,7 +9,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-screenshot] START ---');
 
-  // --- Cloudinary Configuration (on-demand) ---
+  // --- Cloudinary Configuration ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
@@ -25,13 +26,13 @@ export async function POST(req: NextRequest) {
       api_secret: cloudinaryApiSecretEnv,
       secure: true,
     });
-     console.log('[API] Cloudinary configured successfully on-demand.');
+     console.log('[API] Cloudinary configured successfully.');
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
 
-  // --- Airtable Configuration (on-demand) ---
+  // --- Airtable Configuration ---
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const airtableBaseId = process.env.AIRTABLE_BASE_ID;
   const airtableTableName = process.env.AIRTABLE_TABLE_NAME;
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     step = 'CONFIG_AIRTABLE';
     const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
-    console.log('[API] Airtable configured with instance-based setup.');
+    console.log('[API] Airtable configured.');
 
     step = 'READ_FORM_DATA';
     const formData = await req.formData();
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     console.log('[API] Step 2: Creating Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }] as any,
+      "Screenshot": [{ url: cloudinaryUrl }],
       "Original Filename": file.name,
     };
     
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
       { fields: airtableRecordFields }
-    ]);
+    ], { typecast: true }); // Use typecast to help with data conversion
     
     if (!createdRecords || createdRecords.length === 0) {
         throw new Error('Airtable record creation returned no records.');
@@ -143,19 +144,16 @@ export async function POST(req: NextRequest) {
         errorMessage = error.message;
     }
     
+    // Check for specific Airtable error codes
     if (error.statusCode === 401 || error.statusCode === 403) {
       errorMessage = 'Airtable authentication failed. Please check your AIRTABLE_API_KEY permissions and scopes. It needs data.records:write access.';
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base. This error means the data sent does not match what Airtable expects.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
     return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
-}
-
-export async function GET(req: NextRequest) {
-  return NextResponse.json({ message: 'Payment screenshot upload API route (Airtable integration) is active. Use POST method to upload files.' });
 }

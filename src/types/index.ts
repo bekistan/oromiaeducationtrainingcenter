@@ -51,7 +51,6 @@ export interface Dormitory {
   pricePerDay?: number; 
   images?: string[];
   dataAiHint?: string;
-  imageAirtableRecordId?: string; // Added for Airtable integration
   buildingName: 'ifaboru' | 'buuraboru'; 
 }
 

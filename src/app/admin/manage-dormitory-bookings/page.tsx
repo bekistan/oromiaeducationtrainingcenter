@@ -115,6 +115,19 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
+      const bookingToDelete = allBookingsFromDb.find(b => b.id === bookingId);
+      // If there's an Airtable record ID, we should try to delete it
+      if (bookingToDelete?.paymentScreenshotAirtableRecordId) {
+        try {
+          await fetch('/api/delete-airtable-record', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recordId: bookingToDelete.paymentScreenshotAirtableRecordId }),
+          });
+        } catch (apiError) {
+          console.error('Failed to delete Airtable record, but proceeding with Firestore deletion:', apiError);
+        }
+      }
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {
@@ -182,7 +195,10 @@ export default function AdminManageDormitoryBookingsPage() {
 
     if (newPaymentStatus === 'paid') {
       updateData.approvalStatus = 'approved';
-      bookingToNotify = allBookingsFromDb.find(b => b.id === bookingId);
+      const fullBookingDetails = allBookingsFromDb.find(b => b.id === bookingId);
+      if (fullBookingDetails) {
+        bookingToNotify = { ...fullBookingDetails, approvalStatus: 'approved' };
+      }
     } else {
       updateData.approvalStatus = 'rejected';
     }
@@ -191,7 +207,7 @@ export default function AdminManageDormitoryBookingsPage() {
       bookingId, 
       updateData, 
       successMessageKey: 'paymentStatusUpdated',
-      bookingToNotify // Pass the full booking object to the mutation
+      bookingToNotify
     });
   };
 
@@ -248,7 +264,6 @@ export default function AdminManageDormitoryBookingsPage() {
         return <Badge variant="secondary">{t(status)}</Badge>;
     }
   };
-
 
   if (bookingsError) {
     return <div className="flex flex-col items-center justify-center min-h-screen p-4"><AlertTriangle className="h-12 w-12 text-destructive mb-4" /><p className="text-lg text-destructive">{t('errorFetchingBookings')}: {bookingsError.message}</p></div>;
@@ -318,14 +333,12 @@ export default function AdminManageDormitoryBookingsPage() {
                   <TableRow>
                     <TableHead onClick={() => requestSort('bookedAt')} className="cursor-pointer group"><CalendarClock className="mr-1 h-4 w-4 inline-block"/>{t('bookedAt')}{getSortIndicator('bookedAt')}</TableHead>
                     <TableHead onClick={() => requestSort('guestName')} className="cursor-pointer group">{t('guestName')}{getSortIndicator('guestName')}</TableHead>
-                    <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
-                    <TableHead>{t('itemsBooked')}</TableHead>
                     <TableHead>{t('paymentProof')}</TableHead>
+                    <TableHead>{t('itemsBooked')}</TableHead>
                     <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer group">{t('dates')}{getSortIndicator('startDate')}</TableHead>
                     <TableHead onClick={() => requestSort('totalCost')} className="cursor-pointer group">{t('totalCost')}{getSortIndicator('totalCost')}</TableHead>
                     <TableHead onClick={() => requestSort('paymentStatus')} className="cursor-pointer group">{t('paymentStatus')}{getSortIndicator('paymentStatus')}</TableHead>
                     <TableHead onClick={() => requestSort('approvalStatus')} className="cursor-pointer group">{t('approvalStatus')}{getSortIndicator('approvalStatus')}</TableHead>
-                    <TableHead onClick={() => requestSort('keyStatus' as any)} className="cursor-pointer group">{t('keyStatusColumn')}{getSortIndicator('keyStatus' as any)}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -333,31 +346,7 @@ export default function AdminManageDormitoryBookingsPage() {
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
                       <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
-                      <TableCell className="min-w-[150px]">{booking.guestName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
-                      <TableCell className="whitespace-nowrap">{booking.phone || t('notProvided')}</TableCell>
-                      <TableCell className="min-w-[200px]">
-                        {booking.items.map(item => {
-                          const dormDetails = dormDataMap.get(item.id);
-                          const imageUrl = dormDetails?.imageUrl;
-                          return (
-                            <div key={item.id} className="flex items-center space-x-2 py-1">
-                              {imageUrl && (
-                                <a href={imageUrl} target="_blank" rel="noopener noreferrer" title={t('viewImageForItem', {itemName: item.name})}>
-                                  <Image
-                                    src={imageUrl}
-                                    alt={item.name}
-                                    width={40}
-                                    height={40}
-                                    className="rounded-md object-cover"
-                                  />
-                                </a>
-                              )}
-                              <span>{item.name}</span>
-                            </div>
-                          );
-                        })}
-                        ({booking.items.length})
-                      </TableCell>
+                      <TableCell className="min-w-[150px]">{booking.guestName}<span className="text-xs text-muted-foreground block whitespace-nowrap"> {booking.phone || t('notProvided')}</span></TableCell>
                       <TableCell>
                         {booking.paymentScreenshotUrl ? (
                             <Dialog>
@@ -377,7 +366,7 @@ export default function AdminManageDormitoryBookingsPage() {
                                           {t('paymentProofForBooking', { bookingId: booking.id.substring(0, 8) })}
                                       </DialogTitle>
                                       <DialogDescription>
-                                          Review the uploaded payment screenshot. You can verify the payment and take action in the main table.
+                                          {t('reviewTheUploadedPayment')}
                                       </DialogDescription>
                                   </DialogHeader>
                                   <div className="mt-4">
@@ -397,11 +386,11 @@ export default function AdminManageDormitoryBookingsPage() {
                             : <span className="text-xs text-muted-foreground italic">{t('notApplicableShort')}</span>
                         )}
                       </TableCell>
+                      <TableCell className="min-w-[200px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
-                      <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                       <TableCell className="text-right space-x-1">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -415,7 +404,7 @@ export default function AdminManageDormitoryBookingsPage() {
                                   <>
                                     <DropdownMenuLabel>{t('paymentVerification')}</DropdownMenuLabel>
                                     <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'paid')} className="text-green-600 focus:bg-green-100 focus:text-green-700">
-                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('markAsPaid')}
+                                      <CheckCircle className="mr-2 h-4 w-4" /> {t('approvePayment')}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handlePaymentVerification(booking.id, 'failed')} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                       <AlertTriangle className="mr-2 h-4 w-4" /> {t('rejectPayment')}
@@ -438,22 +427,8 @@ export default function AdminManageDormitoryBookingsPage() {
                     {t('page')} {pageCount > 0 ? currentPage + 1 : 0} {t('of')} {pageCount} ({totalItems} {t('itemsTotal')})
                 </span>
                 <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={previousPage}
-                        disabled={!canPreviousPage}
-                    >
-                        <ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={nextPage}
-                        disabled={!canNextPage}
-                    >
-                        {t('next')} <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={previousPage} disabled={!canPreviousPage}><ChevronLeft className="h-4 w-4 mr-1" /> {t('previous')}</Button>
+                    <Button variant="outline" size="sm" onClick={nextPage} disabled={!canNextPage}>{t('next')} <ChevronRight className="h-4 w-4 ml-1" /></Button>
                 </div>
               </div>
             </CardContent>
@@ -464,24 +439,12 @@ export default function AdminManageDormitoryBookingsPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center">
-                <AlertTriangle className="mr-2 h-5 w-5 text-destructive" />
-                {t('confirmDeleteBookingTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('confirmDeleteBookingMessage')}
-            </AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center"><AlertTriangle className="mr-2 h-5 w-5 text-destructive" />{t('confirmDeleteBookingTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('confirmDeleteBookingMessage')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setBookingToDeleteId(null)}>{t('cancel')}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteBooking}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteBookingMutation.isPending}
-            >
-              {deleteBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('delete')}
-            </AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteBooking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteBookingMutation.isPending}>{deleteBookingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t('delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

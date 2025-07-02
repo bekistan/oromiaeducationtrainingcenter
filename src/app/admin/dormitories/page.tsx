@@ -44,7 +44,6 @@ const dormitorySchema = z.object({
   buildingName: z.enum(['ifaboru', 'buuraboru'], { required_error: "Building name is required." }),
   images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
-  imageAirtableRecordId: z.string().optional().or(z.literal('')), // Added field
 });
 type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 
@@ -78,17 +77,14 @@ export default function AdminDormitoriesPage() {
   const filteredDormitoriesForAdmin = useMemo(() => {
     if (isLoadingDormitories || !allDormitoriesFromDb) return [];
     
-    // Building-specific admins see only their assigned building's dorms
     if (user?.role === 'admin' && user.buildingAssignment) {
       return allDormitoriesFromDb.filter(dorm => dorm.buildingName === user.buildingAssignment);
     }
     
-    // Superadmins and General Admins (admin without assignment) see all dorms
     if (user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment)) {
         return allDormitoriesFromDb;
     }
 
-    // Default to empty if no authorized role matches (shouldn't happen with page-level guard)
     return [];
   }, [allDormitoriesFromDb, user, isLoadingDormitories]);
 
@@ -100,7 +96,6 @@ export default function AdminDormitoriesPage() {
         images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
         pricePerDay: values.pricePerDay === '' ? null : Number(values.pricePerDay),
-        imageAirtableRecordId: values.imageAirtableRecordId || null,
       };
       await addDoc(collection(db, "dormitories"), dormData);
     },
@@ -109,7 +104,7 @@ export default function AdminDormitoriesPage() {
       toast({ title: t('success'), description: t('dormitoryAddedSuccessfully') });
       setIsAddDialogOpen(false);
       form.reset({
-        roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room", imageAirtableRecordId: "",
+        roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
         buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
       });
     },
@@ -119,66 +114,16 @@ export default function AdminDormitoriesPage() {
     },
   });
 
-  const deleteAirtableRecord = async (recordId: string) => {
-    try {
-      const response = await fetch('/api/delete-airtable-record', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recordId }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || t('failedToDeleteAirtableRecord'));
-      }
-      toast({ title: t('success'), description: t('airtableRecordDeletedSuccessfully') });
-    } catch (apiError: any) {
-      console.error('Error deleting Airtable record via API:', apiError);
-      toast({ variant: "destructive", title: t('error'), description: apiError.message || t('failedToDeleteAirtableRecord') });
-    }
-  };
-
-  const editDormitoryMutation = useMutation<void, Error, { id: string; values: DormitoryFormValues, oldAirtableRecordId?: string | null }>({
-    mutationFn: async ({ id, values, oldAirtableRecordId }) => {
+  const editDormitoryMutation = useMutation<void, Error, { id: string; values: DormitoryFormValues }>({
+    mutationFn: async ({ id, values }) => {
       const dormRef = doc(db, "dormitories", id);
-      
-      let imageToUse = values.images;
-      if (values.images === '' && currentDormitory?.images?.[0] && currentDormitory.images[0] !== defaultImage) {
-          // Image was cleared, keep default if nothing new is provided.
-          imageToUse = defaultImage;
-      } else if (values.images === '' && (!currentDormitory?.images?.[0] || currentDormitory.images[0] === defaultImage)) {
-          // Image was empty or default and remains empty, use default
-          imageToUse = defaultImage;
-      }
-
-
       const updatedData: Partial<Dormitory> = {
         ...values,
         buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
-        images: imageToUse ? [imageToUse] : [defaultImage],
+        images: values.images ? [values.images] : [defaultImage],
         dataAiHint: values.dataAiHint || "dormitory room",
         pricePerDay: values.pricePerDay === '' ? null : Number(values.pricePerDay),
-        imageAirtableRecordId: values.imageAirtableRecordId || null,
       };
-
-      // Logic for deleting Airtable record if image URL is cleared/changed and an old Airtable ID exists
-      const previousImageUrl = currentDormitory?.images?.[0];
-      const newImageUrl = values.images;
-      const previousAirtableId = currentDormitory?.imageAirtableRecordId;
-
-      if (previousAirtableId && (newImageUrl === '' || (newImageUrl !== previousImageUrl && newImageUrl !== defaultImage))) {
-         // Airtable record ID exists and Image URL is either cleared OR changed to something else (not keeping the default)
-         // This assumes changing the image URL means the old Airtable record is no longer relevant
-        if (oldAirtableRecordId) { // Check if we explicitly passed it
-            await deleteAirtableRecord(oldAirtableRecordId);
-            updatedData.imageAirtableRecordId = newImageUrl ? values.imageAirtableRecordId || null : null;
-        }
-      } else if (newImageUrl === '' && previousAirtableId) {
-         // Image URL is cleared, and there was an Airtable ID. Delete and clear ID.
-         await deleteAirtableRecord(previousAirtableId);
-         updatedData.imageAirtableRecordId = null;
-      }
-
-
       await updateDoc(dormRef, updatedData);
     },
     onSuccess: () => {
@@ -195,10 +140,6 @@ export default function AdminDormitoriesPage() {
 
   const deleteDormitoryMutation = useMutation<void, Error, string>({
     mutationFn: async (id) => {
-      const dormToDelete = allDormitoriesFromDb.find(d => d.id === id);
-      if (dormToDelete?.imageAirtableRecordId) {
-        await deleteAirtableRecord(dormToDelete.imageAirtableRecordId);
-      }
       await deleteDoc(doc(db, "dormitories", id));
     },
     onSuccess: () => {
@@ -217,7 +158,7 @@ export default function AdminDormitoriesPage() {
   const form = useForm<DormitoryFormValues>({
     resolver: zodResolver(dormitorySchema),
     defaultValues: {
-      roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room", imageAirtableRecordId: "",
+      roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
       buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
     },
   });
@@ -264,7 +205,6 @@ export default function AdminDormitoriesPage() {
         pricePerDay: dorm.pricePerDay ?? undefined,
         images: dorm.images?.[0] || "",
         dataAiHint: dorm.dataAiHint || "dormitory room",
-        imageAirtableRecordId: dorm.imageAirtableRecordId || "",
         buildingName: dorm.buildingName,
     });
     setIsEditDialogOpen(true);
@@ -272,21 +212,7 @@ export default function AdminDormitoriesPage() {
 
   async function onEditSubmit(values: DormitoryFormValues) {
     if (!currentDormitory) return;
-    let oldAirtableIdToPotentiallyDelete: string | null = null;
-    
-    const previousImageUrl = currentDormitory.images?.[0];
-    const newImageUrl = values.images;
-
-    if (currentDormitory.imageAirtableRecordId && 
-        (newImageUrl === '' || (newImageUrl !== previousImageUrl && newImageUrl !== defaultImage))) {
-        oldAirtableIdToPotentiallyDelete = currentDormitory.imageAirtableRecordId;
-    }
-
-    editDormitoryMutation.mutate({ 
-        id: currentDormitory.id, 
-        values,
-        oldAirtableRecordId: oldAirtableIdToPotentiallyDelete 
-    });
+    editDormitoryMutation.mutate({ id: currentDormitory.id, values });
   }
 
   const openDeleteDialog = (dormId: string) => {
@@ -317,7 +243,7 @@ export default function AdminDormitoriesPage() {
           <DialogTrigger asChild>
             <Button onClick={() => {
               form.reset({
-                roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room", imageAirtableRecordId: "",
+                roomNumber: "", floor: 1, capacity: 2, pricePerDay: undefined, isAvailable: true, images: "", dataAiHint: "dormitory room",
                 buildingName: user?.role === 'admin' && user.buildingAssignment ? user.buildingAssignment : undefined,
               });
               setIsAddDialogOpen(true);
@@ -365,7 +291,6 @@ export default function AdminDormitoriesPage() {
                 <FormField control={form.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfo')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="imageAirtableRecordId" render={({ field }) => ( <FormItem><FormLabel>{t('imageAirtableRecordId')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('enterAirtableRecordId')} {...field} /></FormControl><ShadFormDescription>{t('airtableRecordIdDescription')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
@@ -517,7 +442,6 @@ export default function AdminDormitoriesPage() {
                 <FormField control={editForm.control} name="pricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('pricePerDay')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfo')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
                 <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="imageAirtableRecordId" render={({ field }) => ( <FormItem><FormLabel>{t('imageAirtableRecordId')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('enterAirtableRecordId')} {...field} /></FormControl><ShadFormDescription>{t('airtableRecordIdDescription')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={t('placeholderModernDormRoom')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>
