@@ -4,63 +4,95 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default Deny: Secure by default unless a rule explicitly allows access.
+    // Default deny all reads and writes
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Users:
-    // Allow users to read their own data.
-    // Allow superadmins to read/write any user document.
+    // Users Collection
     match /users/{userId} {
-      allow get: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin');
-      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-      allow write: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin');
-      // Allow company representatives to be created by anyone (public registration)
-      allow create: if request.resource.data.role == 'company_representative';
-      // Allow admins to be created only by superadmins.
-      allow create: if request.resource.data.role in ['admin', 'keyholder'] && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+      // A user can read and update their own document.
+      // Roles cannot be changed by the user themselves.
+      allow read, update: if request.auth != null && request.auth.uid == userId
+                           && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role);
+      
+      // A user can create their own document upon signup.
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Superadmins can write/delete any user document (e.g. to change roles).
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
 
-    // Bookings:
-    // Anyone can create a booking.
-    // Admins/Keyholders can read/update/delete any booking.
-    match /bookings/{bookingId} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin', 'keyholder'];
-      // Additionally, allow an authenticated user to read their own booking if their userId matches.
-      allow get: if request.auth != null && resource.data.userId == request.auth.uid;
-    }
-    
-    // Notifications (Admin-only)
-    match /notifications/{notificationId} {
-        allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-
-    // Dormitories and Halls (Public read, Admin write)
-    match /dormitories/{dormId} {
-      allow get, list: if true;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-    match /halls/{hallId} {
-      allow get, list: if true;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-    
-    // Site Configuration (Public read on some, Admin write on all)
-    match /site_configuration/{docId} {
-        allow get, list: if true;
-        allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-    
-    // Blog (Public can read published, Admins can write)
+    // Blog Collection
     match /blog/{postId} {
-      // Allow admins to read/write all posts.
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-      // Allow public to GET a single post if it's published.
-      allow get: if resource.data.isPublished == true;
-      // Allow public to LIST the collection. The client query must filter by isPublished == true.
-      allow list: if true;
+      // Public can read a published post.
+      // Admins/superadmins can read any post (published or draft).
+      allow read: if (resource.data.isPublished == true) || 
+                   (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin']);
+
+      // Only admins/superadmins can create, update, or delete posts.
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    // Bookings Collection
+    match /bookings/{bookingId} {
+      // Admins/Superadmins can read any booking.
+      // Authenticated users can read their own bookings.
+      // Keyholders can read dormitory bookings.
+      allow get: if (request.auth != null && (
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      resource.data.userId == request.auth.uid ||
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder' && resource.data.bookingCategory == 'dormitory')
+                    ));
+
+      // This rule allows specific list queries. The client query MUST match these constraints.
+      allow list: if request.auth != null && (
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      (request.query.limit <= 100 && request.auth.uid == request.query.resource.data.userId) || // Users can list their own bookings
+                      (request.query.limit <= 100 && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder' && request.query.resource.data.bookingCategory == 'dormitory')
+                   );
+
+
+      // Anyone can create a dormitory booking. Authenticated users can create any booking.
+      allow create: if request.resource.data.bookingCategory == 'dormitory' || request.auth != null;
+
+      // Admins/Superadmins can update any booking.
+      // Users can update their own booking (e.g., upload payment proof).
+      // Keyholders can only update the keyStatus field.
+      allow update: if request.auth != null && (
+                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'] ||
+                      resource.data.userId == request.auth.uid ||
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus']))
+                    );
+      
+      // Only admins/superadmins can delete bookings.
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    // Publicly readable collections with restricted write access.
+    match /dormitories/{dormId} {
+      allow read: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    match /halls/{hallId} {
+      allow read: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    // Site configuration is readable by all, but only writable by general/super admins.
+    match /site_configuration/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && (
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' ||
+                     (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null)
+                   );
+    }
+    
+    // Notifications are only accessible by admins.
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
     }
   }
 }
