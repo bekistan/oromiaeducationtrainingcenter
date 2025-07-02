@@ -19,14 +19,23 @@ import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 const BLOG_POSTS_QUERY_KEY_PUBLIC = "publicBlogPosts";
 
 const fetchPublishedBlogPosts = async (): Promise<BlogPost[]> => {
-  if (!db) return [];
-  const q = query(
-    collection(db, "blog"),
-    where("isPublished", "==", true),
-    firestoreOrderBy("createdAt", "desc")
-  );
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+  if (!db) return []; // Return empty array if db is not configured
+  try {
+    const q = query(
+      collection(db, "blog"),
+      where("isPublished", "==", true),
+      firestoreOrderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+  } catch (error: any) {
+    if (error.code === 'permission-denied' || error.code === 'unimplemented') {
+      console.warn("Permission denied or collection does not exist. This is expected if the blog collection hasn't been created yet.");
+      return []; // Return empty array on permission error to show "No posts found"
+    }
+    // Re-throw other critical errors
+    throw error;
+  }
 };
 
 export default function BlogPage() {

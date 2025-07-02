@@ -3,77 +3,64 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-
-    function isSuperAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
     
-    function isKeyholder() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
-    }
-    
-    function isCompanyRep() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
+    // Default Deny: Secure by default unless a rule explicitly allows access.
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Users collection
+    // Users:
+    // Allow users to read their own data.
+    // Allow superadmins to read/write any user document.
     match /users/{userId} {
-      allow create: if request.auth.uid == userId;
-      allow get: if request.auth.uid == userId || isSuperAdmin();
-      allow update: if request.auth.uid == userId || isSuperAdmin();
-      allow delete: if isSuperAdmin();
-      allow list: if isSuperAdmin();
+      allow get: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin');
+      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+      allow write: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin');
+      // Allow company representatives to be created by anyone (public registration)
+      allow create: if request.resource.data.role == 'company_representative';
+      // Allow admins to be created only by superadmins.
+      allow create: if request.resource.data.role in ['admin', 'keyholder'] && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
 
-    // Bookings collection
+    // Bookings:
+    // Anyone can create a booking.
+    // Admins/Keyholders can read/update/delete any booking.
     match /bookings/{bookingId} {
       allow create: if true;
-      allow get: if isAdmin() || (isCompanyRep() && resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId);
-      allow list: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin', 'keyholder'];
+      // Additionally, allow an authenticated user to read their own booking if their userId matches.
+      allow get: if request.auth != null && resource.data.userId == request.auth.uid;
     }
     
-    // Blog collection
-    match /blog/{postId} {
-        // Admins can do anything to any blog post
-        allow write: if isAdmin();
-        
-        // Anyone can read a post if it's published. Admins can read any post.
-        allow get: if resource.data.isPublished == true || isAdmin();
-        
-        // Anyone can query/list the blog collection.
-        // Firestore's query rules ensure that a user can only receive documents
-        // from a list query that they also have GET permission for.
-        // This means public users MUST include `where("isPublished", "==", true)`
-        // in their client-side query, otherwise the query will be rejected by Firestore.
-        allow list: if true;
-    }
-    
-    // Publicly readable collections
-    match /dormitories/{docId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /halls/{docId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // Configuration collections
-    match /site_configuration/{docId} {
-      allow get: if true;
-      allow write: if isAdmin();
-    }
-
-    // Notifications collection (Admin only)
+    // Notifications (Admin-only)
     match /notifications/{notificationId} {
-      allow read, write, delete, list: if isAdmin();
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    // Dormitories and Halls (Public read, Admin write)
+    match /dormitories/{dormId} {
+      allow get, list: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+    match /halls/{hallId} {
+      allow get, list: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+    
+    // Site Configuration (Public read on some, Admin write on all)
+    match /site_configuration/{docId} {
+        allow get, list: if true;
+        allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+    
+    // Blog (Public can read published, Admins can write)
+    match /blog/{postId} {
+      // Allow admins to read/write all posts.
+      allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      // Allow public to GET a single post if it's published.
+      allow get: if resource.data.isPublished == true;
+      // Allow public to LIST the collection. The client query must filter by isPublished == true.
+      allow list: if true;
     }
   }
 }

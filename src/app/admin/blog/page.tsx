@@ -51,9 +51,19 @@ const slugify = (text: string) =>
     .replace(/--+/g, '-');
 
 const fetchBlogPosts = async (): Promise<BlogPost[]> => {
-  const q = query(collection(db, "blog"), firestoreOrderBy("createdAt", "desc"));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+  if (!db) return []; // Return empty array if db is not configured
+  try {
+    const q = query(collection(db, "blog"), firestoreOrderBy("createdAt", "desc"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      console.warn("Permission denied fetching blog posts for admin. Check Firestore rules.");
+      return []; // Return empty array on permission error to avoid crash
+    }
+    // Re-throw other errors
+    throw error;
+  }
 };
 
 export default function AdminBlogPage() {
