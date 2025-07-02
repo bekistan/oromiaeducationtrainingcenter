@@ -94,7 +94,7 @@ function BookingConfirmationContent() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || t('failedToUploadScreenshot'));
+        throw new Error(result.details || result.error || t('failedToUploadScreenshot'));
       }
       
       toast({

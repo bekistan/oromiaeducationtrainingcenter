@@ -115,19 +115,6 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
-      const bookingToDelete = allBookingsFromDb.find(b => b.id === bookingId);
-      // If there's an Airtable record ID, we should try to delete it
-      if (bookingToDelete?.paymentScreenshotAirtableRecordId) {
-        try {
-          await fetch('/api/delete-airtable-record', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recordId: bookingToDelete.paymentScreenshotAirtableRecordId }),
-          });
-        } catch (apiError) {
-          console.error('Failed to delete Airtable record, but proceeding with Firestore deletion:', apiError);
-        }
-      }
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {
