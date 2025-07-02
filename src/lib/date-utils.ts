@@ -1,6 +1,6 @@
 
 import { format as formatGregorian, parseISO as parseISOGregorian } from 'date-fns';
-import EthiopianDate, { toEthiopian, format as formatEthiopian } from 'ethiopian-date';
+import { EthiopianDate, toEthiopian, format as formatEthiopian } from 'ethiopian-date';
 import type { Timestamp } from 'firebase/firestore';
 import type { CalendarSystem } from '@/types';
 

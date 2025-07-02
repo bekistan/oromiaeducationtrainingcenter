@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -174,7 +175,9 @@ export default function HomePage() {
   const featuredDormitories = featuredItems?.dormitories || [];
   const featuredHalls = featuredItems?.halls || [];
 
-  const currentServiceImage = siteContent?.services.find(s => s.id === activeService)?.image || "https://placehold.co/800x600/b8c6db/333333?text=Service";
+  const currentService = siteContent?.services.find(s => s.id === activeService);
+  const currentServiceImage = currentService?.image || "https://placehold.co/800x600.png";
+  const currentServiceHint = currentService?.dataAiHint || "resort service";
 
 
   return (
@@ -373,7 +376,7 @@ export default function HomePage() {
                   alt={activeService}
                   fill
                   className="object-cover"
-                  data-ai-hint="resort service"
+                  data-ai-hint={currentServiceHint}
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   key={activeService} 
                 />
@@ -476,5 +479,3 @@ export default function HomePage() {
     </PublicLayout>
   );
 }
-
-    

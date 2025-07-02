@@ -199,6 +199,7 @@ export interface ServiceItem {
   title: { [key in Locale]?: string };
   description: { [key in Locale]?: string };
   image: string;
+  dataAiHint?: string;
 }
 
 export interface SiteContentSettings {

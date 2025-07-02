@@ -1,7 +1,10 @@
+
 "use client";
 
 import Script from 'next/script';
 
+// NOTE: The 404 (Not Found) error for this script means the IDs below are incorrect for your Tawk.to account.
+// Please log in to Tawk.to, go to Administration > Chat Widget, and find your correct Property ID and Widget ID.
 const TAWK_TO_PROPERTY_ID = '664ca64dea835c190b6d6d04';
 const TAWK_TO_WIDGET_ID = '1hvlmj8if';
 

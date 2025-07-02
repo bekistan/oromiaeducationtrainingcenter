@@ -170,19 +170,22 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
       id: "dormitories",
       title: { en: "Dormitories", om: "Dormitoriiwwan", am: "የመኝታ ክፍሎች" },
       description: { en: "Comfortable and secure accommodation for individuals and groups.", om: "Jireenyaaf mijataa fi nageenyi isaa eegamaadha.", am: "ለግለሰቦች እና ለቡድኖች ምቹ እና ደህንነቱ የተጠበቀ ማረፊያ።" },
-      image: "https://placehold.co/800x600/b8c6db/333333?text=Dormitory"
+      image: "https://placehold.co/800x600.png",
+      dataAiHint: "dormitory bedroom"
     },
     {
       id: "halls",
       title: { en: "Halls & Sections", om: "Galmawwanii fi Kutaa Addaa", am: "አዳራሾች እና ክፍሎች" },
       description: { en: "Versatile spaces for meetings, conferences, and events of all sizes.", om: "Bakkeewwan adda addaa walgahii, koonfaransii fi sagantaaleef.", am: "ለሁሉም መጠን ላላቸው ስብሰባዎች፣ ኮንፈረንሶች እና ዝግጅቶች ሁለገብ ቦታዎች።" },
-      image: "https://placehold.co/800x600/f5d0a9/333333?text=Hall"
+      image: "https://placehold.co/800x600.png",
+      dataAiHint: "conference hall"
     },
     {
       id: "catering",
       title: { en: "Catering Services", om: "Tajaajila Nyaataa", am: "የምግብ አቅርቦት አገልግሎቶች" },
       description: { en: "Delicious and customizable catering options to complement your event.", om: "Filannoowwan nyaataa mi'aawaa fi akka barbaadetti kan qophaa'u.", am: "ዝግጅትዎን የሚያሟሉ ጣፋጭ እና ሊበጁ የሚችሉ የምግብ አማራጮች።" },
-      image: "https://placehold.co/800x600/a9f5d0/333333?text=Catering"
+      image: "https://placehold.co/800x600.png",
+      dataAiHint: "catering food"
     }
   ],
   faqs: [
