@@ -1,11 +1,12 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import type { BlogPost } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, FileText, BookOpen } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, FileText, BookOpen, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy, serverTimestamp } from 'firebase/firestore';
@@ -21,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -51,17 +52,16 @@ const slugify = (text: string) =>
     .replace(/--+/g, '-');
 
 const fetchBlogPosts = async (): Promise<BlogPost[]> => {
-  if (!db) return []; // Return empty array if db is not configured
+  if (!db) return [];
   try {
     const q = query(collection(db, "blog"), firestoreOrderBy("createdAt", "desc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
   } catch (error: any) {
-    if (error.code === 'permission-denied') {
-      console.warn("Permission denied fetching blog posts for admin. Check Firestore rules.");
-      return []; // Return empty array on permission error to avoid crash
+    if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
+      console.warn("Could not fetch blog posts for admin. This is expected if the collection or necessary indexes don't exist yet.");
+      return [];
     }
-    // Re-throw other errors
     throw error;
   }
 };
@@ -76,6 +76,7 @@ export default function AdminBlogPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState<BlogPost | null>(null);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const { data: posts = [], isLoading, error } = useQuery<BlogPost[], Error>({
     queryKey: [BLOG_POSTS_QUERY_KEY],
@@ -101,11 +102,8 @@ export default function AdminBlogPage() {
       };
 
       if (id) {
-        // Update
-        const postRef = doc(db, "blog", id);
-        await updateDoc(postRef, postData);
+        await updateDoc(doc(db, "blog", id), postData);
       } else {
-        // Create
         await addDoc(collection(db, "blog"), {
           ...postData,
           createdAt: serverTimestamp(),
@@ -166,6 +164,35 @@ export default function AdminBlogPage() {
   const openDeleteConfirm = (post: BlogPost) => {
     setPostToDelete(post);
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingImage(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/upload-blog-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      form.setValue('imageUrl', result.url, { shouldValidate: true, shouldDirty: true });
+      toast({ title: t('success'), description: t('imageUploadedSuccessfully') });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: t('error'), description: err.message });
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const onSubmit = (values: BlogPostFormValues) => {
@@ -238,16 +265,59 @@ export default function AdminBlogPage() {
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel>
+                    <FormLabel>{t('featuredImage')}</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="https://res.cloudinary.com/.../image.png"
-                      />
+                      <>
+                        <Input
+                          id="image-upload"
+                          type="file"
+                          accept="image/png, image/jpeg, image/gif, image/webp"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          disabled={isUploadingImage}
+                        />
+                        <div className="border border-dashed rounded-lg p-6 text-center">
+                          {isUploadingImage ? (
+                            <div className="flex flex-col items-center justify-center">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              <p className="mt-2 text-sm text-muted-foreground">{t('uploadingImage')}</p>
+                            </div>
+                          ) : field.value ? (
+                            <div className="relative group">
+                              <Image
+                                src={field.value}
+                                alt={t('imagePreview')}
+                                width={200}
+                                height={120}
+                                className="rounded-md object-cover mx-auto"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => form.setValue('imageUrl', '', { shouldValidate: true, shouldDirty: true })}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" /> {t('remove')}
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                               <div className="mx-auto w-12 h-12 flex items-center justify-center bg-muted rounded-full">
+                                  <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                              <label
+                                htmlFor="image-upload"
+                                className="cursor-pointer text-primary font-medium hover:underline"
+                              >
+                                {t('clickToUploadImage')}
+                              </label>
+                              <p className="text-xs text-muted-foreground">{t('imageUploadHint')}</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     </FormControl>
-                    <FormDescription>
-                      {t('cloudinaryInstruction')}
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
