@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
+import type { FieldSet, Record as AirtableRecord } from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -43,12 +44,13 @@ export async function POST(req: NextRequest) {
     console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg, details: "Check AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME." }, { status: 500 });
   }
-
+  
   if (!db) {
     const errorMsg = "Firebase is not configured. Database is unavailable.";
     console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
+
 
   try {
     const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
@@ -112,9 +114,12 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record
     console.log('[API] Creating Airtable record...');
-    const airtableRecordFields = {
+    // The type for creating an attachment in Airtable is just { url: string }.
+    // The library's `FieldSet` type is overly strict and expects a full Attachment object.
+    // We cast to `any` to bypass this TypeScript error, as the runtime API call is correct.
+    const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }],
+      "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
       "Recipient phones": recipientPhoneNumbers.join(','),
       "Date": new Date().toISOString(),
@@ -128,10 +133,10 @@ export async function POST(req: NextRequest) {
         throw new Error('Airtable record creation returned no records.');
     }
     
-    const airtableRecordId = createdRecords[0].id;
+    const airtableRecordId = (createdRecords[0] as AirtableRecord<FieldSet>).id;
     console.log('[API] Airtable record created successfully. Record ID:', airtableRecordId);
     
-    // 3. Update Firestore booking document
+    // 3. Update Firestore document
     console.log('[API] Updating Firestore document...');
     const bookingRef = doc(db, "bookings", bookingId);
     await updateDoc(bookingRef, {
@@ -155,6 +160,15 @@ export async function POST(req: NextRequest) {
         errorMessage = error.message;
     }
     
+    // Provide more specific error feedback for common Airtable issues
+    if (error.statusCode === 401 || error.statusCode === 403) {
+      errorMessage = 'Airtable authentication failed. Please check your AIRTABLE_API_KEY.';
+    } else if (error.statusCode === 404) {
+      errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
+    } else if (error.statusCode === 422) {
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Recipient phones") and field types in your Airtable base.';
+    }
+
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
     return NextResponse.json({ error: errorMessage, details: error.toString() }, { status: 500 });
   }
