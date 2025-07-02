@@ -31,7 +31,7 @@ const blogPostSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   content: z.string().min(10, { message: "Content must be at least 10 characters." }),
   excerpt: z.string().max(200, { message: "Excerpt cannot exceed 200 characters." }).optional(),
-  imageUrl: z.string().optional().or(z.literal('')),
+  imageUrl: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal('')),
   isPublished: z.boolean().default(false),
 });
 
@@ -232,11 +232,11 @@ export default function AdminBlogPage() {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="/images/blog/example-post.png"
+                        placeholder="https://res.cloudinary.com/.../image.png"
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('localImagePathInstruction')}
+                      {t('cloudinaryInstruction')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

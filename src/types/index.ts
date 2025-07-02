@@ -97,8 +97,7 @@ export interface Booking {
   guestName?: string;
   guestEmployer?: string;
   phone?: string;
-  paymentScreenshotUrl?: string; // For admin verification
-  paymentScreenshotAirtableRecordId?: string; // For admin verification
+  paymentScreenshotUrl?: string;
   // Facility specific
   companyName?: string;
   contactPerson?: string;
@@ -183,6 +182,7 @@ export interface BlogPost {
   createdAt: any;
   updatedAt: any;
 }
+
 
 export interface FAQItem {
   id: string;

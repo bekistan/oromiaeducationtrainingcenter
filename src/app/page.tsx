@@ -207,22 +207,22 @@ export default function HomePage() {
       </section>
 
       {/* Featured Dormitories Section */}
-      <section className="py-16 md:py-24 bg-gray-900 text-gray-200">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-accent mb-2">{featuredDormitoriesTitle}</h2>
-          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredDormitoriesTitle}</h2>
+          <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
           </svg>
-          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{featuredDormitoriesSubtitle}</p>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredDormitoriesSubtitle}</p>
           
           {isLoadingFeaturedItems || isLoadingPricing ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full bg-gray-700" />)}
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full" />)}
             </div>
           ) : featuredDormitories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {featuredDormitories.map((dorm) => (
-                <Card key={dorm.id} className="bg-gray-800 border-gray-700 overflow-hidden flex flex-col group text-white">
+                <Card key={dorm.id} className="bg-card border overflow-hidden flex flex-col group">
                   <div className="relative overflow-hidden">
                     <Image
                       src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
@@ -236,9 +236,9 @@ export default function HomePage() {
                       {(dorm.pricePerDay ?? pricingSettings?.defaultDormitoryPricePerDay ?? 0).toLocaleString()} {t('currencySymbol')} / {t('night')}
                     </div>
                   </div>
-                  <div className="p-4 mt-auto bg-gray-900/50 flex justify-between items-center">
+                  <div className="p-4 mt-auto flex justify-between items-center">
                     <h3 className="text-lg font-semibold">{t('roomNumber')} {dorm.roomNumber}</h3>
-                    <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+                    <Button asChild>
                       <Link href="/dormitories">{t('viewDetails')}</Link>
                     </Button>
                   </div>
@@ -246,11 +246,11 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
-             <div className="text-center py-8 text-gray-400">{t('noFeaturedDormitories')}</div>
+             <div className="text-center py-8 text-muted-foreground">{t('noFeaturedDormitories')}</div>
           )}
 
           <div className="text-center mt-12">
-            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+            <Button asChild variant="outline" size="lg">
               <Link href="/dormitories">{t('viewAllDormitories')}</Link>
             </Button>
           </div>
@@ -258,22 +258,22 @@ export default function HomePage() {
       </section>
 
       {/* Featured Halls Section */}
-      <section className="py-16 md:py-24 bg-gray-800 text-gray-200">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-accent mb-2">{featuredHallsTitle}</h2>
-          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredHallsTitle}</h2>
+           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
           </svg>
-          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{featuredHallsSubtitle}</p>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredHallsSubtitle}</p>
           
           {isLoadingFeaturedItems || isLoadingPricing ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full bg-gray-700" />)}
+                {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-80 w-full" />)}
             </div>
           ) : featuredHalls.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {featuredHalls.map((hall) => (
-                <Card key={hall.id} className="bg-gray-900 border-gray-700 overflow-hidden flex flex-col group text-white">
+                <Card key={hall.id} className="bg-card border overflow-hidden flex flex-col group">
                   <div className="relative overflow-hidden">
                     <Image
                       src={hall.images?.[0] || `https://placehold.co/600x400.png`}
@@ -287,9 +287,9 @@ export default function HomePage() {
                        {(hall.rentalCost ?? (hall.itemType === 'hall' ? pricingSettings?.defaultHallRentalCostPerDay : pricingSettings?.defaultSectionRentalCostPerDay) ?? 0).toLocaleString()} {t('currencySymbol')} / {t('day')}
                     </div>
                   </div>
-                  <div className="p-4 mt-auto bg-gray-800/50 flex justify-between items-center">
+                  <div className="p-4 mt-auto flex justify-between items-center">
                     <h3 className="text-lg font-semibold">{hall.name}</h3>
-                    <Button asChild variant="outline" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+                     <Button asChild>
                       <Link href="/halls">{t('viewDetails')}</Link>
                     </Button>
                   </div>
@@ -297,11 +297,11 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-400">{t('noFeaturedHalls')}</div>
+            <div className="text-center py-8 text-muted-foreground">{t('noFeaturedHalls')}</div>
           )}
 
           <div className="text-center mt-12">
-            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+            <Button asChild variant="outline" size="lg">
               <Link href="/halls">{t('viewAllHalls')}</Link>
             </Button>
           </div>
@@ -309,22 +309,22 @@ export default function HomePage() {
       </section>
 
       {/* Latest News Section */}
-      <section className="py-16 md:py-24 bg-gray-900 text-gray-200">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-accent mb-2">{t('latestNewsAndEvents')}</h2>
-          <svg className="w-24 h-2 mx-auto text-accent mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('latestNewsAndEvents')}</h2>
+          <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
           </svg>
-          <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
           
           {isLoadingLatestPosts ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-48 w-full bg-gray-700" />)}
+              {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {latestPosts.map(post => (
-                <Card key={post.id} className="bg-gray-800 border-gray-700 overflow-hidden flex flex-row group text-white">
+                <Card key={post.id} className="overflow-hidden flex flex-row group">
                   <div className="relative w-1/3 overflow-hidden">
                     <Image
                       src={post.imageUrl || `https://placehold.co/400x400.png`}
@@ -336,13 +336,13 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="w-2/3 p-4 md:p-6 flex flex-col">
-                    <CardTitle className="text-lg md:text-xl mb-2 text-accent leading-tight">
-                      <Link href={`/blog/${post.slug}`} className="hover:underline">{post.title}</Link>
+                    <CardTitle className="text-lg md:text-xl mb-2 leading-tight">
+                      <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
                     </CardTitle>
-                    <CardDescription className="text-gray-400 text-sm mb-4 line-clamp-3 flex-grow">
+                    <CardDescription className="text-gray-500 text-sm mb-4 line-clamp-3 flex-grow">
                       {post.excerpt || post.content.substring(0, 120) + '...'}
                     </CardDescription>
-                    <div className="text-xs text-gray-500 flex items-center flex-wrap gap-x-4 gap-y-1 mt-auto">
+                    <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-4 gap-y-1 mt-auto">
                       <span className="flex items-center gap-1"><User className="h-3 w-3" /> {post.authorName}</span>
                       <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
                     </div>
@@ -351,11 +351,11 @@ export default function HomePage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-400">{t('noNewsFound')}</div>
+            <div className="text-center py-8 text-muted-foreground">{t('noNewsFound')}</div>
           )}
           
           <div className="text-center mt-12">
-            <Button asChild variant="outline" size="lg" className="border-accent text-accent hover:bg-accent hover:text-gray-900">
+            <Button asChild variant="outline" size="lg">
               <Link href="/blog">{t('viewAllNews')}</Link>
             </Button>
           </div>
@@ -363,7 +363,7 @@ export default function HomePage() {
       </section>
 
       {/* Our Services Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-primary">{servicesSectionTitle}</h2>
@@ -431,7 +431,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-12">{t('features')}</h2>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -453,7 +453,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
