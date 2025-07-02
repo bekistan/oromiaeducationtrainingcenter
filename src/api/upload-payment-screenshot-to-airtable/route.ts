@@ -27,8 +27,7 @@ export async function POST(req: NextRequest) {
       secure: true,
     });
      console.log('[API] Cloudinary configured successfully on-demand.');
-  } catch (configError: any)
-{
+  } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
@@ -52,7 +51,8 @@ export async function POST(req: NextRequest) {
 
 
   try {
-    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+    Airtable.configure({ apiKey: airtableApiKey });
+    const base = new Airtable().base(airtableBaseId);
     console.log('[API] Airtable configured successfully on-demand.');
 
     const formData = await req.formData();
@@ -88,13 +88,12 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Step 1 COMPLETE. Cloudinary upload successful. URL:', cloudinaryUrl);
     
-    // 2. Create Airtable record (Simplified for debugging)
-    console.log('[API] Step 2: Creating simplified Airtable record for debugging...');
+    // 2. Create Airtable record
+    console.log('[API] Step 2: Creating Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
-      // "Original Filename": file.name, // Temporarily removed for debugging
-      // "Date": new Date().toISOString(), // Temporarily removed for debugging
+      "Original Filename": file.name,
     };
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
@@ -102,7 +101,6 @@ export async function POST(req: NextRequest) {
     ]);
     
     if (!createdRecords || createdRecords.length === 0) {
-        console.error('[API] FAILED at Step 2: Airtable record creation returned no records.');
         throw new Error('Airtable record creation returned no records.');
     }
     
@@ -146,7 +144,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot") and their field types in your Airtable base. I have temporarily removed "Date" and "Original Filename" for debugging.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
