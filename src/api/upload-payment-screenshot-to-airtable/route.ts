@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       "Date": new Date().toISOString(),
     };
 
-    const createdRecords = await base(airtableTableName).create([
+    const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
       { fields: airtableRecordFields }
     ]);
     
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
         throw new Error('Airtable record creation returned no records.');
     }
     
-    const airtableRecordId = (createdRecords[0] as AirtableRecord<FieldSet>).id;
+    const airtableRecordId = createdRecords[0].id;
     console.log('[API] Airtable record created successfully. Record ID:', airtableRecordId);
     
     // 3. Update Firestore document
