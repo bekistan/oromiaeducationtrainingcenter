@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
 
 
   try {
-    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+    Airtable.configure({ apiKey: airtableApiKey });
+    const base = new Airtable().base(airtableBaseId);
     console.log('[API] Airtable configured successfully on-demand.');
 
     const formData = await req.formData();
@@ -88,11 +89,10 @@ export async function POST(req: NextRequest) {
     console.log('[API] Step 1 COMPLETE. Cloudinary upload successful. URL:', cloudinaryUrl);
     
     // 2. Create Airtable record
-    console.log('[API] Step 2: Creating Airtable record with full payload...');
+    console.log('[API] Step 2: Creating Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
-      "Date": new Date().toISOString(),
       "Original Filename": file.name,
     };
 
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check that your column names ("Booking ID", "Screenshot", "Date", "Original Filename") and their field types in Airtable exactly match what the app is sending.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
