@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     console.log(`[API] Received file: ${file.name}, for Booking ID: ${bookingId}`);
 
     // 1. Upload to Cloudinary
-    console.log('[API] Uploading to Cloudinary...');
+    console.log('[API] Step 1: Uploading to Cloudinary...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -82,15 +82,15 @@ export async function POST(req: NextRequest) {
 
     if ('error' in cloudinaryUploadResult || !cloudinaryUploadResult.secure_url) {
       const details = (cloudinaryUploadResult as { error: any })?.error?.message || 'Cloudinary upload failed or did not return a URL.';
-      console.error('[API] FAILED: Cloudinary upload failed. Details:', details);
+      console.error('[API] FAILED at Step 1: Cloudinary upload failed. Details:', details);
       return NextResponse.json({ error: 'Failed to upload screenshot to image server.', details }, { status: 500 });
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
-    console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
+    console.log('[API] Step 1 COMPLETE. Cloudinary upload successful. URL:', cloudinaryUrl);
     
     // 2. Create Airtable record
-    console.log('[API] Creating Airtable record...');
+    console.log('[API] Step 2: Creating Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
@@ -103,21 +103,22 @@ export async function POST(req: NextRequest) {
     ]);
     
     if (!createdRecords || createdRecords.length === 0) {
+        console.error('[API] FAILED at Step 2: Airtable record creation returned no records.');
         throw new Error('Airtable record creation returned no records.');
     }
     
     const airtableRecordId = createdRecords[0].id;
-    console.log('[API] Airtable record created successfully. Record ID:', airtableRecordId);
+    console.log('[API] Step 2 COMPLETE. Airtable record created successfully. Record ID:', airtableRecordId);
     
     // 3. Update Firestore document
-    console.log('[API] Updating Firestore document...');
+    console.log('[API] Step 3: Updating Firestore document...');
     const bookingRef = doc(db, "bookings", bookingId);
     await updateDoc(bookingRef, {
         paymentScreenshotUrl: cloudinaryUrl,
         paymentScreenshotAirtableRecordId: airtableRecordId,
         paymentStatus: 'awaiting_verification',
     });
-    console.log('[API] Firestore document updated successfully.');
+    console.log('[API] Step 3 COMPLETE. Firestore document updated successfully.');
 
     console.log('--- [API /upload-payment-screenshot] END: Success ---');
     return NextResponse.json({
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
     }
     
     if (error.statusCode === 401 || error.statusCode === 403) {
-      errorMessage = 'Airtable authentication failed. Please check your AIRTABLE_API_KEY.';
+      errorMessage = 'Airtable authentication failed. Please check your AIRTABLE_API_KEY permissions and scopes. It needs data.records:write access.';
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
