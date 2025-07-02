@@ -4,9 +4,7 @@ import Airtable from 'airtable';
 import type { FieldSet, Record as AirtableRecord } from 'airtable';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { getBuildingAdminPhoneNumbers } from '@/services/sms-service';
-import type { Booking, Dormitory } from '@/types';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-screenshot] START ---');
@@ -64,29 +62,6 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required for screenshot upload.' }, { status: 400 });
     console.log(`[API] Received file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // --- Recipient Phone Number Logic ---
-    let recipientPhoneNumbers: string[] = [];
-    try {
-        const bookingRef = doc(db, "bookings", bookingId);
-        const bookingSnap = await getDoc(bookingRef);
-        if (bookingSnap.exists()) {
-            const bookingData = bookingSnap.data() as Booking;
-            if (bookingData.bookingCategory === 'dormitory' && bookingData.items.length > 0) {
-                const firstDormId = bookingData.items[0].id;
-                const dormRef = doc(db, "dormitories", firstDormId);
-                const dormSnap = await getDoc(dormRef);
-                if (dormSnap.exists()) {
-                    const dormData = dormSnap.data() as Dormitory;
-                    if (dormData.buildingName) {
-                        recipientPhoneNumbers = await getBuildingAdminPhoneNumbers(dormData.buildingName);
-                    }
-                }
-            }
-        }
-    } catch (dbError: any) {
-        console.warn('[API] Warning: Failed to look up booking details to notify admin. Error:', dbError.message);
-    }
-    
     // 1. Upload to Cloudinary
     console.log('[API] Uploading to Cloudinary...');
     const bytes = await file.arrayBuffer();
@@ -114,14 +89,10 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record
     console.log('[API] Creating Airtable record...');
-    // The type for creating an attachment in Airtable is just { url: string }.
-    // The library's `FieldSet` type is overly strict and expects a full Attachment object.
-    // We cast to `any` to bypass this TypeScript error, as the runtime API call is correct.
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
       "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
-      "Recipient phones": recipientPhoneNumbers.join(','),
       "Date": new Date().toISOString(),
     };
 
@@ -166,7 +137,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Recipient phones") and field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Date") and field types in your Airtable base.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
