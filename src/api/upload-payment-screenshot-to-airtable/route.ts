@@ -91,18 +91,19 @@ export async function POST(req: NextRequest) {
     
     // 2. Create Airtable record
     step = 'CREATE_AIRTABLE_RECORD';
-    console.log('[API] Step 2: Creating Airtable record...');
+    console.log('[API] Step 2: Preparing Airtable record...');
     const airtableRecordFields: FieldSet = {
       "Booking ID": bookingId,             
-      "Screenshot": [{ url: cloudinaryUrl }],
+      "Screenshot": [{ url: cloudinaryUrl }] as any,
       "Original Filename": file.name,
     };
     
-    console.log('[API] Airtable Payload to be sent:', JSON.stringify(airtableRecordFields, null, 2));
+    console.log('[API] Attempting to create Airtable record in table:', airtableTableName);
+    console.log('[API] Data being sent to Airtable:', JSON.stringify(airtableRecordFields, null, 2));
 
     const createdRecords: readonly AirtableRecord<FieldSet>[] = await base(airtableTableName).create([
       { fields: airtableRecordFields }
-    ], { typecast: true }); // Use typecast to help with data conversion
+    ], { typecast: true });
     
     if (!createdRecords || createdRecords.length === 0) {
         throw new Error('Airtable record creation returned no records.');
@@ -150,7 +151,7 @@ export async function POST(req: NextRequest) {
     } else if (error.statusCode === 404) {
       errorMessage = 'Airtable resource not found. Please check your AIRTABLE_BASE_ID and AIRTABLE_TABLE_NAME.';
     } else if (error.statusCode === 422) {
-      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base.';
+      errorMessage = 'Airtable schema mismatch. Please check your column names (e.g., "Booking ID", "Screenshot", "Original Filename") and their field types in your Airtable base. Column names are case-sensitive.';
     }
 
     console.log('--- [API /upload-payment-screenshot] END: Failure ---');
