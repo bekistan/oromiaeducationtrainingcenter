@@ -13,7 +13,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer, doc, documentId } from 'firebase/firestore';
 import type { Booking, User as AppUserType, Dormitory } from '@/types';
-import { formatDualDate, formatDateForDisplay } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
@@ -24,7 +24,7 @@ interface ReportOutput {
 
 
 export default function AdminReportsPage() {
-  const { t, preferredCalendarSystem } = useLanguage();
+  const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -97,17 +97,17 @@ export default function AdminReportsPage() {
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8), 
-      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
+      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
       [t('guestName')]: b.guestName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
-      [t('endDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
+      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
     return {
-      filename: `${t('userDormReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t('userDormReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -141,12 +141,12 @@ export default function AdminReportsPage() {
     const summaryText = `
 ${t('financialSummaryReport')} (${currentUser.role === 'admin' && currentUser.buildingAssignment ? currentUser.buildingAssignment : t('allBuildings')})
 ---------------------------------
-${t('period')}: ${formatDualDate(range.from, 'yyyy-MM-dd', 'YYYY-MM-DD')} - ${formatDualDate(range.to, 'yyyy-MM-dd', 'YYYY-MM-DD')}
+${t('period')}: ${formatDate(range.from, 'yyyy-MM-dd')} - ${formatDate(range.to, 'yyyy-MM-dd')}
 ${t('totalRevenue')}: ${totalRevenue.toLocaleString()} ${t('currencySymbol')}
 ${t('bookingsCount')}: ${bookingsForReport.length}
     `;
     return {
-      filename: `${t('financialSummaryReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.txt`,
+      filename: `${t('financialSummaryReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -165,17 +165,17 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'), 
+      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'), 
       [t('companyName')]: b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
-      [t('endDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
+      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
     return {
-      filename: `${t('hallUtilizationReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t('hallUtilizationReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -191,12 +191,12 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const summaryText = `
 ${t('occupancyAnalyticsReport')}
 ---------------------------------
-${t('period')}: ${formatDualDate(range.from, 'yyyy-MM-dd', 'YYYY-MM-DD')} - ${formatDualDate(range.to, 'yyyy-MM-dd', 'YYYY-MM-DD')}
+${t('period')}: ${formatDate(range.from, 'yyyy-MM-dd')} - ${formatDate(range.to, 'yyyy-MM-dd')}
 ${t('dormitoryBookings')}: ${dormSnapshot.data().count}
 ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     `;
     return {
-      filename: `${t('occupancyAnalyticsReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.txt`,
+      filename: `${t('occupancyAnalyticsReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -226,16 +226,16 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
+      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
       [category === 'dormitory' ? t('guestName') : t('companyName')]: category === 'dormitory' ? b.guestName : b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('dates')]: `${formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD')} - ${formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD')}`,
+      [t('dates')]: `${formatDate(b.startDate, 'yyyy-MM-dd')} - ${formatDate(b.endDate, 'yyyy-MM-dd')}`,
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
      return {
-      filename: `${t(periodTitleKey)}_${category}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t(periodTitleKey)}_${category}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -258,10 +258,10 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
       [t('email')]: c.email,
       [t('phone')]: c.phone || t('notProvided'),
       [t('approvalStatus')]: t(c.approvalStatus || 'pending'),
-      [t('registrationDate')]: formatDualDate(c.createdAt, 'yyyy-MM-dd', 'YYYY-MM-DD')
+      [t('registrationDate')]: formatDate(c.createdAt, 'yyyy-MM-dd')
     }));
     return {
-      filename: `${t('companyRegistrationReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.csv`,
+      filename: `${t('companyRegistrationReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -286,10 +286,10 @@ ${t('totalRegisteredCompanies')}: ${stats.total}
 ${t('approvedCompanies')}: ${stats.approved}
 ${t('pendingCompanies')}: ${stats.pending}
 ${t('rejectedCompanies')}: ${stats.rejected}
-${t('reportGeneratedOn')}: ${formatDualDate(new Date(), 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm')}
+${t('reportGeneratedOn')}: ${formatDate(new Date(), 'yyyy-MM-dd HH:mm')}
     `;
      return {
-      filename: `${t('overallCompanyStatsReport')}_${formatDateForDisplay(new Date(), 'gregorian', 'yyyy-MM-dd')}.txt`,
+      filename: `${t('overallCompanyStatsReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };

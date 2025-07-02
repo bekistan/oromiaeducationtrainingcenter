@@ -34,7 +34,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { toDateObject, formatDualDate } from '@/lib/date-utils';
+import { toDateObject, formatDate } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -360,12 +360,12 @@ export default function AdminBookingsPage() {
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
                       <TableCell className="capitalize whitespace-nowrap">{t(booking.bookingCategory)}</TableCell>
                       <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
                       <TableCell className="min-w-[150px]">{booking.bookingCategory === 'dormitory' ? booking.guestName : booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId ? booking.userId.substring(0,6) : 'N/A'}...)</span>}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs">
-                        {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}
+                        {formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>

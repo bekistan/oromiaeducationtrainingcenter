@@ -14,7 +14,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
@@ -24,7 +24,7 @@ interface ReportOutput {
 }
 
 export default function CompanyReportsPage() {
-  const { t, preferredCalendarSystem } = useLanguage();
+  const { t } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -82,21 +82,21 @@ export default function CompanyReportsPage() {
     const reportData = bookings.map(b => ({
       [t('bookingId')]: b.id,
       [t('itemsBooked')]: b.items.map(i => i.name).join('; '),
-      [t('startDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
-      [t('endDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
+      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
       [t('agreementStatus')]: b.agreementStatus ? t(b.agreementStatus) : t('notApplicable'),
-      [t('bookedOn')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
+      [t('bookedOn')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
     }));
 
     return {
-      filename: `${t('bookingHistoryReport')}_${formatDualDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('bookingHistoryReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
-  }, [user, dateRange, t, preferredCalendarSystem]);
+  }, [user, dateRange, t]);
 
   const handleGenerateReport = useCallback(async () => {
     setIsLoadingReport(true);

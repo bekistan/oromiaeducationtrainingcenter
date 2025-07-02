@@ -12,7 +12,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDateForDisplay, formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 
 interface ReportOutput {
   filename: string;
@@ -21,7 +21,7 @@ interface ReportOutput {
 }
 
 export default function KeyholderReportsPage() {
-  const { t, preferredCalendarSystem } = useLanguage();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingReport, setIsLoadingReport] = useState(false);
@@ -85,18 +85,18 @@ export default function KeyholderReportsPage() {
       [t('guestName')]: b.guestName,
       [t('phone')]: b.phone,
       [t('roomBooked')]: b.items.map(i => i.name).join('; '),
-      [t('bookedAt')]: formatDualDate(b.bookedAt, 'yyyy-MM-dd HH:mm', 'YYYY-MM-DD HH:mm'),
-      [t('checkInDate')]: formatDualDate(b.startDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
-      [t('checkOutDate')]: formatDualDate(b.endDate, 'yyyy-MM-dd', 'YYYY-MM-DD'),
+      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
+      [t('checkInDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
+      [t('checkOutDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
       [t('keyStatus')]: t(b.keyStatus || 'keyNotIssued'),
     }));
 
     return {
-      filename: `${t('dormitoryActivityReport')}_${formatDualDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('dormitoryActivityReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
-  }, [dateRange, t, preferredCalendarSystem]);
+  }, [dateRange, t]);
 
   const handleGenerateReport = useCallback(async () => {
     setIsLoadingReport(true);

@@ -11,7 +11,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { Loader2, Calendar, User, ArrowLeft } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -71,7 +71,7 @@ export default function BlogPostPage() {
               <h1 className="text-4xl font-extrabold tracking-tight text-primary mb-4 lg:text-5xl">{post.title}</h1>
               <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                 <div className="flex items-center"><User className="mr-2 h-4 w-4" /> {post.authorName}</div>
-                <div className="flex items-center"><Calendar className="mr-2 h-4 w-4" /> {formatDualDate(post.createdAt, 'MMMM d, yyyy', 'MMMM D, YYYY')}</div>
+                <div className="flex items-center"><Calendar className="mr-2 h-4 w-4" /> {formatDate(post.createdAt, 'MMMM d, yyyy')}</div>
               </div>
             </header>
             

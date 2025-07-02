@@ -14,7 +14,7 @@ import { LogIn, LogOut, Bed, Loader2, ShieldAlert, Calendar } from "lucide-react
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 
 const KEYHOLDER_REPORTS_QUERY_KEY = "keyholderDailyReports";
 
@@ -117,7 +117,7 @@ export default function KeyholderDailyReportsPage() {
         return <p className="text-destructive">{t('errorLoadingDashboardData')}: {error.message}</p>;
     }
 
-    const todayFormatted = formatDualDate(new Date(), 'EEEE, MMMM d, yyyy', 'EEEE, MMMM D, YYYY');
+    const todayFormatted = formatDate(new Date(), 'EEEE, MMMM d, yyyy');
 
     return (
         <div className="space-y-6">
@@ -195,7 +195,7 @@ export default function KeyholderDailyReportsPage() {
                                         <TableRow key={booking.id}>
                                             <TableCell>{booking.guestName}</TableCell>
                                             <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                            <TableCell>{formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                                            <TableCell>{formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

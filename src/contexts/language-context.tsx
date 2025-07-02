@@ -3,16 +3,14 @@
 
 import type { ReactNode } from 'react';
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import type { Locale, Translations, CalendarSystem } from '@/types';
-import { DEFAULT_LOCALE, SUPPORTED_LOCALES, DEFAULT_CALENDAR_SYSTEM } from '@/constants';
+import type { Locale, Translations } from '@/types';
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from '@/constants';
 
 interface LanguageContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   translations: Translations;
   t: (key: string, replacements?: Record<string, string | number>) => string;
-  preferredCalendarSystem: CalendarSystem;
-  setPreferredCalendarSystem: (system: CalendarSystem) => void;
 }
 
 export const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -24,17 +22,11 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [translations, setTranslations] = useState<Translations>({});
-  const [preferredCalendarSystem, setPreferredCalendarSystemState] = useState<CalendarSystem>(DEFAULT_CALENDAR_SYSTEM);
 
   useEffect(() => {
     const storedLocale = localStorage.getItem('locale') as Locale | null;
     if (storedLocale && SUPPORTED_LOCALES.some(l => l.code === storedLocale)) {
       setLocaleState(storedLocale);
-    }
-
-    const storedCalendarSystem = localStorage.getItem('calendarSystem') as CalendarSystem | null;
-    if (storedCalendarSystem && (storedCalendarSystem === 'gregorian' || storedCalendarSystem === 'ethiopian')) {
-      setPreferredCalendarSystemState(storedCalendarSystem);
     }
   }, []);
 
@@ -67,11 +59,6 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     }
   };
 
-  const setPreferredCalendarSystem = (system: CalendarSystem) => {
-    setPreferredCalendarSystemState(system);
-    localStorage.setItem('calendarSystem', system);
-  };
-
   const t = useCallback((key: string, replacements?: Record<string, string | number>): string => {
     const keys = key.split('.');
     let text: string | Translations | undefined = translations;
@@ -98,7 +85,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   }, [translations, locale]);
 
   return (
-    <LanguageContext.Provider value={{ locale, setLocale, translations, t, preferredCalendarSystem, setPreferredCalendarSystem }}>
+    <LanguageContext.Provider value={{ locale, setLocale, translations, t }}>
       {children}
     </LanguageContext.Provider>
   );

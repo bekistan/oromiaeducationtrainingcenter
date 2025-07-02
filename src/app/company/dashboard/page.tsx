@@ -18,7 +18,7 @@ import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'fi
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDualDate, toDateObject } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
@@ -272,9 +272,9 @@ export default function CompanyDashboardPage() {
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
                         <TableCell className="min-w-[120px]">
                           <div className="flex flex-col text-xs">
                             {booking.serviceDetails?.lunch && (

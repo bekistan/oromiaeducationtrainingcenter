@@ -4,6 +4,7 @@
 import * as React from "react"
 import { Calendar as CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
+import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useLanguage } from "@/hooks/use-language"
-import { formatDateForDisplay } from "@/lib/date-utils";
 
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   date?: DateRange;
@@ -28,7 +28,7 @@ export function DatePickerWithRange({
   onDateChange,
   disabled: propDisabled
 }: DatePickerWithRangeProps) {
-  const { t, preferredCalendarSystem } = useLanguage();
+  const { t } = useLanguage();
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
@@ -48,7 +48,7 @@ export function DatePickerWithRange({
     }
   }
 
-  const displayFormat = preferredCalendarSystem === 'ethiopian' ? 'MMMM D, YYYY' : 'LLL dd, y';
+  const displayFormat = 'LLL dd, y';
   const today = new Date();
   today.setHours(0,0,0,0);
 
@@ -70,11 +70,11 @@ export function DatePickerWithRange({
             {date?.from ? (
               date.to ? (
                 <>
-                  {formatDateForDisplay(date.from, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')} -{" "}
-                  {formatDateForDisplay(date.to, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')}
+                  {format(date.from, displayFormat)} -{" "}
+                  {format(date.to, displayFormat)}
                 </>
               ) : (
-                formatDateForDisplay(date.from, preferredCalendarSystem, displayFormat, 'MMMM D, YYYY')
+                format(date.from, displayFormat)
               )
             ) : (
               <span>{t('pickADateRange')}</span>

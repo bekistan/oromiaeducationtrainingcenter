@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, Bell, Check, Eye, ExternalLink, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { cn } from '@/lib/utils'; // Added this import
 
 const NOTIFICATIONS_QUERY_KEY = "adminNotifications";
@@ -148,7 +148,7 @@ export default function AdminNotificationsPage() {
                     </TableCell>
                     <TableCell className="max-w-md truncate">{notification.message}</TableCell>
                     <TableCell className="capitalize">{t(notification.type)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDualDate(notification.createdAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(notification.createdAt, 'MMM d, yy HH:mm')}</TableCell>
                     <TableCell className="text-right space-x-2">
                       {!notification.isRead && (
                         <Button

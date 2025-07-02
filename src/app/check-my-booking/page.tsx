@@ -11,7 +11,7 @@ import type { Booking } from "@/types";
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { Loader2, Search, AlertCircle, BedDouble, CalendarDays, DollarSign, UploadCloud, Hourglass, CheckCircle, FileImage } from "lucide-react";
-import { toDateObject, formatDualDate } from '@/lib/date-utils';
+import { toDateObject, formatDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -205,7 +205,7 @@ export default function CheckMyBookingPage() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
                     <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>{t('bookingDates')}: {formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</span>
+                    <span>{t('bookingDates')}: {formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</span>
                   </div>
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />

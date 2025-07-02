@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 
 const BLOG_POSTS_QUERY_KEY_PUBLIC = "publicBlogPosts";
@@ -71,7 +71,7 @@ export default function BlogPage() {
                   </CardTitle>
                   <CardDescription className="text-xs pt-2 space-y-1">
                      <span className="flex items-center"><User className="mr-2 h-3 w-3" /> {post.authorName}</span>
-                     <span className="flex items-center"><Calendar className="mr-2 h-3 w-3" /> {formatDualDate(post.createdAt, 'MMM d, yyyy', 'MMM D, YYYY')}</span>
+                     <span className="flex items-center"><Calendar className="mr-2 h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 pt-0 flex-grow">

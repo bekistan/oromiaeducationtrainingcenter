@@ -25,7 +25,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 
 const blogPostSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -198,7 +198,7 @@ export default function AdminBlogPage() {
                       <TableCell className="font-medium">{post.title}</TableCell>
                       <TableCell><Badge variant={post.isPublished ? 'default' : 'secondary'}>{post.isPublished ? t('published') : t('draft')}</Badge></TableCell>
                       <TableCell>{post.authorName}</TableCell>
-                      <TableCell className="text-xs">{formatDualDate(post.createdAt, 'MMM d, yyyy', 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="text-xs">{formatDate(post.createdAt, 'MMM d, yyyy')}</TableCell>
                       <TableCell className="text-right space-x-2">
                         <Button variant="ghost" size="icon" asChild><Link href={`/blog/${post.slug}`} target="_blank"><BookOpen className="h-4 w-4" /></Link></Button>
                         <Button variant="ghost" size="icon" onClick={() => openFormForEdit(post)}><Edit className="h-4 w-4" /></Button>

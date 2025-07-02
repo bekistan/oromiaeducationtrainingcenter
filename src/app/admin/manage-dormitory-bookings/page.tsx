@@ -37,7 +37,7 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { formatDualDate } from '@/lib/date-utils';
+import { formatDate } from '@/lib/date-utils';
 import { notifyKeyholdersOfDormApproval } from '@/actions/notification-actions';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -345,7 +345,7 @@ export default function AdminManageDormitoryBookingsPage() {
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDualDate(booking.bookedAt, 'MMM d, yy HH:mm', 'MMM D, YY HH:mm')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
                       <TableCell className="min-w-[150px]">{booking.guestName}<span className="text-xs text-muted-foreground block whitespace-nowrap"> {booking.phone || t('notProvided')}</span></TableCell>
                       <TableCell>
                         {booking.paymentScreenshotUrl ? (
@@ -387,7 +387,7 @@ export default function AdminManageDormitoryBookingsPage() {
                         )}
                       </TableCell>
                       <TableCell className="min-w-[200px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')} - {formatDualDate(booking.endDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

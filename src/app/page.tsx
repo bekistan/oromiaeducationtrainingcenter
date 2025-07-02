@@ -30,7 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDualDate } from "@/lib/date-utils";
+import { formatDate } from "@/lib/date-utils";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
@@ -344,7 +344,7 @@ export default function HomePage() {
                     </CardDescription>
                     <div className="text-xs text-gray-500 flex items-center flex-wrap gap-x-4 gap-y-1 mt-auto">
                       <span className="flex items-center gap-1"><User className="h-3 w-3" /> {post.authorName}</span>
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDualDate(post.createdAt, 'MMM d, yyyy', 'MMM D, YYYY')}</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
                     </div>
                   </div>
                 </Card>

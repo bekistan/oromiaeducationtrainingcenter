@@ -5,8 +5,6 @@ export type Translations = {
   [key: string]: string | Translations;
 };
 
-export type CalendarSystem = 'gregorian' | 'ethiopian'; 
-
 export interface BankAccountDetails {
   id?: string; 
   bankName: string;
@@ -137,7 +135,6 @@ export interface User {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 
-  preferredCalendarSystem?: CalendarSystem; 
   buildingAssignment?: 'ifaboru' | 'buuraboru' | null; 
 }
 

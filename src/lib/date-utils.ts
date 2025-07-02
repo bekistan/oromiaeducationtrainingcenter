@@ -1,8 +1,6 @@
 
-import { format as formatGregorian, parseISO as parseISOGregorian } from 'date-fns';
-import { EthiopianDate, toEthiopian, format as formatEthiopian } from 'ethiopian-date';
+import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
-import type { CalendarSystem } from '@/types';
 
 type DateInput = string | Date | Timestamp | undefined | null;
 
@@ -14,84 +12,38 @@ export const toDateObject = (dateInput: DateInput): Date | null => {
   }
   if (typeof dateInput === 'string') {
     try {
-      const parsedIso = parseISOGregorian(dateInput);
+      // Handles 'YYYY-MM-DDTHH:mm:ss.sssZ'
+      const parsedIso = parseISO(dateInput);
       if (!isNaN(parsedIso.getTime())) {
         return parsedIso;
       }
     } catch (e) {
-      // Ignore
+      // Ignore if parseISO fails
     }
+    // Fallback for other string formats like 'YYYY-MM-DD'
     const parsedDate = new Date(dateInput);
     return isNaN(parsedDate.getTime()) ? null : parsedDate;
   }
   return null;
 };
 
-export const formatGregorianDateInternal = (
-    dateObj: Date,
-    formatStr: string = 'MMM d, yyyy'
-  ): string => {
-  try {
-    return formatGregorian(dateObj, formatStr);
-  } catch (error) {
-    console.error("Error formatting Gregorian date internally:", error, "Date Object:", dateObj);
-    return "Invalid Date";
-  }
-};
-
-export const formatEthiopianDateInternal = (
-    dateObj: Date,
-    formatStr: string = 'MMMM D, YYYY ERA'
-  ): string => {
-  try {
-    const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
-    const ethiopianDateInstance = new EthiopianDate(year, month, day);
-    return formatEthiopian(ethiopianDateInstance, formatStr);
-  } catch (error) {
-    console.error("Error formatting Ethiopian date internally:", error, "Date Object:", dateObj);
-    return "N/A";
-  }
-};
-
 /**
- * Formats a date based on the preferred calendar system.
- * @param dateInput The date to format.
- * @param preferredSystem The preferred calendar system ('gregorian' or 'ethiopian').
- * @param gregorianFormatStr Optional format string for Gregorian dates.
- * @param ethiopianFormatStr Optional format string for Ethiopian dates.
- * @returns Formatted date string or 'N/A'.
+ * Formats a date input into a readable string.
+ * @param dateInput The date to format (string, Date, or Timestamp).
+ * @param formatStr The desired format string (e.g., 'MMM d, yyyy').
+ * @returns The formatted date string or 'N/A' if the date is invalid.
  */
-export const formatDateForDisplay = (
+export const formatDate = (
   dateInput: DateInput,
-  preferredSystem: CalendarSystem,
-  gregorianFormatStr: string = 'MMM d, yyyy',
-  ethiopianFormatStr: string = 'MMMM D, YYYY ERA'
+  formatStr: string = 'MMM d, yyyy'
 ): string => {
   const dateObj = toDateObject(dateInput);
   if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
 
-  if (preferredSystem === 'ethiopian') {
-    return formatEthiopianDateInternal(dateObj, ethiopianFormatStr);
-  }
-  return formatGregorianDateInternal(dateObj, gregorianFormatStr);
-};
-
-
-export const formatDualDate = (
-    dateInput: DateInput,
-    gregorianFormatStr: string = 'MMM d, yyyy',
-    ethiopianFormatStr: string = 'MMMM D, YYYY'
-  ): string => {
-  const dateObj = toDateObject(dateInput);
-  if (!dateObj || isNaN(dateObj.getTime())) return 'N/A';
-
   try {
-    const gregorianFormatted = formatGregorianDateInternal(dateObj, gregorianFormatStr);
-    const ethiopianFormatted = formatEthiopianDateInternal(dateObj, ethiopianFormatStr);
-    return `${gregorianFormatted} (${ethiopianFormatted})`;
+    return format(dateObj, formatStr);
   } catch (error) {
-    console.error("Error formatting dual date:", error, "Input:", dateInput);
-    try { return formatGregorianDateInternal(dateObj, gregorianFormatStr) + " (Eth. N/A)"; }
-    catch { return "Invalid Date"; }
+    console.error("Error formatting date:", error, "Date Object:", dateObj);
+    return "Invalid Date";
   }
 };
