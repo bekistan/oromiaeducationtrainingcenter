@@ -51,7 +51,9 @@ export async function POST(req: NextRequest) {
 
 
   try {
-    const base = new Airtable({ apiKey: airtableApiKey }).base(airtableBaseId);
+    // Reverted to older, stable Airtable configuration method for robustness
+    Airtable.configure({ apiKey: airtableApiKey });
+    const base = new Airtable().base(airtableBaseId);
     console.log('[API] Airtable configured successfully on-demand.');
 
     const formData = await req.formData();
@@ -125,13 +127,20 @@ export async function POST(req: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('[API] FAILED: Unhandled error in POST handler. Error:', error);
+    console.error('############################################################');
+    console.error('##### [API] UNHANDLED ERROR IN SCREENSHOT UPLOAD ROUTE #####');
+    console.error('############################################################');
+    console.error('Error Object:', JSON.stringify(error, null, 2));
+    if (error.stack) {
+        console.error("Stack Trace:", error.stack);
+    }
+    console.error('##################### END OF ERROR #####################');
+    
     let errorMessage = 'Failed to process screenshot upload on server.';
     if (error.message) {
         errorMessage = error.message;
     }
     
-    // Provide more specific error feedback for common Airtable issues
     if (error.statusCode === 401 || error.statusCode === 403) {
       errorMessage = 'Airtable authentication failed. Please check your AIRTABLE_API_KEY.';
     } else if (error.statusCode === 404) {
