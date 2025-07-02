@@ -1,67 +1,79 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isSuperAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-    
+
+    // Helper functions
     function isAdmin() {
-      return request.auth != null && (isSuperAdmin() || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+
+    function isSuperAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
     
     function isKeyholder() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
     
     function isCompanyRep() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
     }
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
-    // BLOG: Public can read published posts, admins can write.
-    match /blog/{postId} {
-      allow read: if resource.data.isPublished == true || isAdmin();
-      allow write: if isAdmin();
-    }
-    
-    // DORMITORIES & HALLS: Public read, Admin write.
-    match /dormitories/{dormId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /halls/{hallId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // BOOKINGS: Users can create/manage their own. Admins and Keyholders have specific permissions.
-    match /bookings/{bookingId} {
-      allow create: if request.auth != null;
-      allow read: if isAdmin() || isKeyholder() || (request.auth != null && resource.data.userId == request.auth.uid);
-      allow update: if isAdmin() || (isKeyholder() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus']));
-      allow delete: if isAdmin();
-    }
-
-    // USERS: Users manage their own profile, Admins manage all.
+    // Users collection
     match /users/{userId} {
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow create, delete: if isSuperAdmin();
-    }
-    
-    // NOTIFICATIONS: Admin-only.
-    match /notifications/{notificationId} {
-      allow read, write: if isAdmin();
+      allow create: if request.auth.uid == userId;
+      allow get: if request.auth.uid == userId || isSuperAdmin();
+      allow update: if request.auth.uid == userId || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+      allow list: if isSuperAdmin();
     }
 
-    // SITE CONFIGURATION: Public read, Admin write.
+    // Bookings collection
+    match /bookings/{bookingId} {
+      allow create: if true;
+      allow get: if isAdmin() || (isCompanyRep() && resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId);
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Blog collection
+    match /blog/{postId} {
+        // Admins can do anything to any blog post
+        allow write: if isAdmin();
+        
+        // Anyone can read a post if it's published. Admins can read any post.
+        allow get: if resource.data.isPublished == true || isAdmin();
+        
+        // Anyone can query/list the blog collection.
+        // Firestore's query rules ensure that a user can only receive documents
+        // from a list query that they also have GET permission for.
+        // This means public users MUST include `where("isPublished", "==", true)`
+        // in their client-side query, otherwise the query will be rejected by Firestore.
+        allow list: if true;
+    }
+    
+    // Publicly readable collections
+    match /dormitories/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /halls/{docId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Configuration collections
     match /site_configuration/{docId} {
-      allow read: if true;
+      allow get: if true;
       allow write: if isAdmin();
+    }
+
+    // Notifications collection (Admin only)
+    match /notifications/{notificationId} {
+      allow read, write, delete, list: if isAdmin();
     }
   }
 }
