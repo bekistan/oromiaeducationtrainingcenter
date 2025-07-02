@@ -23,6 +23,10 @@ const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicConfirmation";
 
 const fetchBankDetailsPublic = async (): Promise<BankAccountDetails | null> => {
+  if (!db) {
+    console.error("Database not initialized. Cannot fetch bank details.");
+    return null;
+  }
   const docRef = doc(db, BANK_DETAILS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
