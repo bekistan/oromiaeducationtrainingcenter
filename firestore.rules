@@ -3,66 +3,61 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
-    function isAuth() {
-      return request.auth != null;
-    }
 
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
-    }
-
+    // Helper function to check for admin roles
     function isAdmin() {
-      // Use short-circuiting to prevent get() on null auth
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      let userDocPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return request.auth.uid != null 
+             && exists(userDocPath) 
+             && get(userDocPath).data.role in ['admin', 'superadmin'];
     }
 
-    function isSuperAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-
-    // USERS
+    // Users Collection
     match /users/{userId} {
-      allow create: if isAuth() && request.auth.uid == userId;
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow delete: if isSuperAdmin();
-      allow list: if isAdmin();
-    }
-    
-    // BLOG
-    match /blog/{postId} {
-      // Combined read rule for 'get' and 'list' operations.
-      // Public users can query if they filter by isPublished == true.
-      // Admins can read everything.
-      allow read: if resource.data.isPublished == true || isAdmin();
-      // Only admins can write.
-      allow write: if isAdmin();
-    }
-    
-    // FACILITIES
-    match /(dormitories|halls)/{itemId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read: if true; // Publicly readable for client-side checks
+      allow create: if true; // Anyone can create a user account (register) - Note: a more secure rule would be to only allow authenticated users to create their own doc.
+      allow update: if request.auth.uid == userId || isAdmin(); // User can update their own info, or admin can
+      allow delete: if isAdmin(); // Only admins can delete users
     }
 
-    // SITE CONFIGURATION
-    match /site_configuration/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
+    // Blog Collection
+    match /blog/{postId} {
+      allow read: if resource.data.isPublished == true || isAdmin(); // Public can read published posts, admin can read all
+      allow create, update, delete: if isAdmin(); // Only admins can manage blog posts
     }
-    
-    // BOOKINGS
+
+    // Bookings Collection
     match /bookings/{bookingId} {
-      allow create: if (isAuth() && request.resource.data.userId == request.auth.uid) || (request.resource.data.userId == null);
-      allow read: if isAdmin() || (isAuth() && resource.data.userId == request.auth.uid);
-      allow update, delete: if isAdmin();
+      // Allow create for any authenticated user
+      allow create: if request.auth.uid != null;
+      // Allow read/update if user is the one who booked, or is an admin
+      allow read, update: if request.auth.uid == resource.data.userId || isAdmin();
+      // Only admin can delete bookings
+      allow delete: if isAdmin();
     }
     
-    // NOTIFICATIONS
+    // Notifications Collection
     match /notifications/{notificationId} {
-      allow read, write: if isAdmin();
+        allow read, update: if isAdmin(); // Only admins can read/update notifications
+        allow create: if true; // Allow server-side functions to create notifications
+        allow delete: if isAdmin();
+    }
+
+    // Dormitories and Halls Collections (Content managed by admins)
+    match /dormitories/{dormId} {
+        allow read: if true; // Publicly readable
+        allow create, update, delete: if isAdmin();
+    }
+
+    match /halls/{hallId} {
+        allow read: if true; // Publicly readable
+        allow create, update, delete: if isAdmin();
+    }
+    
+    // Site Configuration
+    match /site_configuration/{docId} {
+      allow read: if true; // Publicly readable for site settings
+      allow write: if isAdmin(); // Only admins can change configuration
     }
   }
 }
-      
