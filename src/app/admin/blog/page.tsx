@@ -93,8 +93,8 @@ export default function AdminBlogPage() {
 
   const mutation = useMutation<void, Error, { values: BlogPostFormValues; file: File | null; id?: string }>({
     mutationFn: async ({ values, file, id }) => {
-      if (!db) {
-        throw new Error("Database not initialized.");
+      if (!db || !user) {
+        throw new Error("Database not initialized or user not authenticated.");
       }
       let finalImageUrl = values.imageUrl || '';
       
@@ -113,8 +113,6 @@ export default function AdminBlogPage() {
         const result = await response.json();
         finalImageUrl = result.url;
       }
-
-      if (!user) throw new Error("Authentication required.");
 
       const postData = {
         ...values,
@@ -294,7 +292,7 @@ export default function AdminBlogPage() {
               <FormItem>
                 <FormLabel>{t('featuredImage')}</FormLabel>
                 <FormControl>
-                  <div>
+                  <div className="border border-dashed rounded-lg p-6 text-center">
                     <Input
                       id="image-upload"
                       type="file"
@@ -302,41 +300,40 @@ export default function AdminBlogPage() {
                       onChange={handleFileSelect}
                       className="hidden"
                     />
-                    <div className="border border-dashed rounded-lg p-6 text-center">
-                      {imagePreview ? (
-                        <div className="relative group">
-                          <Image
-                            src={imagePreview}
-                            alt={t('imagePreview')}
-                            width={200}
-                            height={120}
-                            className="rounded-md mx-auto w-full max-w-[200px] h-auto"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={handleRemoveImage}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" /> {t('remove')}
-                          </Button>
+                    {imagePreview ? (
+                      <div className="relative group mx-auto w-full max-w-[200px]">
+                        <div className="relative aspect-[16/9]">
+                            <Image
+                                src={imagePreview}
+                                alt={t('imagePreview')}
+                                fill
+                                className="rounded-md object-cover"
+                            />
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                           <div className="mx-auto w-12 h-12 flex items-center justify-center bg-muted rounded-full">
-                              <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                          <label
-                            htmlFor="image-upload"
-                            className="cursor-pointer text-primary font-medium hover:underline"
-                          >
-                            {t('clickToUploadImage')}
-                          </label>
-                          <p className="text-xs text-muted-foreground">{t('imageUploadHint')}</p>
-                        </div>
-                      )}
-                    </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={handleRemoveImage}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> {t('remove')}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                         <div className="mx-auto w-12 h-12 flex items-center justify-center bg-muted rounded-full">
+                            <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                          </div>
+                        <label
+                          htmlFor="image-upload"
+                          className="cursor-pointer text-primary font-medium hover:underline"
+                        >
+                          {t('clickToUploadImage')}
+                        </label>
+                        <p className="text-xs text-muted-foreground">{t('imageUploadHint')}</p>
+                      </div>
+                    )}
                   </div>
                 </FormControl>
                 <FormMessage />

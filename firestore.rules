@@ -2,76 +2,84 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // HELPER FUNCTIONS
-    function isAnyAdmin() {
-      // Check if the user is authenticated, their user document exists, and their role is admin or superadmin.
-      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
-    }
-    
-    function isKeyholder() {
-       // Check if the user is a keyholder.
-       return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
-    }
 
+    // HELPER FUNCTIONS
+    // Checks if a user's role is one of the provided roles.
+    // Ensures the user document exists before checking the role.
+    function hasRole(allowedRoles) {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in allowedRoles;
+    }
+    
+    // Checks if the user is a superadmin or a general admin (not building-specific).
+    function isSuperOrGeneralAdmin() {
+        let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+        return request.auth != null &&
+               exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+               (userDoc.role == 'superadmin' || (userDoc.role == 'admin' && userDoc.buildingAssignment == null));
+    }
+    
+    // Checks if the user is the owner of the document being accessed.
     function isOwner(userId) {
-      // Check if the requesting user is the owner of the document.
       return request.auth != null && request.auth.uid == userId;
     }
 
     // COLLECTION RULES
-    
-    // Site configuration can be read by anyone, but only written by admins.
-    match /site_configuration/{docId} {
-      allow read: if true;
-      allow write: if isAnyAdmin();
-    }
 
-    // Dormitories and Halls can be read by anyone, but only written by admins.
-    match /dormitories/{dormId} {
-      allow read: if true;
-      allow write: if isAnyAdmin();
-    }
-
-    match /halls/{hallId} {
-      allow read: if true;
-      allow write: if isAnyAdmin();
-    }
-
-    // Blog posts can be read by the public if published.
-    // Admins can read any post (published or draft).
-    // Only admins can create, update, or delete posts.
-    match /blog/{postId} {
-      allow read: if resource.data.isPublished == true || isAnyAdmin();
-      allow write: if isAnyAdmin();
-    }
-
-    // Booking rules:
-    // - Authenticated users can create bookings.
-    // - The user who made the booking, any admin, or a keyholder can read/update it.
-    // - Only the owner or an admin can delete it.
-    match /bookings/{bookingId} {
-      allow create: if request.auth != null;
-      allow read, update: if (resource.data.userId != null && isOwner(resource.data.userId)) || isAnyAdmin() || isKeyholder();
-      allow delete: if (resource.data.userId != null && isOwner(resource.data.userId)) || isAnyAdmin();
-    }
-
-    // User collection rules:
-    // - Anyone can create a user document (for public registration).
-    // - A user can read or update their own document.
-    // - An admin can read or update any user document.
-    // - Only a superadmin can delete a user document.
+    // /users/{userId}
     match /users/{userId} {
-      allow create: if true;
-      allow read, update: if isOwner(userId) || isAnyAdmin();
-      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+      // Admins can read any user, users can read their own profile.
+      allow read: if hasRole(['admin', 'superadmin']) || isOwner(userId);
+      // Users can update their own profile, admins can update any.
+      allow update: if hasRole(['admin', 'superadmin']) || isOwner(userId);
+      // Anyone can create a user (for registration), but not an admin/superadmin role.
+      // Superadmins can create any user type.
+      allow create: if (request.resource.data.role != 'superadmin' && request.resource.data.role != 'admin') || hasRole(['superadmin']);
+      // Only superadmins can delete users.
+      allow delete: if hasRole(['superadmin']);
     }
-    
-    // Notifications can be read by admins.
-    // They are created by secure server-side functions, so client-side creation is disallowed.
+
+    // /blog/{postId}
+    match /blog/{postId} {
+      // Public can read published posts. Admins can read any post.
+      allow read: if resource.data.isPublished == true || hasRole(['admin', 'superadmin']);
+      // Only admins can write (create, update, delete).
+      allow write: if hasRole(['admin', 'superadmin']);
+    }
+
+    // /bookings/{bookingId}
+    match /bookings/{bookingId} {
+      // Admins can read any booking. Users can read their own.
+      allow read: if hasRole(['admin', 'superadmin']) || isOwner(resource.data.userId);
+      // Authenticated users can create bookings.
+      allow create: if request.auth != null;
+      // Admins can update any booking. Users can update their own.
+      allow update: if hasRole(['admin', 'superadmin']) || isOwner(resource.data.userId);
+      // Only admins can delete bookings.
+      allow delete: if hasRole(['admin', 'superadmin']);
+    }
+
+    // /dormitories/{dormId} & /halls/{hallId}
+    match /{collection}/{docId} {
+      // Anyone can read public listings.
+      allow read: if collection in ['dormitories', 'halls'];
+      // Only admins can manage (create, update, delete) the listings.
+      allow write: if collection in ['dormitories', 'halls'] && hasRole(['admin', 'superadmin']);
+    }
+
+    // /notifications/{notificationId}
     match /notifications/{notificationId} {
-      allow read: if isAnyAdmin();
-      allow write: if false; 
+      // Only admins can interact with notifications.
+      allow read, write: if hasRole(['admin', 'superadmin']);
+    }
+
+    // /site_configuration/{configDoc}
+    match /site_configuration/{configDoc} {
+      // Anyone can read site configuration (e.g., for UI text, pricing).
+      allow read: if true;
+      // Only general admins or superadmins can change configuration.
+      allow write: if isSuperOrGeneralAdmin();
     }
   }
 }
