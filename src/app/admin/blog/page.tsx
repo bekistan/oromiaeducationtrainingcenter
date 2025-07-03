@@ -59,9 +59,12 @@ const fetchBlogPosts = async (): Promise<BlogPost[]> => {
     return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
   } catch (error: any) {
     if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
-      console.warn("Could not fetch blog posts for admin. This is expected if the collection or necessary indexes don't exist yet.");
-      return [];
+      console.warn("Could not fetch blog posts for admin. This is expected if the collection or necessary indexes don't exist yet.", error.message);
+      // 'failed-precondition' can mean the collection does not exist.
+      // 'unimplemented' can mean the required index is not built.
+      return []; // Gracefully return empty array
     }
+    // For other errors, let useQuery handle it
     throw error;
   }
 };
@@ -199,7 +202,13 @@ export default function AdminBlogPage() {
     mutation.mutate({ values, id: postToEdit?.id });
   };
 
-  if (error) return <p className="text-destructive">{t('errorFetchingPosts')}: {error.message}</p>;
+  if (error) return (
+    <div className="flex flex-col items-center justify-center h-40">
+        <AlertTriangle className="h-8 w-8 text-destructive mb-2"/>
+        <p className="text-destructive">{t('errorFetchingPosts')}: {error.message}</p>
+        <p className="text-sm text-muted-foreground mt-1">{t('checkFirestoreRules')}</p>
+    </div>
+  );
 
   return (
     <>
@@ -243,7 +252,7 @@ export default function AdminBlogPage() {
                       </TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell colSpan={5} className="h-24 text-center">{t('noPostsFound')}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="h-24 text-center">{searchTerm ? t('noPostsFound') : t('noPostsCreatedYet')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
