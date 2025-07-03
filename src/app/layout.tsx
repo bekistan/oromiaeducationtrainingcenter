@@ -1,6 +1,5 @@
 
 import type { Metadata } from 'next';
-import { GeistSans } from 'geist/font/sans';
 import './globals.css';
 import { LanguageProvider } from '@/contexts/language-context';
 import { AuthProvider } from '@/hooks/use-auth'; 
@@ -24,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={GeistSans.variable}>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", GeistSans.className)}>
+    <html lang="en">
+      <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <AuthProvider>
           <LanguageProvider>
             <QueryProvider> {/* Wrap with QueryProvider */}
