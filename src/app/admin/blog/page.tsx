@@ -310,7 +310,7 @@ export default function AdminBlogPage() {
                             alt={t('imagePreview')}
                             width={200}
                             height={120}
-                            className="rounded-md mx-auto"
+                            className="rounded-md mx-auto w-full max-w-[200px] h-auto"
                           />
                           <Button
                             type="button"

@@ -1,71 +1,77 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions to check user roles.
-    function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-
-    function isAdmin() {
-       return exists(/databases/$(database)/documents/users/$(request.auth.uid))
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
+    
+    // HELPER FUNCTIONS
     function isAnyAdmin() {
-      return isSuperAdmin() || isAdmin();
+      // Check if the user is authenticated, their user document exists, and their role is admin or superadmin.
+      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+    }
+    
+    function isKeyholder() {
+       // Check if the user is a keyholder.
+       return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
 
     function isOwner(userId) {
+      // Check if the requesting user is the owner of the document.
       return request.auth != null && request.auth.uid == userId;
     }
-    
-    // Users collection rules.
-    match /users/{userId} {
-      allow read: if isAnyAdmin() || isOwner(userId);
-      allow update: if isAnyAdmin() || isOwner(userId);
-      // Allow any authenticated user to create their own user document during signup.
-      allow create: if request.auth != null; 
-      // Only superadmins can delete user documents.
-      allow delete: if isSuperAdmin();
-    }
 
-    // Blog collection rules.
-    match /blog/{postId} {
-      // Public can read published posts. Admins can read all posts.
-      allow read: if resource.data.isPublished == true || isAnyAdmin();
-      // Only admins can write (create, update, delete).
-      allow write: if isAnyAdmin();
-    }
-    
-    // Bookings collection rules.
-    match /bookings/{bookingId} {
-        // Authenticated users (company or individual) can create bookings.
-        allow create: if request.auth != null;
-        // Admins or the user who created the booking can read it.
-        allow read: if isAnyAdmin() || (request.auth != null && resource.data.userId == request.auth.uid);
-        // Only admins can update or delete bookings.
-        allow update, delete: if isAnyAdmin();
-    }
-
-    // Halls and Dormitories are public to view. Only admins can modify.
-    match /{collection}/{docId} where collection in ['halls', 'dormitories'] {
-        allow read: if true;
-        allow write: if isAnyAdmin();
-    }
-    
-    // Notifications are for admins only.
-    match /notifications/{notificationId} {
-        allow read, write, create, delete: if isAnyAdmin();
-    }
+    // COLLECTION RULES
     
     // Site configuration can be read by anyone, but only written by admins.
     match /site_configuration/{docId} {
-        allow read: if true; 
-        allow write: if isAnyAdmin();
+      allow read: if true;
+      allow write: if isAnyAdmin();
+    }
+
+    // Dormitories and Halls can be read by anyone, but only written by admins.
+    match /dormitories/{dormId} {
+      allow read: if true;
+      allow write: if isAnyAdmin();
+    }
+
+    match /halls/{hallId} {
+      allow read: if true;
+      allow write: if isAnyAdmin();
+    }
+
+    // Blog posts can be read by the public if published.
+    // Admins can read any post (published or draft).
+    // Only admins can create, update, or delete posts.
+    match /blog/{postId} {
+      allow read: if resource.data.isPublished == true || isAnyAdmin();
+      allow write: if isAnyAdmin();
+    }
+
+    // Booking rules:
+    // - Authenticated users can create bookings.
+    // - The user who made the booking, any admin, or a keyholder can read/update it.
+    // - Only the owner or an admin can delete it.
+    match /bookings/{bookingId} {
+      allow create: if request.auth != null;
+      allow read, update: if (resource.data.userId != null && isOwner(resource.data.userId)) || isAnyAdmin() || isKeyholder();
+      allow delete: if (resource.data.userId != null && isOwner(resource.data.userId)) || isAnyAdmin();
+    }
+
+    // User collection rules:
+    // - Anyone can create a user document (for public registration).
+    // - A user can read or update their own document.
+    // - An admin can read or update any user document.
+    // - Only a superadmin can delete a user document.
+    match /users/{userId} {
+      allow create: if true;
+      allow read, update: if isOwner(userId) || isAnyAdmin();
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+    
+    // Notifications can be read by admins.
+    // They are created by secure server-side functions, so client-side creation is disallowed.
+    match /notifications/{notificationId} {
+      allow read: if isAnyAdmin();
+      allow write: if false; 
     }
   }
 }
