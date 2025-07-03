@@ -93,6 +93,9 @@ export default function AdminBlogPage() {
 
   const mutation = useMutation<void, Error, { values: BlogPostFormValues; file: File | null; id?: string }>({
     mutationFn: async ({ values, file, id }) => {
+      if (!db) {
+        throw new Error("Database not initialized.");
+      }
       let finalImageUrl = values.imageUrl || '';
       
       if (file) {
@@ -143,6 +146,9 @@ export default function AdminBlogPage() {
 
   const deleteMutation = useMutation<void, Error, string>({
     mutationFn: async (postId) => {
+      if (!db) {
+        throw new Error("Database not initialized.");
+      }
       await deleteDoc(doc(db, "blog", postId));
     },
     onSuccess: () => {
