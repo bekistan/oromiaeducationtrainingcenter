@@ -29,7 +29,7 @@ const fetchPublishedBlogPosts = async (): Promise<BlogPost[]> => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
   } catch (error: any) {
-    if (error.code === 'permission-denied' || error.code === 'unimplemented') {
+    if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
       console.warn("Permission denied or collection does not exist. This is expected if the blog collection hasn't been created yet.");
       return []; // Return empty array on permission error to show "No posts found"
     }
