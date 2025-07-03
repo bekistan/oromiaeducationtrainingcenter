@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,11 +60,8 @@ const fetchBlogPosts = async (): Promise<BlogPost[]> => {
   } catch (error: any) {
     if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
       console.warn("Could not fetch blog posts for admin. This is expected if the collection or necessary indexes don't exist yet.", error.message);
-      // 'failed-precondition' can mean the collection does not exist.
-      // 'unimplemented' can mean the required index is not built.
-      return []; // Gracefully return empty array
+      return []; 
     }
-    // For other errors, let useQuery handle it
     throw error;
   }
 };
@@ -79,7 +76,9 @@ export default function AdminBlogPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [postToEdit, setPostToEdit] = useState<BlogPost | null>(null);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { data: posts = [], isLoading, error } = useQuery<BlogPost[], Error>({
     queryKey: [BLOG_POSTS_QUERY_KEY],
@@ -92,12 +91,31 @@ export default function AdminBlogPage() {
     defaultValues: { title: "", content: "", excerpt: "", imageUrl: "", isPublished: false },
   });
 
-  const mutation = useMutation<void, Error, { values: BlogPostFormValues; id?: string }>({
-    mutationFn: async ({ values, id }) => {
+  const mutation = useMutation<void, Error, { values: BlogPostFormValues; file: File | null; id?: string }>({
+    mutationFn: async ({ values, file, id }) => {
+      let finalImageUrl = values.imageUrl || '';
+      
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/upload-blog-image', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Upload failed');
+        }
+        const result = await response.json();
+        finalImageUrl = result.url;
+      }
+
       if (!user) throw new Error("Authentication required.");
 
       const postData = {
         ...values,
+        imageUrl: finalImageUrl,
         slug: slugify(values.title),
         authorName: user.name || "Admin",
         authorId: user.id,
@@ -117,8 +135,6 @@ export default function AdminBlogPage() {
       queryClient.invalidateQueries({ queryKey: [BLOG_POSTS_QUERY_KEY] });
       toast({ title: t('success'), description: id ? t('postUpdatedSuccessfully') : t('postCreatedSuccessfully') });
       setIsFormOpen(false);
-      setPostToEdit(null);
-      form.reset();
     },
     onError: (err) => {
       toast({ variant: "destructive", title: t('error'), description: err.message });
@@ -149,6 +165,8 @@ export default function AdminBlogPage() {
   const openFormForNew = () => {
     setPostToEdit(null);
     form.reset({ title: "", content: "", excerpt: "", imageUrl: "", isPublished: false });
+    setSelectedFile(null);
+    setImagePreview(null);
     setIsFormOpen(true);
   };
 
@@ -161,6 +179,8 @@ export default function AdminBlogPage() {
       imageUrl: post.imageUrl || "",
       isPublished: post.isPublished,
     });
+    setSelectedFile(null);
+    setImagePreview(post.imageUrl || null);
     setIsFormOpen(true);
   };
   
@@ -169,37 +189,33 @@ export default function AdminBlogPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsUploadingImage(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('/api/upload-blog-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const result = await response.json();
-      form.setValue('imageUrl', result.url, { shouldValidate: true, shouldDirty: true });
-      toast({ title: t('success'), description: t('imageUploadedSuccessfully') });
-    } catch (err: any) {
-      toast({ variant: "destructive", title: t('error'), description: err.message });
-    } finally {
-      setIsUploadingImage(false);
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          variant: "destructive",
+          title: t('fileTooLargeTitle'),
+          description: t('fileTooLargeDesc', { size: '5MB' }),
+        });
+        return;
     }
+
+    setSelectedFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreview(previewUrl);
+    form.setValue('imageUrl', previewUrl, { shouldValidate: true, shouldDirty: true });
+  };
+  
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    form.setValue('imageUrl', '', { shouldValidate: true, shouldDirty: true });
   };
 
-  const onSubmit = (values: BlogPostFormValues) => {
-    mutation.mutate({ values, id: postToEdit?.id });
+  const onSubmit = async (values: BlogPostFormValues) => {
+    mutation.mutate({ values, file: selectedFile, id: postToEdit?.id });
   };
 
   if (error) return (
@@ -269,68 +285,56 @@ export default function AdminBlogPage() {
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>{t('title')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel>{t('content')} ({t('markdownSupported')})</FormLabel><FormControl><Textarea {...field} rows={15} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="excerpt" render={({ field }) => (<FormItem><FormLabel>{t('excerpt')} ({t('optional')})</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('featuredImage')}</FormLabel>
-                    <FormControl>
-                      <div>
-                        <Input
-                          id="image-upload"
-                          type="file"
-                          accept="image/png, image/jpeg, image/gif, image/webp"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          disabled={isUploadingImage}
-                        />
-                        <div className="border border-dashed rounded-lg p-6 text-center">
-                          {isUploadingImage ? (
-                            <div className="flex flex-col items-center justify-center">
-                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                              <p className="mt-2 text-sm text-muted-foreground">{t('uploadingImage')}</p>
-                            </div>
-                          ) : field.value ? (
-                            <div className="relative group">
-                              <Image
-                                src={field.value}
-                                alt={t('imagePreview')}
-                                width={200}
-                                height={120}
-                                className="rounded-md object-cover mx-auto"
-                              />
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => form.setValue('imageUrl', '', { shouldValidate: true, shouldDirty: true })}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" /> {t('remove')}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                               <div className="mx-auto w-12 h-12 flex items-center justify-center bg-muted rounded-full">
-                                  <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                                </div>
-                              <label
-                                htmlFor="image-upload"
-                                className="cursor-pointer text-primary font-medium hover:underline"
-                              >
-                                {t('clickToUploadImage')}
-                              </label>
-                              <p className="text-xs text-muted-foreground">{t('imageUploadHint')}</p>
-                            </div>
-                          )}
+              <FormItem>
+                <FormLabel>{t('featuredImage')}</FormLabel>
+                <FormControl>
+                  <div>
+                    <Input
+                      id="image-upload"
+                      type="file"
+                      accept="image/png, image/jpeg, image/gif, image/webp"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <div className="border border-dashed rounded-lg p-6 text-center">
+                      {imagePreview ? (
+                        <div className="relative group">
+                          <Image
+                            src={imagePreview}
+                            alt={t('imagePreview')}
+                            width={200}
+                            height={120}
+                            className="rounded-md object-cover mx-auto"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={handleRemoveImage}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" /> {t('remove')}
+                          </Button>
                         </div>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      ) : (
+                        <div className="space-y-2">
+                           <div className="mx-auto w-12 h-12 flex items-center justify-center bg-muted rounded-full">
+                              <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          <label
+                            htmlFor="image-upload"
+                            className="cursor-pointer text-primary font-medium hover:underline"
+                          >
+                            {t('clickToUploadImage')}
+                          </label>
+                          <p className="text-xs text-muted-foreground">{t('imageUploadHint')}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
               <FormField control={form.control} name="isPublished" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>{t('publishPost')}</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
               <DialogFooter><Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>{t('cancel')}</Button><Button type="submit" disabled={mutation.isPending}>{mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t('savePost')}</Button></DialogFooter>
             </form>
