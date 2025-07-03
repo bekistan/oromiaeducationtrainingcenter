@@ -1,4 +1,8 @@
 
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
+
 import { db } from '../src/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -15,7 +19,7 @@ const slugify = (text: string) =>
 
 const seedBlogPosts = async () => {
   if (!db) {
-    console.error("Firebase is not configured. Aborting seed.");
+    console.error("Firebase is not configured. Aborting seed. Ensure your .env.local file is correctly set up in the project root.");
     return;
   }
   try {
