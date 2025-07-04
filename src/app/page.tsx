@@ -30,7 +30,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/date-utils";
+import { formatDate, toDateObject } from "@/lib/date-utils";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
@@ -97,15 +97,24 @@ const fetchPricingSettingsPublic = async (): Promise<PricingSettings> => {
 };
 
 const fetchLatestPosts = async (): Promise<BlogPost[]> => {
-  if (!isFirebaseConfigured) return [];
+  if (!isFirebaseConfigured || !db) return [];
   const postsQuery = query(
     collection(db, "blog"),
-    where("isPublished", "==", true),
-    orderBy("createdAt", "desc"),
-    limit(3)
+    where("isPublished", "==", true)
   );
+  
   const postsSnapshot = await getDocs(postsQuery);
-  return postsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+  const allPublishedPosts = postsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
+
+  // Sort on the client-side to avoid needing a composite index
+  allPublishedPosts.sort((a, b) => {
+    const dateA = toDateObject(a.createdAt);
+    const dateB = toDateObject(b.createdAt);
+    if (!dateA || !dateB) return 0;
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  return allPublishedPosts.slice(0, 3);
 };
 
 
@@ -485,3 +494,5 @@ export default function HomePage() {
     </PublicLayout>
   );
 }
+
+    
