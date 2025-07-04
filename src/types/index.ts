@@ -13,6 +13,13 @@ export interface BankAccountDetails {
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
 }
 
+export interface BrandAssets {
+    id?: string;
+    signatureUrl?: string;
+    stampUrl?: string;
+    lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
 export interface SiteSettings {
   id?: string;
   siteAnnouncementMessage?: string;
@@ -98,6 +105,7 @@ export interface Booking {
   guestEmployer?: string;
   phone?: string;
   paymentScreenshotUrl?: string;
+  paymentScreenshotAirtableRecordId?: string; // No longer used, but kept for schema compatibility
   // Facility specific
   companyName?: string;
   contactPerson?: string;
@@ -181,6 +189,7 @@ export interface BlogPost {
   isPublished: boolean;
   createdAt: string | import('firebase/firestore').Timestamp;
   updatedAt: string | import('firebase/firestore').Timestamp;
+  dataAiHint?: string;
 }
 
 

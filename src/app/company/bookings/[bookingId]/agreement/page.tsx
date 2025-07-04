@@ -1,18 +1,20 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { Booking } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth'; 
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Printer, FileDown, ExternalLink } from 'lucide-react';
-import { PublicLayout } from '@/components/layout/public-layout'; 
+import { Loader2, AlertTriangle, ArrowLeft, Printer, FileDown, ExternalLink, UploadCloud } from 'lucide-react';
+import { PublicLayout } from '@/components/layout/public-layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export default function CompanyBookingAgreementViewPage() {
   const params = useParams();
@@ -25,6 +27,9 @@ export default function CompanyBookingAgreementViewPage() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBookingDetails = useCallback(async (id: string) => {
     if (!id) {
@@ -85,6 +90,37 @@ export default function CompanyBookingAgreementViewPage() {
       setIsLoading(false);
     }
   }, [bookingId, fetchBookingDetails, user, authLoading]);
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !bookingId) return;
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('bookingId', bookingId);
+    try {
+      const response = await fetch('/api/upload-agreement', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const result = await response.json();
+      toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
+      setBooking(prev => prev ? { ...prev, signedAgreementUrl: result.cloudinaryUrl, agreementStatus: 'signed_by_client' } : null);
+      setSelectedFile(null);
+    } catch (err) {
+      toast({ variant: 'destructive', title: t('error'), description: (err as Error).message || t('failedToUploadAgreement') });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
 
   if (isLoading || authLoading) {
     return (
@@ -123,6 +159,21 @@ export default function CompanyBookingAgreementViewPage() {
                         <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
                     </Button>
                 </div>
+                 {booking?.agreementStatus === 'sent_to_client' && (
+                    <Card className="my-6">
+                        <CardHeader>
+                            <CardTitle>{t('uploadYourSignedAgreement')}</CardTitle>
+                            <CardDescription>{t('uploadSignedAgreementDesc')}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" className="flex-grow" />
+                            <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
+                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
+                                {t('uploadFile')}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
                  {booking?.signedAgreementUrl && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
                     <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
                         <h3 className="text-md font-semibold text-green-700 mb-2">{t('yourSignedAgreementUploaded')}</h3>

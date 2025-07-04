@@ -47,6 +47,7 @@ export const ADMIN_NAVS: NavItem[] = [
       { labelKey: 'siteContent', href: '/admin/settings/site-content' },
       { labelKey: 'financialManagement', href: '/admin/financials' },
       { labelKey: 'agreementTemplate', href: '/admin/settings/agreement-template' },
+      { labelKey: 'siteBrandAssets', href: '/admin/settings/brand-assets' },
     ]
   },
   { 
@@ -112,6 +113,7 @@ export const SITE_SETTINGS_DOC_PATH = "site_configuration/general_settings";
 export const AGREEMENT_TEMPLATE_DOC_PATH = "site_configuration/agreement_template_settings";
 export const SITE_CONTENT_DOC_PATH = "site_configuration/site_content";
 export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
+export const BRAND_ASSETS_DOC_PATH = "site_configuration/brand_assets";
 
 export const DEFAULT_SITE_SETTINGS = {
   siteAnnouncementMessage: "",

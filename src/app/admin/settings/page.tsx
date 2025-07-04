@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
-import { Settings, ShieldAlert, FileText, Megaphone } from "lucide-react";
+import { Settings, ShieldAlert, FileText, Megaphone, Palette } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -54,6 +54,12 @@ export default function AdminSettingsPage() {
       descriptionKey: 'manageTheDefaultAgreement',
       link: '/admin/settings/agreement-template',
       icon: <FileText className="mr-2 h-6 w-6 text-primary" />
+    },
+    {
+      titleKey: 'siteBrandAssets',
+      descriptionKey: 'manageBrandAssetsDesc',
+      link: '/admin/settings/brand-assets',
+      icon: <Palette className="mr-2 h-6 w-6 text-primary" />
     }
   ];
 

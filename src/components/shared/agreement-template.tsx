@@ -1,20 +1,42 @@
 
 'use client';
 
-import type { Booking, BookingItem } from '@/types';
+import type { Booking, BookingItem, BrandAssets } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
-import { SITE_NAME } from '@/constants'; 
+import { SITE_NAME, BRAND_ASSETS_DOC_PATH } from '@/constants'; 
 import { formatDate } from '@/lib/date-utils';
+import { useQuery } from '@tanstack/react-query';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import Image from 'next/image';
 
 interface AgreementTemplateProps {
   booking: Booking | null;
   customTerms?: string; 
 }
 
+const BRAND_ASSETS_QUERY_KEY = "brandAssetsForAgreement";
+
+const fetchBrandAssets = async (): Promise<BrandAssets | null> => {
+  if (!db) return null;
+  const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as BrandAssets;
+  }
+  return null;
+};
+
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
   const { t } = useLanguage();
+
+  const { data: brandAssets } = useQuery<BrandAssets | null>({
+      queryKey: [BRAND_ASSETS_QUERY_KEY],
+      queryFn: fetchBrandAssets,
+      staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 
   if (!booking) {
     return <p>{t('loadingAgreementDetails')}</p>; 
@@ -34,12 +56,6 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   const numberOfDays = differenceInCalendarDays(endDateObj, startDateObj) + 1;
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
-
-  // These are just for display in the table, the final cost is taken from booking.totalCost
-  const facilityItemCosts = booking.items.map(item => {
-    const itemRentalCost = (item.rentalCost || 0) * (numberOfDays > 0 ? numberOfDays : 1);
-    return { name: item.name, cost: itemRentalCost, type: item.itemType };
-  });
 
   const totalBookingCostFromRecord = booking.totalCost; 
 
@@ -140,13 +156,19 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
           <h2 className="text-xl font-semibold text-gray-700 mb-8 text-center">{t('signatures')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
             <div className="text-center">
-              <div className="h-12 border-b-2 border-gray-400 mb-2"></div>
-              <p className="text-sm text-gray-600">{t('signatureOfBidGiver')}</p>
+              <div className="relative h-24 mb-2 flex items-center justify-center">
+                {brandAssets?.signatureUrl && <Image src={brandAssets.signatureUrl} alt="Official Signature" layout="fill" objectFit="contain" />}
+                {brandAssets?.stampUrl && <Image src={brandAssets.stampUrl} alt="Official Stamp" layout="fill" objectFit="contain" className="opacity-50" />}
+              </div>
+              <div className="h-1 border-b-2 border-gray-400"></div>
+              <p className="text-sm text-gray-600 mt-2">{t('signatureOfBidGiver')}</p>
               <p className="text-sm font-medium text-gray-800">{SITE_NAME}</p>
             </div>
             <div className="text-center">
-              <div className="h-12 border-b-2 border-gray-400 mb-2"></div>
-              <p className="text-sm text-gray-600">{t('signatureOfBidTaker')}</p>
+              <div className="h-24 border-b-2 border-gray-400 mb-2 flex items-center justify-center">
+                <span className="text-gray-400 text-xs italic">{t('clientSignatureGoesHere')}</span>
+              </div>
+              <p className="text-sm text-gray-600 mt-2">{t('signatureOfBidTaker')}</p>
               <p className="text-sm font-medium text-gray-800">{booking.companyName || t('clientCompanyNamePlaceholder')}</p>
             </div>
           </div>
