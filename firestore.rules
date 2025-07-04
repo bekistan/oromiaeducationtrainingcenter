@@ -1,68 +1,82 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin or superadmin
+    // Helper functions to check user roles.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function isAnyAdmin() {
-      // Check if a user document exists and has the role 'admin' or 'superadmin'.
-      return request.auth != null 
-             && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      return isSignedIn() && getUserData().role in ['admin', 'superadmin'];
     }
 
-    // Blog collection rules
-    match /blog/{postId} {
-      // Public users can read posts that are marked as published.
-      // Admins can read any post, regardless of its published status.
-      allow read: if resource.data.isPublished == true || isAnyAdmin();
-
-      // Only admins can create, update, or delete blog posts.
-      allow write: if isAnyAdmin();
+    function isSuperAdmin() {
+      return isSignedIn() && getUserData().role == 'superadmin';
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Default deny all access to all documents.
+    match /{document=**} {
+      allow read, write: if false;
     }
 
-    // Users collection rules
-    match /users/{userId} {
-      // A user can read or update their own document. Admins can manage any user.
-      allow read, update: if request.auth.uid == userId || isAnyAdmin();
-      // Anyone can create a user document during registration.
-      allow create: if request.auth.uid == userId;
-      // Only superadmins can delete users (for safety).
-      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-
-    // Dormitories and Halls are public to view
+    // PUBLIC COLLECTIONS
+    // Anyone can read published blog posts, dormitories, halls, and site configuration.
     match /dormitories/{dormId} {
       allow read: if true;
-      allow write: if isAnyAdmin();
     }
     match /halls/{hallId} {
       allow read: if true;
-      allow write: if isAnyAdmin();
+    }
+    match /site_configuration/{configDoc} {
+        allow read: if true;
+    }
+    
+    // *** TEMPORARILY PUBLIC BLOG RULES FOR TESTING ***
+    // Anyone can read, create, update, and delete blog posts.
+    // This is NOT secure for production.
+    match /blog/{postId} {
+      allow read, write: if true;
     }
 
-    // Bookings collection
+    // USER-SPECIFIC DATA
+    // Rules for user profiles and their bookings.
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if true; // Allows new user registration.
+      allow update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
     match /bookings/{bookingId} {
-      // Any authenticated user can create a booking.
-      allow create: if request.auth != null;
-      // Admins and the user who owns the booking can read/update it. Keyholders can also read.
-      allow read, update: if isAnyAdmin() 
-                           || (request.auth != null && request.auth.uid == resource.data.userId)
-                           || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder');
-      // Only admins can delete bookings.
+      allow create: if isSignedIn();
+      allow read, update: if isAnyAdmin() || isOwner(resource.data.userId);
       allow delete: if isAnyAdmin();
     }
 
-    // Site configuration can be read by anyone, but only written by admins.
-    match /site_configuration/{docId} {
-      allow read: if true;
+    // ADMIN-ONLY COLLECTIONS
+    // Only admins can write to these collections.
+    match /dormitories/{dormId} {
       allow write: if isAnyAdmin();
     }
-    
-    // Notifications can be read by admins, but not created by clients.
+    match /halls/{hallId} {
+      allow write: if isAnyAdmin();
+    }
     match /notifications/{notificationId} {
-      allow read, update, delete: if isAnyAdmin();
-      allow create: if false; 
+      allow read, write: if isAnyAdmin();
+    }
+    match /site_configuration/{configDoc} {
+      allow write: if isAnyAdmin();
     }
   }
 }
