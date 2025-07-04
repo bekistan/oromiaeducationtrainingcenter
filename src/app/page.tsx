@@ -329,14 +329,13 @@ export default function HomePage() {
           {isLoadingLatestPosts ? (
             <div className="grid grid-cols-1 gap-8">
               {Array.from({length: 3}).map((_, i) => (
-                <div key={i} className="flex flex-col md:flex-row gap-4 rounded-lg border p-4">
-                  <Skeleton className="w-full md:w-1/3 aspect-video md:aspect-square shrink-0" />
-                  <div className="flex flex-col space-y-3 w-full">
+                <div key={i} className="flex flex-col md:flex-row items-center gap-6 rounded-lg border p-4">
+                  <Skeleton className="w-full md:w-1/4 aspect-video shrink-0" />
+                  <div className="flex flex-col space-y-3 w-full md:w-3/4">
                     <Skeleton className="h-6 w-3/4" />
                     <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-1/2" />
-                    <div className="flex gap-4 mt-auto pt-4">
+                    <div className="flex gap-4 pt-2">
                         <Skeleton className="h-4 w-1/4" />
                         <Skeleton className="h-4 w-1/4" />
                     </div>
@@ -347,9 +346,9 @@ export default function HomePage() {
           ) : latestPosts && latestPosts.length > 0 ? (
              <div className="grid grid-cols-1 gap-8">
               {latestPosts.map(post => (
-                <div key={post.id} className="group flex flex-col md:flex-row gap-4 overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow duration-300">
-                  <Link href={`/blog/${post.slug}`} className="block md:w-1/3 shrink-0">
-                    <div className="relative w-full aspect-video md:aspect-square overflow-hidden">
+                <div key={post.id} className="group flex flex-col md:flex-row gap-6 items-center rounded-lg border bg-card p-4 text-card-foreground shadow-sm hover:shadow-lg transition-shadow duration-300">
+                  <Link href={`/blog/${post.slug}`} className="block w-full md:w-1/4 shrink-0">
+                    <div className="relative w-full aspect-video overflow-hidden rounded-md">
                       <Image
                         src={post.imageUrl || `https://placehold.co/400x400.png`}
                         alt={post.title}
@@ -359,13 +358,13 @@ export default function HomePage() {
                       />
                     </div>
                   </Link>
-                  <div className="flex flex-col p-4 md:w-2/3">
+                  <div className="flex flex-col md:w-3/4">
                     <h3 className="text-xl font-semibold mb-2">
                       <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
                         {post.title}
                       </Link>
                     </h3>
-                    <p className="text-sm text-muted-foreground flex-grow mb-4 line-clamp-3">
+                    <p className="text-sm text-muted-foreground flex-grow mb-4 line-clamp-2">
                       {post.excerpt || post.content.substring(0, 150) + '...'}
                     </p>
                     <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-auto">
