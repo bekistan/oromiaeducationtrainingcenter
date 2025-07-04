@@ -1,13 +1,8 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
-import { LanguageProvider } from '@/contexts/language-context';
-import { AuthProvider } from '@/hooks/use-auth'; 
-import { QueryProvider } from '@/components/providers/query-provider'; 
-import { Toaster } from "@/components/ui/toaster";
 import { SITE_NAME, SITE_DESCRIPTION } from '@/constants';
-import { TawkToWidget } from '@/components/analytics/tawk-to';
 import { cn } from '@/lib/utils';
+import { Providers } from '@/components/providers/providers';
 
 export const metadata: Metadata = {
   title: {
@@ -25,15 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
-        <AuthProvider>
-          <LanguageProvider>
-            <QueryProvider> {/* Wrap with QueryProvider */}
-              {children}
-              <Toaster />
-              <TawkToWidget />
-            </QueryProvider>
-          </LanguageProvider>
-        </AuthProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
