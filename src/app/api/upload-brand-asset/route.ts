@@ -9,12 +9,29 @@ export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-brand-asset] START ---');
 
   // --- Cloudinary Configuration ---
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true,
-  });
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
+  const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
+
+  if (!cloudName || !cloudinaryApiKeyEnv || !cloudinaryApiSecretEnv) {
+    const errorMsg = "Cloudinary environment variables are not fully set on the server.";
+    console.error(`[API] FAILED: ${errorMsg}`);
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
+  }
+
+  try {
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: cloudinaryApiKeyEnv,
+      api_secret: cloudinaryApiSecretEnv,
+      secure: true,
+    });
+    console.log('[API] Cloudinary configured successfully.');
+  } catch (configError: any) {
+    console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
+    return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
+  }
+
 
   if (!db) {
      console.error("[API] FAILED: Firebase is not configured.");
