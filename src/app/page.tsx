@@ -114,7 +114,7 @@ const fetchLatestPosts = async (): Promise<BlogPost[]> => {
     return dateB.getTime() - dateA.getTime();
   });
 
-  return allPublishedPosts.slice(0, 4); // Fetch 4 for the 2x2 grid
+  return allPublishedPosts.slice(0, 3);
 };
 
 
@@ -327,10 +327,10 @@ export default function HomePage() {
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
           
           {isLoadingLatestPosts ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {Array.from({length: 4}).map((_, i) => (
+            <div className="grid grid-cols-1 gap-8">
+              {Array.from({length: 3}).map((_, i) => (
                 <div key={i} className="flex flex-col md:flex-row gap-4 rounded-lg border p-4">
-                  <Skeleton className="w-full md:w-2/5 aspect-video md:aspect-square shrink-0" />
+                  <Skeleton className="w-full md:w-1/3 aspect-video md:aspect-square shrink-0" />
                   <div className="flex flex-col space-y-3 w-full">
                     <Skeleton className="h-6 w-3/4" />
                     <Skeleton className="h-4 w-full" />
@@ -345,13 +345,13 @@ export default function HomePage() {
               ))}
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <div className="grid grid-cols-1 gap-8">
               {latestPosts.map(post => (
                 <div key={post.id} className="group flex flex-col md:flex-row gap-4 overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow duration-300">
-                  <Link href={`/blog/${post.slug}`} className="block md:w-2/5 shrink-0">
-                    <div className="relative w-full aspect-video md:aspect-[4/3] overflow-hidden">
+                  <Link href={`/blog/${post.slug}`} className="block md:w-1/3 shrink-0">
+                    <div className="relative w-full aspect-video md:aspect-square overflow-hidden">
                       <Image
-                        src={post.imageUrl || `https://placehold.co/400x300.png`}
+                        src={post.imageUrl || `https://placehold.co/400x400.png`}
                         alt={post.title}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -359,7 +359,7 @@ export default function HomePage() {
                       />
                     </div>
                   </Link>
-                  <div className="flex flex-col p-4 md:w-3/5">
+                  <div className="flex flex-col p-4 md:w-2/3">
                     <h3 className="text-xl font-semibold mb-2">
                       <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
                         {post.title}
