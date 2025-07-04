@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getDocs, orderBy as firestoreOrderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { BlogPost } from '@/types';
 import { PublicLayout } from '@/components/layout/public-layout';
@@ -13,27 +13,36 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 
 const BLOG_POSTS_QUERY_KEY_PUBLIC = "publicBlogPosts";
 
 const fetchPublishedBlogPosts = async (): Promise<BlogPost[]> => {
-  if (!db) return []; // Return empty array if db is not configured
+  if (!db) return [];
   try {
+    // Removed orderby to prevent needing a composite index for this query. Sorting will be done client-side.
     const q = query(
       collection(db, "blog"),
-      where("isPublished", "==", true),
-      firestoreOrderBy("createdAt", "desc")
+      where("isPublished", "==", true)
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+    const posts = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+    
+    // Sort posts by creation date client-side
+    posts.sort((a, b) => {
+      const dateA = toDateObject(a.createdAt);
+      const dateB = toDateObject(b.createdAt);
+      if (!dateA || !dateB) return 0;
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    return posts;
   } catch (error: any) {
     if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
       console.warn("Permission denied or collection does not exist. This is expected if the blog collection hasn't been created yet.");
-      return []; // Return empty array on permission error to show "No posts found"
+      return []; 
     }
-    // Re-throw other critical errors
     throw error;
   }
 };

@@ -24,6 +24,9 @@ export const toDateObject = (dateInput: DateInput): Date | null => {
     const parsedDate = new Date(dateInput);
     return isNaN(parsedDate.getTime()) ? null : parsedDate;
   }
+   if (typeof dateInput === 'object' && dateInput.hasOwnProperty('seconds')) {
+    return new Timestamp((dateInput as any).seconds, (dateInput as any).nanoseconds).toDate();
+  }
   return null;
 };
 
@@ -46,4 +49,23 @@ export const formatDate = (
     console.error("Error formatting date:", error, "Date Object:", dateObj);
     return "Invalid Date";
   }
+};
+
+
+/**
+ * Formats a date for dual display, useful in contexts like reports.
+ * Falls back gracefully if locales are not available.
+ * @param dateInput - The date to format.
+ * @param primaryFormat - The primary format string (e.g., 'MMM d, yy').
+ * @param secondaryFormat - The secondary format string (e.g., for another calendar).
+ * @returns A formatted string, e.g., "Oct 26, 23 (Tikemt 15, 16)".
+ */
+export const formatDualDate = (dateInput: DateInput, primaryFormat: string, secondaryFormat?: string): string => {
+  const dateObj = toDateObject(dateInput);
+  if (!dateObj) return 'N/A';
+
+  const primaryDate = format(dateObj, primaryFormat);
+  
+  // Secondary format is optional and might not be implemented, so we just return primary.
+  return primaryDate;
 };

@@ -17,7 +17,7 @@ import type { BlogPost } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, FileText, BookOpen, UploadCloud } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -26,7 +26,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 
 const blogPostSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -54,9 +54,20 @@ const slugify = (text: string) =>
 const fetchBlogPosts = async (): Promise<BlogPost[]> => {
   if (!db) return [];
   try {
-    const q = query(collection(db, "blog"), firestoreOrderBy("createdAt", "desc"));
+    // Removed orderby to prevent needing a composite index for this query. Sorting will be done client-side.
+    const q = query(collection(db, "blog"));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+    const posts = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as BlogPost));
+
+    // Sort posts by creation date client-side
+    posts.sort((a, b) => {
+      const dateA = toDateObject(a.createdAt);
+      const dateB = toDateObject(b.createdAt);
+      if (!dateA || !dateB) return 0;
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    return posts;
   } catch (error: any) {
     if (error.code === 'permission-denied' || error.code === 'unimplemented' || error.code === 'failed-precondition') {
       console.warn("Could not fetch blog posts for admin. This is expected if the collection or necessary indexes don't exist yet.", error.message);
@@ -302,7 +313,7 @@ export default function AdminBlogPage() {
                     />
                     {imagePreview ? (
                       <div className="relative group mx-auto w-full max-w-[200px]">
-                        <div className="relative aspect-[16/9]">
+                        <div className="relative aspect-video">
                             <Image
                                 src={imagePreview}
                                 alt={t('imagePreview')}
