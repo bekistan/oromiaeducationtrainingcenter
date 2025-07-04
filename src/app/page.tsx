@@ -102,7 +102,7 @@ const fetchLatestPosts = async (): Promise<BlogPost[]> => {
     collection(db, "blog"),
     where("isPublished", "==", true),
     orderBy("createdAt", "desc"),
-    limit(4)
+    limit(3)
   );
   const postsSnapshot = await getDocs(postsQuery);
   return postsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
@@ -318,35 +318,41 @@ export default function HomePage() {
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
           
           {isLoadingLatestPosts ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {Array.from({length: 4}).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {Array.from({length: 3}).map((_, i) => <Skeleton key={i} className="h-96 w-full" />)}
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestPosts.map(post => (
-                <Card key={post.id} className="overflow-hidden flex flex-row group">
-                  <div className="relative w-1/3 overflow-hidden">
-                    <Image
-                      src={post.imageUrl || `https://placehold.co/400x400.png`}
-                      alt={post.title}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="(max-width: 768px) 33vw, 16vw"
-                      data-ai-hint="news event"
-                    />
-                  </div>
-                  <div className="w-2/3 p-4 md:p-6 flex flex-col">
-                    <CardTitle className="text-lg md:text-xl mb-2 leading-tight">
+                <Card key={post.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <Link href={`/blog/${post.slug}`} className="block">
+                    <div className="relative w-full h-56 bg-muted">
+                      <Image
+                        src={post.imageUrl || `https://placehold.co/600x400.png`}
+                        alt={post.title}
+                        fill
+                        className="object-cover"
+                        data-ai-hint="blog post"
+                      />
+                    </div>
+                  </Link>
+                  <CardHeader className="p-6">
+                    <CardTitle className="text-xl leading-snug">
                       <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
                     </CardTitle>
-                    <CardDescription className="text-gray-500 text-sm mb-4 line-clamp-3 flex-grow">
-                      {post.excerpt || post.content.substring(0, 120) + '...'}
+                    <CardDescription className="text-xs pt-2 space-y-1">
+                       <span className="flex items-center"><User className="mr-2 h-3 w-3" /> {post.authorName}</span>
+                       <span className="flex items-center"><Calendar className="mr-2 h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
                     </CardDescription>
-                    <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-4 gap-y-1 mt-auto">
-                      <span className="flex items-center gap-1"><User className="h-3 w-3" /> {post.authorName}</span>
-                      <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
-                    </div>
-                  </div>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-0 flex-grow">
+                    <p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt || post.content.substring(0, 150) + '...'}</p>
+                  </CardContent>
+                  <CardFooter className="p-6 pt-0">
+                    <Button asChild className="w-full">
+                      <Link href={`/blog/${post.slug}`}>{t('readMore')}</Link>
+                    </Button>
+                  </CardFooter>
                 </Card>
               ))}
             </div>
