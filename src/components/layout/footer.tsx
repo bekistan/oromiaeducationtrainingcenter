@@ -6,39 +6,32 @@ import { Logo } from "@/components/shared/logo";
 import { SITE_NAME, FOOTER_LINKS, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT } from "@/constants";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
-import type { SiteContentSettings, Locale } from '@/types';
+import type { SiteContentSettings, Locale, BlogPost } from '@/types';
+import { MapPin, Phone, Mail, ChevronRight } from "lucide-react";
+import { toDateObject, formatDate } from "@/lib/date-utils";
 
-const SITE_CONTENT_QUERY_KEY_FOOTER = "siteContentPublicFooter";
+const LATEST_POSTS_QUERY_KEY_FOOTER = "latestPostsFooter";
 
-const mergeDeep = (target: any, source: any): any => {
-  const output = { ...target };
-  if (target && typeof target === 'object' && !Array.isArray(target) && source && typeof source === 'object' && !Array.isArray(source)) {
-    Object.keys(source).forEach(key => {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-        if (!(key in target)) {
-          Object.assign(output, { [key]: source[key] });
-        } else {
-          output[key] = mergeDeep(target[key], source[key]);
-        }
-      } else if (source[key] !== undefined) {
-        Object.assign(output, { [key]: source[key] });
-      }
-    });
-  }
-  return output;
-};
+const fetchLatestPosts = async (): Promise<BlogPost[]> => {
+  if (!isFirebaseConfigured || !db) return [];
+  const postsQuery = query(
+    collection(db, "blog"),
+    where("isPublished", "==", true)
+  );
+  
+  const postsSnapshot = await getDocs(postsQuery);
+  const allPublishedPosts = postsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as BlogPost));
 
+  allPublishedPosts.sort((a, b) => {
+    const dateA = toDateObject(a.createdAt);
+    const dateB = toDateObject(b.createdAt);
+    if (!dateA || !dateB) return 0;
+    return dateB.getTime() - dateA.getTime();
+  });
 
-const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
-  if (!isFirebaseConfigured) return DEFAULT_SITE_CONTENT;
-  const docRef = doc(db, SITE_CONTENT_DOC_PATH);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return mergeDeep(DEFAULT_SITE_CONTENT, docSnap.data()) as SiteContentSettings;
-  }
-  return DEFAULT_SITE_CONTENT;
+  return allPublishedPosts.slice(0, 3);
 };
 
 
@@ -46,51 +39,75 @@ export function Footer() {
   const { t, locale } = useLanguage();
   const currentYear = new Date().getFullYear();
 
-  const { data: siteContent } = useQuery<SiteContentSettings, Error>({
-    queryKey: [SITE_CONTENT_QUERY_KEY_FOOTER],
-    queryFn: fetchSiteContentPublic,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+  const { data: latestPosts, isLoading: isLoadingPosts } = useQuery<BlogPost[], Error>({
+    queryKey: [LATEST_POSTS_QUERY_KEY_FOOTER],
+    queryFn: fetchLatestPosts,
+    staleTime: 1000 * 60 * 5,
   });
 
-  const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
-
   return (
-    <footer className="border-t bg-card text-card-foreground">
+    <footer className="bg-sidebar text-sidebar-foreground/80">
       <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Column 1: Logo & Tagline */}
-          <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <Logo className="h-14 w-auto" />
-            <p className="text-sm text-muted-foreground mt-2 max-w-xs">
-              {tagline}
+          <div className="flex flex-col space-y-4">
+            <Logo />
+            <p className="text-sm">
+              {t('tagline')}
             </p>
           </div>
           
-          {/* Column 2: Quick Links */}
-          <div className="text-center md:text-left">
-            <h4 className="font-semibold mb-3 text-foreground">{t('quickLinks')}</h4>
+          {/* Column 2: Latest News */}
+          <div className="text-left">
+            <h4 className="font-semibold mb-4 text-sidebar-foreground uppercase tracking-wider">{t('latestNews')}</h4>
+            <ul className="space-y-4">
+                {isLoadingPosts ? Array.from({length: 2}).map((_, i) => <li key={i} className="animate-pulse h-10 bg-sidebar-accent rounded"></li>) :
+                 latestPosts && latestPosts.length > 0 ? latestPosts.map(post => (
+                  <li key={post.id} className="border-b border-sidebar-border/50 pb-4">
+                    <Link href={`/blog/${post.slug}`} className="text-sm font-medium text-sidebar-foreground/90 hover:text-primary transition-colors block">
+                        {post.title}
+                    </Link>
+                    <time className="text-xs text-sidebar-foreground/60 uppercase tracking-widest">{formatDate(post.createdAt, 'MMMM d, yyyy')}</time>
+                  </li>
+                )) : <li className="text-sm text-sidebar-foreground/60">{t('noNewsFound')}</li>}
+            </ul>
+          </div>
+          
+          {/* Column 3: Useful Links */}
+          <div className="text-left">
+            <h4 className="font-semibold mb-4 text-sidebar-foreground uppercase tracking-wider">{t('usefulLinks')}</h4>
             <ul className="space-y-2">
                 {FOOTER_LINKS.map(link => (
                   <li key={link.href}>
-                    <Link href={link.href} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    <Link href={link.href} className="flex items-center text-sm hover:text-primary transition-colors">
+                        <ChevronRight className="h-4 w-4 mr-1 text-primary"/>
                         {t(link.labelKey)}
                     </Link>
                   </li>
                 ))}
             </ul>
           </div>
-          
-          {/* Column 3: Contact Info */}
-          <div className="text-center md:text-left">
-            <h4 className="font-semibold mb-3 text-foreground">{t('contactUs')}</h4>
-             <ul className="space-y-2">
-                <li><p className="text-sm text-muted-foreground">{t('addressPlaceholder')}</p></li>
-                <li><p className="text-sm text-muted-foreground">{t('generalPhoneNumberPlaceholder')}</p></li>
-                <li><p className="text-sm text-muted-foreground">{t('generalEmailAddressPlaceholder')}</p></li>
+
+          {/* Column 4: Contact Info */}
+          <div className="text-left">
+            <h4 className="font-semibold mb-4 text-sidebar-foreground uppercase tracking-wider">{t('contactUs')}</h4>
+             <ul className="space-y-3">
+                <li className="flex items-start">
+                    <MapPin className="h-5 w-5 mr-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span className="text-sm">{t('addressPlaceholder')}</span>
+                </li>
+                <li className="flex items-start">
+                    <Phone className="h-5 w-5 mr-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span className="text-sm">{t('generalPhoneNumberPlaceholder')}</span>
+                </li>
+                <li className="flex items-start">
+                    <Mail className="h-5 w-5 mr-3 mt-0.5 text-primary flex-shrink-0" />
+                    <span className="text-sm">{t('generalEmailAddressPlaceholder')}</span>
+                </li>
             </ul>
           </div>
         </div>
-        <div className="mt-10 border-t pt-6 text-center text-sm text-muted-foreground">
+        <div className="mt-12 border-t border-sidebar-border/50 pt-6 text-center text-sm text-sidebar-foreground/60">
             &copy; {currentYear} {SITE_NAME}. {t('allRightsReserved')}.
         </div>
       </div>

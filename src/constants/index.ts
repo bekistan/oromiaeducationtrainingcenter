@@ -70,10 +70,13 @@ export const KEYHOLDER_NAVS: NavItem[] = [
 ];
 
 export const FOOTER_LINKS = [
+  { labelKey: 'brochure', href: '/brochure' },
+  { labelKey: 'dormitories', href: '/dormitories' },
+  { labelKey: 'halls', href: '/halls' },
+  { labelKey: 'blog', href: '/blog' },
+  { labelKey: 'contactUs', href: '/contact' },
   { labelKey: 'privacyPolicy', href: '/privacy-policy' },
   { labelKey: 'termsOfService', href: '/terms-of-service' },
-  { labelKey: 'contactUs', href: '/contact' },
-  { labelKey: 'blog', href: '/blog' },
 ];
 
 export const PLACEHOLDER_IMAGE_SIZE = "600x400";
