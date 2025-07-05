@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -19,6 +18,10 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && getUserData().role == 'superadmin';
+    }
+
+    function isMemberOfCompany(companyId) {
+      return isSignedIn() && getUserData().companyId == companyId;
     }
     
     function isOwner(userId) {
@@ -59,16 +62,10 @@ service cloud.firestore {
     }
     
     match /bookings/{bookingId} {
-      // Allow guest users to create dormitory bookings, which they do from the public site.
-      // Signed-in users can create other types of bookings.
+      // Allow public to create dorm bookings, but require auth for facility bookings
       allow create: if request.resource.data.bookingCategory == 'dormitory' || isSignedIn();
-      
-      // Allow admins or the booking owner to read/update.
-      // Also, allow ANYONE to read dormitory bookings to enable the public "check by phone" feature.
-      // NOTE: For a production app, this would be a security risk. A more secure method
-      // like a server-side endpoint would be recommended to avoid exposing all booking details.
-      allow read: if resource.data.bookingCategory == 'dormitory' || isAnyAdmin() || isOwner(resource.data.userId);
-      allow update: if isAnyAdmin() || isOwner(resource.data.userId);
+      // Allow read/update if user is an admin, the creator, or from the same company
+      allow read, update: if isAnyAdmin() || isOwner(resource.data.userId) || isMemberOfCompany(resource.data.companyId);
       allow delete: if isAnyAdmin();
     }
 
