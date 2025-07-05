@@ -1,0 +1,90 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions to check user roles.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAnyAdmin() {
+      return isSignedIn() && getUserData().role in ['admin', 'superadmin'];
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && getUserData().role == 'superadmin';
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // Default deny all access to all documents.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // PUBLIC COLLECTIONS
+    // Anyone can read published blog posts, dormitories, halls, and site configuration.
+    match /dormitories/{dormId} {
+      allow read: if true;
+    }
+    match /halls/{hallId} {
+      allow read: if true;
+    }
+    match /site_configuration/{configDoc} {
+        allow read: if true;
+    }
+    
+    // *** TEMPORARILY PUBLIC BLOG RULES FOR TESTING ***
+    // Anyone can read, create, update, and delete blog posts.
+    // This is NOT secure for production.
+    match /blog/{postId} {
+      allow read, write: if true;
+    }
+
+    // USER-SPECIFIC DATA
+    // Rules for user profiles and their bookings.
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if true; // Allows new user registration.
+      allow update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+    
+    match /bookings/{bookingId} {
+      // Allow guest users to create dormitory bookings, which they do from the public site.
+      // Signed-in users can create other types of bookings.
+      allow create: if request.resource.data.bookingCategory == 'dormitory' || isSignedIn();
+      
+      // Allow admins or the booking owner to read/update.
+      // Also, allow ANYONE to read dormitory bookings to enable the public "check by phone" feature.
+      // NOTE: For a production app, this would be a security risk. A more secure method
+      // like a server-side endpoint would be recommended to avoid exposing all booking details.
+      allow read: if resource.data.bookingCategory == 'dormitory' || isAnyAdmin() || isOwner(resource.data.userId);
+      allow update: if isAnyAdmin() || isOwner(resource.data.userId);
+      allow delete: if isAnyAdmin();
+    }
+
+    // ADMIN-ONLY COLLECTIONS
+    // Only admins can write to these collections.
+    match /dormitories/{dormId} {
+      allow write: if isAnyAdmin();
+    }
+    match /halls/{hallId} {
+      allow write: if isAnyAdmin();
+    }
+    match /notifications/{notificationId} {
+      allow read, write: if isAnyAdmin();
+    }
+    match /site_configuration/{configDoc} {
+      allow write: if isAnyAdmin();
+    }
+  }
+}
