@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -40,6 +39,11 @@ export default function HallsAndSectionsPage() {
 
 
   const fetchAllAdminEnabledFacilities = useCallback(async () => {
+    if (!db) {
+      toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+      setIsLoadingInitialFacilities(false);
+      return;
+    }
     setIsLoadingInitialFacilities(true);
     try {
       const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true));
@@ -68,6 +72,10 @@ export default function HallsAndSectionsPage() {
 
 
   const checkFacilityAvailabilityForRange = useCallback(async (facility: Hall, range: DateRange): Promise<boolean> => {
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        return false;
+    }
     if (!range.from || !range.to) return true;
 
     const fromTimestamp = Timestamp.fromDate(range.from);
