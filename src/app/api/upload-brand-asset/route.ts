@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { BRAND_ASSETS_DOC_PATH } from '@/constants';
 
 export async function POST(req: NextRequest) {
@@ -47,8 +47,36 @@ export async function POST(req: NextRequest) {
     if (!assetType) return NextResponse.json({ error: 'Asset type is required.' }, { status: 400 });
     console.log(`[API] Received brand asset: ${file.name}, for asset type: ${assetType}`);
 
+    // --- Delete old asset before uploading new one ---
+    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const fieldNameToGet = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
+      const oldUrl = data[fieldNameToGet];
+      
+      if (oldUrl && typeof oldUrl === 'string') {
+        // Example URL: http://res.cloudinary.com/cloudname/image/upload/v12345/folder/public_id.png
+        // We need to extract the part after the version number, like "folder/public_id"
+        const publicIdMatch = oldUrl.match(/\/upload\/(?:v\d+\/)?(.*)\.[a-zA-Z0-9]+$/);
+        if (publicIdMatch && publicIdMatch[1]) {
+            const publicId = publicIdMatch[1];
+            console.log(`[API] Found old asset. Deleting from Cloudinary with public_id: ${publicId}`);
+            try {
+                await cloudinary.uploader.destroy(publicId);
+                console.log(`[API] Successfully deleted old asset: ${publicId}`);
+            } catch (deleteError) {
+                // Log the error but don't block the upload of the new file
+                console.error(`[API] WARN: Failed to delete old asset ${publicId} from Cloudinary, but proceeding with upload.`, deleteError);
+            }
+        }
+      }
+    }
+    // --- End of deletion logic ---
+
     // Upload to Cloudinary
-    console.log('[API] Uploading to Cloudinary...');
+    console.log('[API] Uploading new asset to Cloudinary...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
@@ -64,11 +92,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to upload asset.', details: cloudinaryUploadResult.error?.message }, { status: 500 });
     }
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
-    console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
+    console.log('[API] Cloudinary upload successful. New URL:', cloudinaryUrl);
     
     // Update Firestore
-    console.log('[API] Updating Firestore document...');
-    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+    console.log('[API] Updating Firestore document with new URL...');
     const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
     
     await setDoc(docRef, {
