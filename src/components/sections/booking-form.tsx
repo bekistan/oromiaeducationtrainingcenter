@@ -175,22 +175,20 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     if (!selectedRange.from || !selectedRange.to) return null;
     if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
 
-    const fromTimestamp = Timestamp.fromDate(selectedRange.from);
-    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
-
+    // This simplified query avoids the need for a composite Firestore index, which can cause permission-like errors if not created.
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
-      where("approvalStatus", "in", ["approved", "pending"]),
-      where("startDate", "<=", toTimestamp)
+      where("approvalStatus", "in", ["approved", "pending"])
     );
 
     try {
       const querySnapshot = await getDocs(q);
-      const potentiallyConflictingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
+      const allBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
 
       for (const item of itemsToCheck) {
-        const itemDocRef = doc(db, "halls", item.id); 
+        // Admin availability check from the item itself
+        const itemDocRef = doc(db, "halls", item.id);
         const itemDocSnap = await getDoc(itemDocRef);
         if (itemDocSnap.exists()) {
             const hallData = itemDocSnap.data() as HallType;
@@ -201,26 +199,33 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             return t('itemNotFoundDatabase', {itemName: item.name });
         }
 
-        const conflictingBookingsForItem = potentiallyConflictingBookings.filter(booking => {
-          const bookingEndDate = toDateObject(booking.endDate); // Use robust date conversion
-          if (!bookingEndDate) return false; // Skip if date is invalid
+        // Check for booking conflicts
+        const conflictingBooking = allBookings.find(booking => {
+          // Check if the current booking is for the item we are checking
+          const isForItem = booking.items.some(bookedItem => bookedItem.id === item.id);
+          if (!isForItem) return false;
 
-          const overlaps = bookingEndDate >= selectedRange.from!;
-          if (!overlaps) return false;
-          return booking.items.some(bookedItem => bookedItem.id === item.id);
+          // Check for date overlap
+          const bookingStart = toDateObject(booking.startDate);
+          const bookingEnd = toDateObject(booking.endDate);
+          if (!bookingStart || !bookingEnd) return false; // Invalid booking data, skip
+
+          return (bookingStart <= selectedRange.to! && bookingEnd >= selectedRange.from!);
         });
-
-        if (conflictingBookingsForItem.length > 0) {
+        
+        if (conflictingBooking) {
           return t('itemUnavailableConflict', { itemName: item.name });
         }
       }
-      return null;
+      
+      return null; // All items are available
     } catch (error: any) {
       console.error("Error checking facility availability:", error);
       toast({ variant: "destructive", title: t('error'), description: error.message || t('errorCheckingAvailability')});
       return error.message || t('errorCheckingAvailability');
     }
   }, [t, toast]);
+
 
   const checkDormitoryBedAvailability = useCallback(async (itemToCheck: BookingItem, selectedRange: DateRange): Promise<string | null> => {
     if (!selectedRange.from || !selectedRange.to) return null;
