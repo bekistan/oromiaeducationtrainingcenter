@@ -12,10 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarDays, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
-import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
+import { toDateObject } from '@/lib/date-utils';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -74,9 +74,9 @@ export default function DormitoriesPage() {
         const bookedBedsCount: { [dormId: string]: number } = {};
         querySnapshot.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
-            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            const bookingEndDate = toDateObject(booking.endDate);
             
-            if (bookingEndDate >= selectedDateRange.from!) {
+            if (bookingEndDate && bookingEndDate >= selectedDateRange.from!) {
                 booking.items.forEach(item => {
                     if (item.itemType === "dormitory") {
                         bookedBedsCount[item.id] = (bookedBedsCount[item.id] || 0) + 1;

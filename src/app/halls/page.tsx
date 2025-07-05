@@ -16,8 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { parseISO } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toDateObject } from '@/lib/date-utils';
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -84,7 +84,9 @@ export default function HallsAndSectionsPage() {
         const querySnapshot = await getDocs(bookingsQuery);
         const conflictingBookings = querySnapshot.docs.filter(docSnap => {
             const booking = docSnap.data() as Booking;
-            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+            const bookingEndDate = toDateObject(booking.endDate); // Use robust date conversion
+
+            if (!bookingEndDate) return false; // Skip if date is invalid
 
             const overlapsDate = bookingEndDate >= range.from!;
             if (!overlapsDate) return false;

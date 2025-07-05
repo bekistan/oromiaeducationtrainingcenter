@@ -30,12 +30,13 @@ import type { DateRange } from 'react-day-picker';
 import type { BookingServiceDetails, BookingItem, Booking, Hall as HallType, PricingSettings } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, List, Loader2, Building, BedDouble, Film } from 'lucide-react';
-import { differenceInCalendarDays, format, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 import { notifyAdminsOfNewBooking } from '@/actions/notification-actions';
+import { toDateObject } from '@/lib/date-utils';
 
 interface BookingFormProps {
   bookingCategory: 'dormitory' | 'facility';
@@ -201,7 +202,9 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         }
 
         const conflictingBookingsForItem = potentiallyConflictingBookings.filter(booking => {
-          const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
+          const bookingEndDate = toDateObject(booking.endDate); // Use robust date conversion
+          if (!bookingEndDate) return false; // Skip if date is invalid
+
           const overlaps = bookingEndDate >= selectedRange.from!;
           if (!overlaps) return false;
           return booking.items.some(bookedItem => bookedItem.id === item.id);
@@ -239,9 +242,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         let bookedBedsDuringPeriod = 0;
         querySnapshot.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
-            const bookingStartDate = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
-            const bookingEndDate = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
-            if (bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
+            const bookingStartDate = toDateObject(booking.startDate);
+            const bookingEndDate = toDateObject(booking.endDate);
+
+            if (bookingStartDate && bookingEndDate && bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
                 const isForThisRoom = booking.items.some(bookedItem => bookedItem.id === itemToCheck.id && bookedItem.itemType === "dormitory");
                 if (isForThisRoom) bookedBedsDuringPeriod++;
             }
