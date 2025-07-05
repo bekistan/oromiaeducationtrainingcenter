@@ -26,13 +26,6 @@ const BRAND_ASSETS_QUERY_KEY = "brandAssetsSettings";
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-const brandAssetsSchema = z.object({
-  signature: z.any().refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 2MB.`).refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), ".jpg, .png, and .webp files are accepted.").optional(),
-  stamp: z.any().refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 2MB.`).refine((file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type), ".jpg, .png, and .webp files are accepted.").optional(),
-});
-
-type BrandAssetsFormValues = z.infer<typeof brandAssetsSchema>;
-
 const fetchBrandAssets = async (): Promise<BrandAssets> => {
   if (!db) {
     console.warn("fetchBrandAssets called but Firebase DB is not configured.");
@@ -72,7 +65,7 @@ export default function AdminBrandAssetsPage() {
     }
   }, [currentAssets]);
   
-  const mutation = useMutation<void, Error, { assetType: 'signature' | 'stamp'; file: File }>({
+  const mutation = useMutation<{ url: string }, Error, { assetType: 'signature' | 'stamp'; file: File }>({
       mutationFn: async ({ assetType, file }) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -87,8 +80,12 @@ export default function AdminBrandAssetsPage() {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Upload failed');
         }
+        return response.json();
       },
-      onSuccess: () => {
+      onSuccess: (data, variables) => {
+          // Manually update the preview state for instant feedback
+          setPreviews(p => ({ ...p, [variables.assetType]: data.url }));
+          // Also invalidate the query to keep the server state in sync
           queryClient.invalidateQueries({ queryKey: [BRAND_ASSETS_QUERY_KEY] });
           toast({ title: t('success'), description: t('brandAssetUpdatedSuccess') });
       },
@@ -108,12 +105,6 @@ export default function AdminBrandAssetsPage() {
               toast({ variant: 'destructive', title: t('invalidFileTypeTitle'), description: `Please select a PNG, JPG, or WEBP file.`});
               return;
           }
-
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              setPreviews(p => ({ ...p, [fieldName]: reader.result as string }));
-          };
-          reader.readAsDataURL(file);
           mutation.mutate({ assetType: fieldName, file });
       }
   };
