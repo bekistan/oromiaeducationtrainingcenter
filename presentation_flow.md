@@ -135,7 +135,6 @@ Built with a modern, scalable, and maintainable technology stack.
 *   **Database:** Google Firestore
 *   **Authentication:** Firebase Authentication
 *   **File & Image Storage:** Cloudinary
-*   **Data Integration (Screenshots):** Airtable
 *   **Customer Support Chat:** Tawk.to
 
 ---
@@ -145,4 +144,3 @@ Built with a modern, scalable, and maintainable technology stack.
 **Thank You!**
 
 **Questions?**
-

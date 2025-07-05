@@ -105,7 +105,6 @@ export interface Booking {
   guestEmployer?: string;
   phone?: string;
   paymentScreenshotUrl?: string;
-  paymentScreenshotAirtableRecordId?: string; // No longer used, but kept for schema compatibility
   // Facility specific
   companyName?: string;
   contactPerson?: string;
