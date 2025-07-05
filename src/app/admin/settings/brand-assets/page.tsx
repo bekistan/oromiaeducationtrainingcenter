@@ -67,10 +67,6 @@ export default function AdminBrandAssetsPage() {
   
   const mutation = useMutation<void, Error, { assetType: 'signature' | 'stamp'; file: File }>({
       mutationFn: async ({ assetType, file }) => {
-        if (!db) {
-          throw new Error("Database is not configured. Cannot save asset URL.");
-        }
-        
         // Step 1: Upload the file via the API route
         const formData = new FormData();
         formData.append('file', file);
@@ -92,6 +88,9 @@ export default function AdminBrandAssetsPage() {
         }
 
         // Step 2: Update Firestore from the client-side, which is authenticated
+        if (!db) {
+          throw new Error("Database is not configured. Cannot save asset URL.");
+        }
         const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
         const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
         
@@ -104,7 +103,6 @@ export default function AdminBrandAssetsPage() {
         setPreviews(p => ({ ...p, [assetType]: newUrl }));
       },
       onSuccess: () => {
-          // Invalidate the query to ensure the next fetch gets the latest data from DB
           queryClient.invalidateQueries({ queryKey: [BRAND_ASSETS_QUERY_KEY] });
           toast({ title: t('success'), description: t('brandAssetUpdatedSuccess') });
       },

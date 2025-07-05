@@ -41,25 +41,22 @@ export async function POST(req: NextRequest) {
     
     console.log(`[API] Received brand asset: ${file.name}`);
 
+    // Convert file to a base64 string for direct upload
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64String = buffer.toString('base64');
+    const dataUri = `data:${file.type};base64,${base64String}`;
 
-    console.log('[API] Uploading new asset to Cloudinary using upload_stream...');
+    console.log('[API] Uploading new asset to Cloudinary using data URI...');
     
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'brand_assets', resource_type: 'image' },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve({ secure_url: result?.secure_url });
-          }
-        );
-        uploadStream.end(buffer);
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+      folder: 'brand_assets',
+      resource_type: 'image',
     });
 
     if (!cloudinaryUploadResult?.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload asset.', details: cloudinaryUploadResult.error?.message || 'Cloudinary did not return a secure URL.' }, { status: 500 });
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
+      return NextResponse.json({ error: 'Failed to upload asset.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
