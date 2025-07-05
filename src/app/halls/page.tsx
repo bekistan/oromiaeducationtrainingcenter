@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -134,12 +135,6 @@ export default function HallsAndSectionsPage() {
 
     updateAvailableFacilities().catch(console.error);
   }, [selectedDateRange, filteredFacilitiesByType, checkFacilityAvailabilityForRange]);
-
-
-  const handleSelectionChange = (newSelection: Hall[]) => {
-    if (!onSelectionChange) return;
-    onSelectionChange(newSelection);
-  };
 
   const handleBookSelectedItems = () => {
     if (authLoading) return;
