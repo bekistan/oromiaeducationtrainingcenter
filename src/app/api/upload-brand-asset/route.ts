@@ -7,6 +7,11 @@ import { BRAND_ASSETS_DOC_PATH } from '@/constants';
 
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-brand-asset] START ---');
+  
+  if (!db) {
+    console.error("[API] FAILED: Firebase is not configured.");
+    return NextResponse.json({ error: "Database service is not configured." }, { status: 500 });
+  }
 
   // --- Cloudinary Configuration ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -29,12 +34,6 @@ export async function POST(req: NextRequest) {
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
-  }
-
-
-  if (!db) {
-     console.error("[API] FAILED: Firebase is not configured.");
-    return NextResponse.json({ error: "Database service is not configured." }, { status: 500 });
   }
 
   try {

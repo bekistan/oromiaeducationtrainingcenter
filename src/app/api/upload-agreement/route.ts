@@ -16,6 +16,11 @@ async function validateUserSession(req: NextRequest): Promise<{ isValid: boolean
 
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-agreement] START ---');
+  
+  if (!db) {
+    console.error("[API] FAILED: Firebase is not configured.");
+    return NextResponse.json({ error: "Database service is not configured." }, { status: 500 });
+  }
 
   // Securely validate user session
   const { isValid } = await validateUserSession(req);
@@ -37,11 +42,6 @@ export async function POST(req: NextRequest) {
     api_secret: cloudinaryApiSecretEnv,
     secure: true,
   });
-
-  if (!db) {
-     console.error("[API] FAILED: Firebase is not configured.");
-    return NextResponse.json({ error: "Database service is not configured." }, { status: 500 });
-  }
 
   try {
     const formData = await req.formData();

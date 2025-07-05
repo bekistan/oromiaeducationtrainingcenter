@@ -18,6 +18,10 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
  * @param booking - The newly created booking object.
  */
 export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> {
+  if (!db) {
+    console.error("--- [Notification Action] FAILED: Firebase DB not configured. Aborting notifyAdminsOfNewBooking. ---");
+    return;
+  }
   console.log('--- [Notification Action] START: notifyAdminsOfNewBooking ---');
   console.log('[Notification Action] Received booking object:', JSON.stringify(booking, null, 2));
 
@@ -124,6 +128,10 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
  * @param booking - The approved booking object.
  */
 export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<void> {
+  if (!db) {
+    console.error("--- [Notification Action] FAILED: Firebase DB not configured. Aborting notifyKeyholdersOfDormApproval. ---");
+    return;
+  }
   console.log('--- [Notification Action] START: notifyKeyholdersOfDormApproval ---');
   console.log('[Notification Action] Received booking object for keyholder notification:', JSON.stringify(booking, null, 2));
 
