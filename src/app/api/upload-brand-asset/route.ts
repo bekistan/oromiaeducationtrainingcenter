@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { BRAND_ASSETS_DOC_PATH } from '@/constants';
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!cloudName || !cloudinaryApiKeyEnv || !cloudinaryApiSecretEnv) {
     const errorMsg = "Cloudinary environment variables are not fully set on the server.";
     console.error(`[API] FAILED: ${errorMsg}`);
-    return NextResponse.json({ error: errorMsg }, { status: 500 });
+    return NextResponse.json({ error: "Configuration error: Cloudinary credentials missing." }, { status: 500 });
   }
 
   try {
@@ -46,45 +46,6 @@ export async function POST(req: NextRequest) {
     if (!assetType) return NextResponse.json({ error: 'Asset type is required.' }, { status: 400 });
     console.log(`[API] Received brand asset: ${file.name}, for asset type: ${assetType}`);
 
-    // --- Delete old asset before uploading new one ---
-    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      const fieldNameToGet = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
-      const oldUrl = data[fieldNameToGet];
-      
-      if (oldUrl && typeof oldUrl === 'string') {
-        try {
-          const url = new URL(oldUrl);
-          const pathParts = url.pathname.split('/');
-          const uploadIndex = pathParts.indexOf('upload');
-
-          if (uploadIndex > -1 && uploadIndex + 1 < pathParts.length) {
-              const idParts = pathParts.slice(uploadIndex + 1);
-              if (idParts[0].match(/^v\d+$/)) {
-                  idParts.shift(); // Remove version number if present
-              }
-              const publicIdWithExt = idParts.join('/');
-              const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
-
-              if (publicId) {
-                  console.log(`[API] Deleting previous asset from Cloudinary. Public ID: ${publicId}`);
-                  const deletionResult = await cloudinary.uploader.destroy(publicId, { resource_type: 'image' });
-                  console.log("[API] Cloudinary deletion result:", deletionResult);
-                  if (deletionResult.result !== 'ok' && deletionResult.result !== 'not found') {
-                      console.warn(`[API] WARN: Cloudinary deletion failed for public_id ${publicId}. Result: ${deletionResult.result}`);
-                  }
-              }
-          }
-        } catch (deleteError) {
-             console.error(`[API] ERROR: Exception during Cloudinary deletion. Proceeding with upload anyway.`, deleteError);
-        }
-      }
-    }
-    // --- End of deletion logic ---
-
     // Upload to Cloudinary
     console.log('[API] Uploading new asset to Cloudinary...');
     const bytes = await file.arrayBuffer();
@@ -106,6 +67,7 @@ export async function POST(req: NextRequest) {
     
     // Update Firestore
     console.log('[API] Updating Firestore document with new URL...');
+    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
     const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
     
     await setDoc(docRef, {
