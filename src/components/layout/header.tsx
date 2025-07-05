@@ -20,11 +20,35 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useState, useEffect } from "react";
 
 export function Header() {
   const { t } = useLanguage();
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
+  useEffect(() => {
+    const controlNavbar = () => {
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > lastScrollY && window.scrollY > 150) { // Hide after scrolling down 150px
+          setIsVisible(false);
+        } else {
+          setIsVisible(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('scroll', controlNavbar);
+      return () => {
+        window.removeEventListener('scroll', controlNavbar);
+      };
+    }
+  }, [lastScrollY]);
+
 
   const getDashboardPath = () => {
     if (!user) return null;
@@ -85,7 +109,10 @@ export function Header() {
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background text-foreground shadow-lg">
+    <header className={cn(
+      "sticky top-0 z-50 w-full bg-background/95 backdrop-blur-sm text-foreground shadow-lg transition-transform duration-300 ease-in-out",
+      !isVisible && "-translate-y-full"
+    )}>
       {/* Top Bar */}
       <div className="hidden md:block border-b border-border">
         <div className="container flex h-10 items-center justify-end text-xs font-medium">

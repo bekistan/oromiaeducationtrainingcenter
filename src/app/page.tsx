@@ -458,12 +458,15 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-12">{t('features')}</h2>
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('features')}</h2>
+          <svg className="w-24 h-2 mx-auto text-primary mb-12" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+          </svg>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {features.map((feature) => (
               <Card key={feature.titleKey} className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="items-center p-6">
-                  <div className="p-3 rounded-full bg-accent/10 mb-4">
+                  <div className="p-4 rounded-full bg-accent/20 mb-4">
                     {feature.icon}
                   </div>
                   <CardTitle className="text-xl">{t(feature.titleKey)}</CardTitle>
