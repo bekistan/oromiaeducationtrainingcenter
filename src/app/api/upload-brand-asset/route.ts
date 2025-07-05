@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
@@ -45,22 +44,30 @@ export async function POST(req: NextRequest) {
     if (!assetType) return NextResponse.json({ error: 'Asset type is required.' }, { status: 400 });
     console.log(`[API] Received brand asset: ${file.name}, for asset type: ${assetType}`);
 
-    // Convert the file to a Base64 data URI for direct upload
+    // Convert file to buffer for Cloudinary upload stream
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
-
-    console.log('[API] Uploading new asset to Cloudinary using direct upload method...');
     
-    // Use the simpler direct upload method
-    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
-      folder: 'brand_assets',
-      resource_type: 'image'
-    });
+    console.log('[API] Uploading new asset to Cloudinary using upload_stream...');
+    
+    // Use the upload_stream method, consistent with other parts of the app.
+    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'brand_assets', resource_type: 'image' },
+          (error, result) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve({ secure_url: result?.secure_url });
+            }
+          }
+        );
+        uploadStream.end(buffer);
+      });
 
     if (!cloudinaryUploadResult?.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
-      return NextResponse.json({ error: 'Failed to upload asset.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error);
+      return NextResponse.json({ error: 'Failed to upload asset.', details: cloudinaryUploadResult.error?.message || 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
