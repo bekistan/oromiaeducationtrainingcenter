@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -18,10 +19,6 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && getUserData().role == 'superadmin';
-    }
-
-    function isMemberOfCompany(companyId) {
-      return isSignedIn() && getUserData().companyId == companyId;
     }
     
     function isOwner(userId) {
@@ -62,10 +59,10 @@ service cloud.firestore {
     }
     
     match /bookings/{bookingId} {
-      // Allow public to create dorm bookings, but require auth for facility bookings
-      allow create: if request.resource.data.bookingCategory == 'dormitory' || isSignedIn();
-      // Allow read/update if user is an admin, the creator, or from the same company
-      allow read, update: if isAnyAdmin() || isOwner(resource.data.userId) || isMemberOfCompany(resource.data.companyId);
+      allow create: if isSignedIn() || request.resource.data.bookingCategory == 'dormitory';
+      // Allow public read for both dormitory and facility bookings for availability checks.
+      allow read: if isAnyAdmin() || isOwner(resource.data.userId) || resource.data.bookingCategory in ['dormitory', 'facility'];
+      allow update: if isAnyAdmin() || isOwner(resource.data.userId);
       allow delete: if isAnyAdmin();
     }
 
