@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
@@ -44,22 +45,17 @@ export async function POST(req: NextRequest) {
     if (!assetType) return NextResponse.json({ error: 'Asset type is required.' }, { status: 400 });
     console.log(`[API] Received brand asset: ${file.name}, for asset type: ${assetType}`);
 
-    // Convert file to buffer for Cloudinary upload stream
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
     console.log('[API] Uploading new asset to Cloudinary using upload_stream...');
     
-    // Use the upload_stream method, consistent with other parts of the app.
     const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
         const uploadStream = cloudinary.uploader.upload_stream(
           { folder: 'brand_assets', resource_type: 'image' },
           (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve({ secure_url: result?.secure_url });
-            }
+            if (error) reject(error);
+            else resolve({ secure_url: result?.secure_url });
           }
         );
         uploadStream.end(buffer);
@@ -73,16 +69,38 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. New URL:', cloudinaryUrl);
     
-    // Update Firestore
-    console.log('[API] Updating Firestore document with new URL...');
-    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
-    const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
-    
-    await setDoc(docRef, {
-        [fieldToUpdate]: cloudinaryUrl,
-        lastUpdated: serverTimestamp(),
-    }, { merge: true });
-    console.log('[API] Firestore update successful.');
+    // Attempt to update Firestore, with specific error handling
+    try {
+        console.log('[API] Updating Firestore document with new URL...');
+        const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+        const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
+        
+        await setDoc(docRef, {
+            [fieldToUpdate]: cloudinaryUrl,
+            lastUpdated: serverTimestamp(),
+        }, { merge: true });
+        console.log('[API] Firestore update successful.');
+    } catch (firestoreError: any) {
+        console.error('[API] FAILED: Error during Firestore update:', firestoreError);
+        // Attempt to clean up the orphaned image since the DB update failed.
+        try {
+            const parts = cloudinaryUrl.split('/');
+            const publicIdWithExt = parts.pop();
+            const folder = parts.pop();
+            if (publicIdWithExt && folder === 'brand_assets') {
+                const publicId = publicIdWithExt.split('.')[0];
+                console.log(`[API] Attempting to clean up orphaned Cloudinary image: brand_assets/${publicId}`);
+                await cloudinary.uploader.destroy(`brand_assets/${publicId}`);
+            }
+        } catch (cleanupError: any) {
+            console.error('[API] Failed to clean up orphaned image during error handling:', cleanupError.message);
+        }
+
+        return NextResponse.json({
+            error: 'Database update failed after successful image upload.',
+            details: firestoreError.message || 'An unknown Firestore error occurred.'
+        }, { status: 500 });
+    }
 
     console.log('--- [API /upload-brand-asset] END: Success ---');
     return NextResponse.json({
