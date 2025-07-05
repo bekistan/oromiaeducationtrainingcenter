@@ -27,14 +27,14 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const fetchBrandAssets = async (): Promise<BrandAssets> => {
-  if (!db) {
+  if (db) {
+    const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as BrandAssets;
+    }
+  } else {
     console.warn("fetchBrandAssets called but Firebase DB is not configured.");
-    return { id: 'brand_assets', signatureUrl: '', stampUrl: '' };
-  }
-  const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as BrandAssets;
   }
   return { id: 'brand_assets', signatureUrl: '', stampUrl: '' };
 };
