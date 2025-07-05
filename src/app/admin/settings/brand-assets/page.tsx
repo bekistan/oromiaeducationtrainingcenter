@@ -65,12 +65,16 @@ export default function AdminBrandAssetsPage() {
     }
   }, [currentAssets]);
   
-  const mutation = useMutation<{ url: string }, Error, { assetType: 'signature' | 'stamp'; file: File }>({
+  const mutation = useMutation<void, Error, { assetType: 'signature' | 'stamp'; file: File }>({
       mutationFn: async ({ assetType, file }) => {
+        if (!db) {
+          throw new Error("Database is not configured. Cannot save asset URL.");
+        }
+        
+        // Step 1: Upload the file via the API route
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('assetType', assetType);
-
+        
         const response = await fetch('/api/upload-brand-asset', {
             method: 'POST',
             body: formData,
@@ -78,14 +82,29 @@ export default function AdminBrandAssetsPage() {
 
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || 'Upload failed');
+            throw new Error(errorData.error || 'File upload failed at the API level.');
         }
-        return response.json();
+        
+        const { url: newUrl } = await response.json();
+
+        if (!newUrl) {
+          throw new Error("API did not return a valid URL after upload.");
+        }
+
+        // Step 2: Update Firestore from the client-side, which is authenticated
+        const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
+        const fieldToUpdate = assetType === 'signature' ? 'signatureUrl' : 'stampUrl';
+        
+        await setDoc(docRef, {
+            [fieldToUpdate]: newUrl,
+            lastUpdated: serverTimestamp(),
+        }, { merge: true });
+
+        // Update the local preview state for instant feedback
+        setPreviews(p => ({ ...p, [assetType]: newUrl }));
       },
-      onSuccess: (data, variables) => {
-          // Manually update the preview state for instant feedback
-          setPreviews(p => ({ ...p, [variables.assetType]: data.url }));
-          // Also invalidate the query to keep the server state in sync
+      onSuccess: () => {
+          // Invalidate the query to ensure the next fetch gets the latest data from DB
           queryClient.invalidateQueries({ queryKey: [BRAND_ASSETS_QUERY_KEY] });
           toast({ title: t('success'), description: t('brandAssetUpdatedSuccess') });
       },
@@ -166,7 +185,7 @@ export default function AdminBrandAssetsPage() {
                            )}
                        </div>
                        <label htmlFor={`${assetType}-upload`} className="w-full">
-                           <Button asChild className="w-full">
+                           <Button asChild className="w-full" disabled={mutation.isPending && mutation.variables?.assetType === assetType}>
                                <span><UploadCloud className="mr-2 h-4 w-4"/> {t('uploadNewImage')}</span>
                            </Button>
                            <input id={`${assetType}-upload`} type="file" className="hidden" accept={ACCEPTED_IMAGE_TYPES.join(',')} onChange={(e) => handleFileChange(e, assetType as 'signature' | 'stamp')} />
