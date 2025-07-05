@@ -34,6 +34,10 @@ const brandAssetsSchema = z.object({
 type BrandAssetsFormValues = z.infer<typeof brandAssetsSchema>;
 
 const fetchBrandAssets = async (): Promise<BrandAssets> => {
+  if (!db) {
+    console.warn("fetchBrandAssets called but Firebase DB is not configured.");
+    return { id: 'brand_assets', signatureUrl: '', stampUrl: '' };
+  }
   const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
