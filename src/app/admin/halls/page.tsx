@@ -33,7 +33,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as ShadFormDescription } from "@/components/ui/form";
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
+import { STATIC_IMAGES } from '@/constants';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 
@@ -45,7 +45,7 @@ const hallSchema = z.object({
   rentalCost: z.coerce.number().nonnegative({ message: "Rental cost must be zero or positive."}).optional().or(z.literal('')), 
   isAvailable: z.boolean().default(true),
   ledProjectorCost: z.coerce.number().nonnegative({ message: "LED Projector cost must be zero or positive." }).optional().or(z.literal('')), 
-  images: z.string().url({ message: "Please enter a valid URL for the image." }).optional().or(z.literal('')),
+  images: z.string({ required_error: "An image is required."}).optional(),
   dataAiHint: z.string().max(50, { message: "Hint cannot exceed 50 characters."}).optional(),
   description: z.string().max(300, { message: "Description cannot exceed 300 characters." }).optional(),
 });
@@ -72,7 +72,7 @@ export default function AdminHallsAndSectionsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [hallToDeleteId, setHallToDeleteId] = useState<string | null>(null);
 
-  const defaultImage = `https://placehold.co/${PLACEHOLDER_IMAGE_SIZE}.png`;
+  const defaultImage = STATIC_IMAGES.find(img => img.path.includes('hall'))?.path || STATIC_IMAGES[0]?.path || '';
 
   const { data: allItemsFromDb = [], isLoading: isLoadingHalls, error: hallsError } = useQuery<Hall[], Error>({
     queryKey: [HALLS_QUERY_KEY],
@@ -98,7 +98,7 @@ export default function AdminHallsAndSectionsPage() {
       form.reset({
         name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
         ledProjectorCost: undefined,
-        images: "", dataAiHint: "meeting space", description: ""
+        images: defaultImage, dataAiHint: "meeting space", description: ""
       });
     },
     onError: (error) => {
@@ -149,7 +149,7 @@ export default function AdminHallsAndSectionsPage() {
     defaultValues: {
       name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
       ledProjectorCost: undefined,
-      images: "", dataAiHint: "meeting space", description: ""
+      images: defaultImage, dataAiHint: "meeting space", description: ""
     },
   });
 
@@ -257,7 +257,7 @@ export default function AdminHallsAndSectionsPage() {
               form.reset({
                 name: "", itemType: "hall", capacity: 50, rentalCost: undefined, isAvailable: true,
                 ledProjectorCost: undefined,
-                images: "", dataAiHint: "meeting space", description: ""
+                images: defaultImage, dataAiHint: "meeting space", description: ""
               });
               setIsAddDialogOpen(true);
             }}>
@@ -281,8 +281,30 @@ export default function AdminHallsAndSectionsPage() {
                   <FormField control={form.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}
                 <FormField control={form.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
-                <FormField control={form.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={form.getValues("itemType") === "hall" ? t('placeholderConferenceHall') : t('placeholderMeetingSpace')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                <FormField
+                  control={form.control}
+                  name="images"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('featuredImage')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectAnImage')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                           {STATIC_IMAGES.map((image) => (
+                            <SelectItem key={image.path} value={image.path}>
+                              {image.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>{t('description')} ({t('optional')})</FormLabel><FormControl><Textarea placeholder={t('enterDescriptionHere')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>{t('cancel')}</Button>
@@ -411,8 +433,30 @@ export default function AdminHallsAndSectionsPage() {
                   <FormField control={editForm.control} name="ledProjectorCost" render={({ field }) => ( <FormItem><FormLabel>{t('ledProjectorCost')} ({t('optional')})</FormLabel><FormControl><Input type="number" placeholder={t('leaveBlankForDefaultPrice')} {...field} onChange={e => field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))} /></FormControl><ShadFormDescription>{t('priceOverrideInfoFacility')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 )}
                 <FormField control={editForm.control} name="isAvailable" render={({ field }) => ( <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><div className="space-y-1 leading-none"><FormLabel>{t('available')}</FormLabel></div></FormItem> )} />
-                <FormField control={editForm.control} name="images" render={({ field }) => ( <FormItem><FormLabel>{t('imageUrl')} ({t('optional')})</FormLabel><FormControl><Input placeholder={defaultImage} {...field} /></FormControl><FormMessage /></FormItem> )} />
-                <FormField control={editForm.control} name="dataAiHint" render={({ field }) => ( <FormItem><FormLabel>{t('imageAiHint')} ({t('optional')})</FormLabel><FormControl><Input placeholder={editForm.getValues("itemType") === "hall" ? t('placeholderConferenceHall') : t('placeholderMeetingSpace')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+                 <FormField
+                  control={editForm.control}
+                  name="images"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('featuredImage')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('selectAnImage')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                           {STATIC_IMAGES.map((image) => (
+                            <SelectItem key={image.path} value={image.path}>
+                              {image.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField control={editForm.control} name="description" render={({ field }) => ( <FormItem><FormLabel>{t('description')} ({t('optional')})</FormLabel><FormControl><Textarea placeholder={t('enterDescriptionHere')} {...field} /></FormControl><FormMessage /></FormItem> )} />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>{t('cancel')}</Button>

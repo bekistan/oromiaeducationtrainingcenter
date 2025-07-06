@@ -4,6 +4,14 @@ import type { NavItem, User, SiteContentSettings } from '@/types';
 export const SITE_NAME = "Oromia Education Center";
 export const SITE_DESCRIPTION = "Your premier destination for educational facilities and comfortable accommodations. Book with us for a seamless experience.";
 
+export const STATIC_IMAGES = [
+  { name: 'Ifa Boru Building', path: '/images/ifaboru.jpg' },
+  { name: 'Conference Hall', path: '/images/hall2.jpg' },
+  { name: 'Catering Service', path: '/images/catering.jpg' },
+  { name: 'Meeting Section', path: '/images/meeting_room.jpg' },
+  { name: 'Standard Dormitory Room', path: '/images/dorm_room.jpg' },
+];
+
 export const SUPPORTED_LOCALES = [
   { code: 'en', name: 'English' },
   { code: 'om', name: 'Afan Oromo' },
@@ -173,22 +181,34 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     {
       id: "dormitories",
       title: { en: "Dormitories", om: "Dormitoriiwwan", am: "የመኝታ ክፍሎች" },
-      description: { en: "Comfortable and secure accommodation for individuals and groups.", om: "Jireenyaaf mijataa fi nageenyi isaa eegamaadha.", am: "ለግለሰቦች እና ለቡድኖች ምቹ እና ደህንነቱ የተጠበቀ ማረፊያ።" },
-      image: "https://placehold.co/800x600.png",
+      description: { 
+        en: "Our modern and secure dormitories provide a restful and productive environment for trainees and guests. Each room is designed for comfort, ensuring you have a pleasant stay while focusing on your educational and training goals.", 
+        om: "Doormitoriiwwan ammayyaa fi nageenyi isaanii eegame keenya, naannoo boqonnaa fi bu'aa qabeessa ta'e leenjifamtootaa fi keessummootaaf ni kenna. Kutaan hundi akkaataa mijaa'ina qabuun kan dizayinii ta'e yoo ta'u, galma barumsaa fi leenjii keessan irratti xiyyeeffattanii akka turtan isin gargaara.", 
+        am: "ዘመናዊ እና ደህንነታቸው የተጠበቀ መኝታ ክፍሎቻችን ለሰልጣኞች እና ለእንግዶች ምቹ እና ውጤታማ አካባቢን ይሰጣሉ። እያንዳንዱ ክፍል ለምቾት የተነደፈ ሲሆን በትምህርት እና በስልጠና ግቦችዎ ላይ በማተኮር አስደሳች ቆይታ እንዲኖርዎት ያደርጋል።" 
+      },
+      image: "/images/dorm_room.jpg",
       dataAiHint: "dormitory bedroom"
     },
     {
       id: "halls",
       title: { en: "Halls & Sections", om: "Galmawwanii fi Kutaa Addaa", am: "አዳራሾች እና ክፍሎች" },
-      description: { en: "Versatile spaces for meetings, conferences, and events of all sizes.", om: "Bakkeewwan adda addaa walgahii, koonfaransii fi sagantaaleef.", am: "ለሁሉም መጠን ላላቸው ስብሰባዎች፣ ኮንፈረንሶች እና ዝግጅቶች ሁለገብ ቦታዎች።" },
-      image: "https://placehold.co/800x600.png",
+      description: { 
+        en: "From large-scale conferences to intimate meetings, our versatile halls and sections are equipped with the latest technology to facilitate any event. We provide flexible seating arrangements and support to ensure your gathering is a success.", 
+        om: "Gamaaggama gurguddoo irraa kaasee hanga walgahiiwwan xixiqqootti, galmawwanii fi kutaaleen keenya kan hedduu hojjetan, sagantaa kamiyyuu mijeessuuf teeknooloojii ammayyaatiin kan guutamanidha. Walgahii keessan milkaa'ina akka qabaatuuf qophii teessumaa salphaatti jijjiiramuu danda'uu fi deeggarsa ni kennina.", 
+        am: "ከትላልቅ ኮንፈረንሶች እስከ ትናንሽ ስብሰባዎች ድረስ ሁለገብ አዳራሾቻችን እና ክፍሎቻችን ማንኛውንም ዝግጅት ለማመቻቸት በዘመናዊ ቴክኖሎጂ የታጠቁ ናቸው። ስብሰባዎ ስኬታማ እንዲሆን ተለዋዋጭ የመቀመጫ ዝግጅቶችን እና ድጋፍን እንሰጣለን።" 
+      },
+      image: "/images/conference_hall.jpg",
       dataAiHint: "conference hall"
     },
     {
       id: "catering",
       title: { en: "Catering Services", om: "Tajaajila Nyaataa", am: "የምግብ አቅርቦት አገልግሎቶች" },
-      description: { en: "Delicious and customizable catering options to complement your event.", om: "Filannoowwan nyaataa mi'aawaa fi akka barbaadetti kan qophaa'u.", am: "ዝግጅትዎን የሚያሟሉ ጣፋጭ እና ሊበጁ የሚችሉ የምግብ አማራጮች።" },
-      image: "https://placehold.co/800x600.png",
+      description: { 
+        en: "Enhance your event with our professional catering services. We offer a diverse menu, from coffee breaks and refreshments to full-course lunches, all prepared with fresh, high-quality ingredients to delight your attendees.", 
+        om: "Tajaajila nyaataa piroofeeshinaalaa keenyaan sagantaa keessan fooyyessaa. Buna dhuguu fi qabbanaa'uu irraa kaasee hanga laaqana guutuutti, menu adda addaa kan qopheessinu yoo ta'u, hundi isaaniis qabiyyee haarayaa fi qulqullina olaanaa qabuun kan qophaa'anidha.", 
+        am: "ዝግጅትዎን በሙያዊ የምግብ አቅርቦት አገልግሎታችን ያሳድጉ። ከቡና እረፍት እና ከመጠጥ ጀምሮ እስከ ሙሉ የምሳ ምግቦች ድረስ የተለያዩ ምናሌዎችን እናቀርባለን፣ ሁሉም በተሰብሳቢዎችዎ እንዲደሰቱ በአዲስ እና ከፍተኛ ጥራት ባላቸው ንጥረ ነገሮች ይዘጋጃሉ።" 
+      },
+      image: "/images/catering.jpg",
       dataAiHint: "catering food"
     }
   ],

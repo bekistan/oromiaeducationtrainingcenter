@@ -148,17 +148,17 @@ export default function HomePage() {
 
   const features = [
     {
-      icon: <ShieldCheck className="h-10 w-10 text-accent" />,
+      icon: <ShieldCheck className="h-10 w-10 text-primary" />,
       titleKey: "securePayment",
       descriptionKey: "chapaGateway",
     },
     {
-      icon: <Languages className="h-10 w-10 text-accent" />,
+      icon: <Languages className="h-10 w-10 text-primary" />,
       titleKey: "multilingualSupport",
       descriptionKey: "languagesSupported",
     },
     {
-      icon: <Settings className="h-10 w-10 text-accent" />,
+      icon: <Settings className="h-10 w-10 text-primary" />,
       titleKey: "adminPanel",
       descriptionKey: "powerfulManagement",
     },
@@ -187,6 +187,8 @@ export default function HomePage() {
   const currentService = siteContent?.services.find(s => s.id === activeService);
   const currentServiceImage = currentService?.image || "https://placehold.co/800x600.png";
   const currentServiceHint = currentService?.dataAiHint || "resort service";
+  const currentServiceTitle = currentService?.title?.[locale as Locale] || currentService?.title?.['en'] || '';
+  const currentServiceDescription = currentService?.description?.[locale as Locale] || currentService?.description?.['en'] || '';
 
 
   return (
@@ -398,13 +400,17 @@ export default function HomePage() {
              <div className="relative aspect-[4/3] rounded-lg overflow-hidden shadow-lg transition-all duration-500 ease-in-out">
                 <Image
                   src={currentServiceImage}
-                  alt={activeService}
+                  alt={currentServiceTitle}
                   fill
                   className="object-cover"
                   data-ai-hint={currentServiceHint}
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   key={activeService} 
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end">
+                    <h3 className="text-2xl font-bold text-white shadow-lg">{currentServiceTitle}</h3>
+                    <p className="text-sm text-white/90 mt-2 shadow-lg">{currentServiceDescription}</p>
+                </div>
             </div>
             <div className="space-y-4">
               {isLoadingContent ? (
@@ -427,7 +433,7 @@ export default function HomePage() {
                       key={service.id}
                       className={cn(
                         "flex items-start gap-6 p-4 rounded-lg cursor-pointer transition-all duration-300",
-                        isActive ? "bg-primary/10 shadow-md" : "hover:bg-muted/50"
+                        isActive ? "bg-primary/10 shadow-md ring-2 ring-primary/20" : "hover:bg-muted/50"
                       )}
                       onClick={() => setActiveService(service.id)}
                       onKeyPress={(e) => e.key === 'Enter' && setActiveService(service.id)}
@@ -455,6 +461,7 @@ export default function HomePage() {
         </div>
       </section>
 
+
       {/* Features Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
@@ -466,7 +473,7 @@ export default function HomePage() {
             {features.map((feature) => (
               <Card key={feature.titleKey} className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <CardHeader className="items-center p-6">
-                  <div className="p-4 rounded-full bg-accent/20 mb-4">
+                  <div className="p-4 rounded-full bg-primary/10 mb-4">
                     {feature.icon}
                   </div>
                   <CardTitle className="text-xl">{t(feature.titleKey)}</CardTitle>
