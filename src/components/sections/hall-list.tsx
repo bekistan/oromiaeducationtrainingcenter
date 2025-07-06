@@ -75,7 +75,7 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
           >
             <div className="relative w-full h-56">
               <Image
-                src={hall.images?.[0] || '/images/hall2.png'}
+                src={hall.images?.[0] || '/images/hall2.jpg'}
                 alt={hall.name}
                 fill
                 style={{ objectFit: 'cover' }}
