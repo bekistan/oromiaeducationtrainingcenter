@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Dormitory } from "@/types";
@@ -47,7 +46,7 @@ export function DormitoryList({ dormitories, selectedDateRange }: DormitoryListP
           <Card key={dorm.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
             <div className="relative w-full h-48">
               <Image
-                src={dorm.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
+                src={dorm.images?.[0] || '/images/ifaboru.png'}
                 alt={`${t('dormitory')} ${dorm.roomNumber}`}
                 fill
                 style={{ objectFit: 'cover' }}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { Hall } from "@/types";
@@ -76,7 +75,7 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
           >
             <div className="relative w-full h-56">
               <Image
-                src={hall.images?.[0] || `https://placehold.co/${PLACEHOLDER_THUMBNAIL_SIZE}.png`}
+                src={hall.images?.[0] || '/images/hall2.png'}
                 alt={hall.name}
                 fill
                 style={{ objectFit: 'cover' }}
