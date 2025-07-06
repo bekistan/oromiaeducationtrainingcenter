@@ -11,7 +11,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth'; 
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Printer, FileDown, ExternalLink, UploadCloud } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, CheckCircle } from 'lucide-react';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -56,8 +56,8 @@ export default function CompanyBookingAgreementViewPage() {
         if (user && user.role === 'company_representative' && fetchedBooking.companyId !== user.companyId) {
             setError(t('accessDeniedViewAgreement')); 
             setBooking(null);
-        } else if (fetchedBooking.bookingCategory !== 'facility' || fetchedBooking.approvalStatus !== 'approved' || (fetchedBooking.agreementStatus !== 'sent_to_client' && fetchedBooking.agreementStatus !== 'signed_by_client' && fetchedBooking.agreementStatus !== 'completed')) {
-            setError(t('agreementNotReadyForViewing')); 
+        } else if (fetchedBooking.bookingCategory !== 'facility' || fetchedBooking.approvalStatus !== 'approved') {
+            setError(t('agreementNotAvailableForBooking'));
             setBooking(null);
         } else {
             setBooking(fetchedBooking);
@@ -147,6 +147,58 @@ export default function CompanyBookingAgreementViewPage() {
     );
   }
   
+  const renderStatusCard = () => {
+    if (!booking) return null;
+    switch(booking.agreementStatus) {
+        case 'pending_admin_action':
+            return (
+                <Card className="my-6 bg-blue-50 border-blue-200">
+                    <CardHeader>
+                        <CardTitle className="text-blue-700 flex items-center"><Hourglass className="mr-2 h-5 w-5" />{t('agreementInPreparationTitle')}</CardTitle>
+                        <CardDescription className="text-blue-600">{t('agreementInPreparationDesc')}</CardDescription>
+                    </CardHeader>
+                </Card>
+            );
+        case 'sent_to_client':
+            return (
+                <Card className="my-6">
+                    <CardHeader>
+                        <CardTitle>{t('uploadYourSignedAgreement')}</CardTitle>
+                        <CardDescription>{t('uploadSignedAgreementDesc')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                        <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" className="flex-grow" />
+                        <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
+                            {t('uploadFile')}
+                        </Button>
+                    </CardContent>
+                </Card>
+            );
+        case 'signed_by_client':
+            return (
+                <Card className="my-6 bg-yellow-50 border-yellow-200">
+                    <CardHeader>
+                        <CardTitle className="text-yellow-700 flex items-center"><Hourglass className="mr-2 h-5 w-5" />{t('agreementUnderReviewTitle')}</CardTitle>
+                        <CardDescription className="text-yellow-600">{t('agreementUnderReviewDesc')}</CardDescription>
+                    </CardHeader>
+                </Card>
+            );
+        case 'completed':
+            return (
+                 <Card className="my-6 bg-green-50 border-green-200">
+                    <CardHeader>
+                        <CardTitle className="text-green-700 flex items-center"><CheckCircle className="mr-2 h-5 w-5" />{t('agreementCompletedTitle')}</CardTitle>
+                        <CardDescription className="text-green-600">{t('agreementCompletedDesc')}</CardDescription>
+                    </CardHeader>
+                </Card>
+            );
+        default:
+            return null;
+    }
+  }
+
+
   return (
     <PublicLayout>
         <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white">
@@ -159,31 +211,7 @@ export default function CompanyBookingAgreementViewPage() {
                         <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
                     </Button>
                 </div>
-                 {booking?.agreementStatus === 'sent_to_client' && (
-                    <Card className="my-6">
-                        <CardHeader>
-                            <CardTitle>{t('uploadYourSignedAgreement')}</CardTitle>
-                            <CardDescription>{t('uploadSignedAgreementDesc')}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-                            <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" className="flex-grow" />
-                            <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
-                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
-                                {t('uploadFile')}
-                            </Button>
-                        </CardContent>
-                    </Card>
-                )}
-                 {booking?.signedAgreementUrl && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
-                    <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
-                        <h3 className="text-md font-semibold text-green-700 mb-2">{t('yourSignedAgreementUploaded')}</h3>
-                        <Button asChild variant="outline" size="sm">
-                            <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-2 h-4 w-4" /> {t('viewYourSignedAgreement')}
-                            </a>
-                        </Button>
-                    </div>
-                )}
+                {renderStatusCard()}
             </div>
             <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />
         </div>

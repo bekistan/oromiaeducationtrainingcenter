@@ -266,7 +266,7 @@ export default function CompanyDashboardPage() {
               <>
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('bookedAt')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('services')}</TableHead><TableHead>{t('totalCost')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
+                    <TableRow><TableHead>{t('bookingId')}</TableHead><TableHead>{t('bookedAt')}</TableHead><TableHead>{t('itemsBooked')}</TableHead><TableHead>{t('dates')}</TableHead><TableHead>{t('payment')}</TableHead><TableHead>{t('status')}</TableHead><TableHead>{t('agreementStatus')}</TableHead><TableHead className="text-right">{t('actions')}</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayedBookings.map((booking) => (
@@ -275,60 +275,16 @@ export default function CompanyDashboardPage() {
                         <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
-                        <TableCell className="min-w-[120px]">
-                          <div className="flex flex-col text-xs">
-                            {booking.serviceDetails?.lunch && (
-                              <span className="flex items-center">
-                                <Utensils className="w-3 h-3 mr-1 text-muted-foreground" /> {t('lunch')}: {t(booking.serviceDetails.lunch)}
-                              </span>
-                            )}
-                            {booking.serviceDetails?.refreshment && (
-                              <span className="flex items-center">
-                                <Coffee className="w-3 h-3 mr-1 text-muted-foreground" /> {t('refreshment')}: {t(booking.serviceDetails.refreshment)}
-                              </span>
-                            )}
-                            {(!booking.serviceDetails || (Object.keys(booking.serviceDetails).length === 0)) && (
-                                <span className="text-muted-foreground italic text-xs">{t('serviceLevelNone')}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-semibold whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
-                        <TableCell>
-                          {booking.bookingCategory === 'facility' ? getAgreementStatusBadge(booking.agreementStatus) : getAgreementStatusBadge()}
-                        </TableCell>
+                        <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && booking.agreementStatus === 'sent_to_client' && (
-                            <>
+                          {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
                               <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
-                                <Button size="sm" variant="outline" asChild>
-                                    <a><FileText className="mr-2 h-4 w-4" />{t('viewDownloadAgreement')}</a>
-                                </Button>
-                              </Link>
-                              <div className="text-xs text-muted-foreground italic p-2">{t('uploadDisabledContactAdmin')}</div>
-                            </>
-                          )}
-                           {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action') && (
-                             <span className="text-xs text-muted-foreground italic flex items-center justify-end">
-                               <Hourglass className="mr-1 h-3 w-3"/> {t('agreementPreparationPending')}
-                             </span>
-                          )}
-                           {booking.bookingCategory === 'facility' && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
-                             <>
-                              <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
-                                <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-                                    <a><FileText className="mr-2 h-4 w-4" />{t('viewGeneratedAgreement')}</a>
-                                </Button>
-                              </Link>
-                              {booking.signedAgreementUrl && (
-                                  <Button size="sm" variant="outline" asChild className="border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700">
-                                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                          <ExternalLink className="mr-2 h-4 w-4" />{t('viewYourSignedAgreement')}
-                                      </a>
+                                  <Button size="sm" variant="outline" asChild>
+                                      <a><FileText className="mr-2 h-4 w-4" />{t('manageAgreement')}</a>
                                   </Button>
-                              )}
-                             </>
+                              </Link>
                           )}
                         </TableCell>
                       </TableRow>
