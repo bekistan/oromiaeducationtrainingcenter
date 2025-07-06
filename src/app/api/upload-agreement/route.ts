@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth'; // Not used for server-side validation here, but could be
 
 // This is a placeholder for a secure session validation mechanism
 // In a real app, you'd use something like Next-Auth.js or Firebase Auth server-side validation
@@ -52,21 +51,21 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
      console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // Upload to Cloudinary
-    console.log('[API] Uploading to Cloudinary...');
+    // --- Upload to Cloudinary using a more reliable Data URI method ---
+    console.log('[API] Converting file to Data URI and uploading to Cloudinary...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64String = buffer.toString('base64');
+    const dataUri = `data:${file.type};base64,${base64String}`;
     
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-        cloudinary.uploader.upload_stream({ folder: 'signed_agreements', resource_type: 'auto' }, (error, result) => {
-            if (error) reject(error);
-            else resolve({ secure_url: result?.secure_url });
-        }).end(buffer);
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: 'signed_agreements',
+        resource_type: 'auto',
     });
 
-    if (!cloudinaryUploadResult.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload agreement.', details: cloudinaryUploadResult.error?.message }, { status: 500 });
+    if (!cloudinaryUploadResult?.secure_url) {
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
+      return NextResponse.json({ error: 'Failed to upload agreement.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
