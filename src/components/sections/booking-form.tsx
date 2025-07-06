@@ -543,7 +543,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         serviceDetails.ledProjector = true;
       }
 
-      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementStatus' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
+      const bookingDataToSave: Omit<Booking, 'id' | 'bookedAt' | 'customAgreementTerms' | 'agreementSentAt' | 'agreementSignedAt'> & { bookedAt: any, startDate: any, endDate: any } = {
         bookingCategory,
         items: mappedItemsForFacility,
         companyName: facilityData.companyName,
@@ -558,6 +558,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         totalCost,
         paymentStatus: 'pending' as const,
         approvalStatus: 'pending' as const,
+        agreementStatus: 'pending_admin_action' as const,
         bookedAt: serverTimestamp(),
         ...(user?.id && { userId: user.id }),
         ...(user?.companyId && { companyId: user.companyId }),

@@ -156,7 +156,7 @@ export default function AdminManageFacilityBookingsPage() {
     return <ArrowUpDown className="ml-1 h-3 w-3 inline opacity-50 group-hover:opacity-100" />;
   };
 
-  const handleApprovalChange = async (bookingId: string, newStatus: 'pending' | 'approved' | 'rejected') => {
+  const handleApprovalChange = async (bookingId: string, newStatus: 'approved' | 'rejected') => {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
     if (newStatus === 'approved') {
       const defaultTerms = await fetchAgreementTemplate();
@@ -167,31 +167,12 @@ export default function AdminManageFacilityBookingsPage() {
     }
     updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'bookingStatusUpdated' });
   };
-
-  const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
-    const bookingSnap = await getFirestoreDoc(doc(db, "bookings", bookingId)); 
-    if (!bookingSnap.exists()) {
-      toast({ variant: "destructive", title: t('error'), description: t('bookingNotFound') });
-      return;
-    }
-    const currentBooking = bookingSnap.data() as Booking;
+  
+  const handlePaymentStatusChange = (bookingId: string, newPaymentStatus: 'paid') => {
     const updateData: Partial<Booking> = { paymentStatus: newPaymentStatus };
-
-    let newApprovalStatus = currentBooking.approvalStatus;
-    if (currentBooking.approvalStatus === 'pending') {
-      updateData.approvalStatus = 'approved';
-      newApprovalStatus = 'approved';
-    }
-    
-    if (newApprovalStatus === 'approved' && currentBooking.bookingCategory === 'facility') {
-      const agreementPrecedence: AgreementStatus[] = ['pending_admin_action', 'sent_to_client', 'signed_by_client', 'completed'];
-      const currentAgreementIndex = currentBooking.agreementStatus ? agreementPrecedence.indexOf(currentBooking.agreementStatus) : -1;
-      if (currentAgreementIndex < agreementPrecedence.indexOf('pending_admin_action')) {
-          updateData.agreementStatus = 'pending_admin_action';
-      }
-    }
     updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'paymentStatusMarkedAsPaid' });
   };
+
 
   const handleAgreementStatusChange = (bookingId: string, newStatus: AgreementStatus) => {
     const updateData: Partial<Booking> = { agreementStatus: newStatus };
@@ -375,23 +356,17 @@ export default function AdminManageFacilityBookingsPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>{t('setApprovalStatus')}</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'approved')} disabled={booking.approvalStatus === 'approved'}>
                                     <CheckCircle className="mr-2 h-4 w-4" /> {t('approveBooking')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'pending')} disabled={booking.approvalStatus === 'pending'}>
-                                    {t('setAsPending')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleApprovalChange(booking.id, 'rejected')} disabled={booking.approvalStatus === 'rejected'} className="text-destructive focus:bg-destructive focus:text-destructive-foreground">
                                     {t('rejectBooking')}
                                 </DropdownMenuItem>
-                                
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel>{t('paymentActions')}</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleFacilityPaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
+                                <DropdownMenuItem onClick={() => handlePaymentStatusChange(booking.id, 'paid')} disabled={booking.paymentStatus === 'paid'}>
                                     <CreditCard className="mr-2 h-4 w-4" /> {t('markAsPaid')}
                                 </DropdownMenuItem>
-
                                 <DropdownMenuSeparator />
                                 <DropdownMenuLabel>{t('agreementActions')}</DropdownMenuLabel>
                                 <DropdownMenuItem asChild>
@@ -401,15 +376,9 @@ export default function AdminManageFacilityBookingsPage() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                  disabled={!(!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action')}
+                                  disabled={booking.agreementStatus !== 'pending_admin_action'}
                                 >
                                   <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
-                                  disabled={booking.agreementStatus !== 'sent_to_client'}
-                                >
-                                  <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
                                 </DropdownMenuItem>
                                  <DropdownMenuItem
                                   onClick={() => handleAgreementStatusChange(booking.id, 'completed')}

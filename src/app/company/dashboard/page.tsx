@@ -279,12 +279,15 @@ export default function CompanyDashboardPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {booking.bookingCategory === 'facility' && booking.approvalStatus === 'approved' && (
-                              <Link href={`/company/bookings/${booking.id}/agreement`} passHref legacyBehavior>
-                                  <Button size="sm" variant="outline" asChild>
-                                      <a><FileText className="mr-2 h-4 w-4" />{t('manageAgreement')}</a>
-                                  </Button>
-                              </Link>
+                          {booking.approvalStatus === 'approved' ? (
+                              <Button asChild size="sm" variant="outline">
+                                <Link href={`/company/bookings/${booking.id}/agreement`}>
+                                  <FileText className="mr-2 h-4 w-4" />
+                                  {t('manageAgreement')}
+                                </Link>
+                              </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">{t('pendingAdminApproval')}</span>
                           )}
                         </TableCell>
                       </TableRow>
