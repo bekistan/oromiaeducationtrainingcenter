@@ -188,6 +188,13 @@ export function Header() {
                 <SheetTitle><Logo /></SheetTitle>
                 <div className="flex flex-col h-full mt-4">
                    <nav className="flex flex-col gap-1 text-lg">
+                    {user && dashboardPath && (
+                      <SheetClose asChild>
+                        <Link href={dashboardPath} className={cn("rounded-md p-2 transition-colors hover:bg-muted font-semibold text-primary flex items-center gap-2", pathname.includes('/admin') || pathname.includes('/company') || pathname.includes('/keyholder') ? "bg-muted" : "")}>
+                          <LayoutDashboard className="h-5 w-5" />{t('dashboard')}
+                        </Link>
+                      </SheetClose>
+                    )}
                      {PUBLIC_NAVS.map((item) => {
                         if (item.children) {
                           return (

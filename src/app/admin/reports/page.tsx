@@ -66,6 +66,7 @@ export default function AdminReportsPage() {
   };
 
   const getBuildingDormIds = async (buildingName: string): Promise<string[]> => {
+      if (!db) return [];
       const dormsQuery = query(collection(db, "dormitories"), where("buildingName", "==", buildingName));
       const dormsSnapshot = await getDocs(dormsQuery);
       return dormsSnapshot.docs.map(doc => doc.id);
@@ -73,6 +74,7 @@ export default function AdminReportsPage() {
 
 
   const generateUserDormReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     
     let baseQuery = query(
@@ -114,6 +116,7 @@ export default function AdminReportsPage() {
   };
 
   const generateFinancialSummary = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
      const q = query(
       collection(db, "bookings"),
@@ -153,6 +156,7 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
   };
   
   const generateHallUtilizationReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const q = query(
       collection(db, "bookings"),
@@ -182,6 +186,7 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
   };
 
   const generateOccupancyAnalytics = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const startTimestamp = Timestamp.fromDate(range.from);
     const endTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
@@ -203,6 +208,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
   };
 
   const generatePeriodicBookingsReport = async (currentUser: AppUserType, category: 'dormitory' | 'facility', periodTitleKey: string, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const q = query(
       collection(db, "bookings"),
@@ -242,6 +248,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
   };
 
   const generateCompanyRegistrationReport = async (currentUser: AppUserType, range?: DateRange): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     if (!range?.from || !range?.to) throw new Error(t('selectDateRangeFirst'));
     const companiesQuery = query(
       collection(db, "users"), 
@@ -268,6 +275,7 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
   };
   
   const generateOverallCompanyStatsReport = async (currentUser: AppUserType): Promise<ReportOutput> => {
+    if (!db) throw new Error(t('databaseConnectionError'));
     const companiesQuery = query(collection(db, "users"), where("role", "==", "company_representative"));
     const snapshot = await getDocs(companiesQuery);
     const companies = snapshot.docs.map(doc => doc.data() as AppUserType);
@@ -385,7 +393,7 @@ ${t('reportGeneratedOn')}: ${formatDate(new Date(), 'yyyy-MM-dd HH:mm')}
           <CardTitle>{t('generateGeneralReports')}</CardTitle>
           <CardDescription>{t('selectReportTypeAndDateRangeGeneral')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {generalReportTypes.map(report => (
             (!isBuildingAdmin || !report.generalAdminOnly) && (
                 <Card key={report.id} className="shadow-md">
@@ -414,7 +422,7 @@ ${t('reportGeneratedOn')}: ${formatDate(new Date(), 'yyyy-MM-dd HH:mm')}
           <CardTitle>{t('periodicBookingReports')}</CardTitle>
           <CardDescription>{t('downloadPeriodicBookingData')}</CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {periodicBookingReportTypes.map(report => (
              (!isBuildingAdmin || !report.generalAdminOnly) && (
                 <Card key={report.id} className="shadow-md">
