@@ -50,6 +50,8 @@ const siteContentSchema = z.object({
   featuredDormitoriesSubtitle: localeSchema,
   featuredHallsTitle: localeSchema,
   featuredHallsSubtitle: localeSchema,
+  discoverSectionTitle: localeSchema,
+  discoverSectionDescription: localeSchema,
   servicesSectionTitle: localeSchema,
   services: z.array(serviceItemSchema),
   faqs: z.array(faqItemSchema),
@@ -325,6 +327,34 @@ export default function AdminSiteContentPage() {
                       </div>
                     </div>
                   </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-lg">{t('discoverSection')}</CardTitle>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('discoverSectionTitle', form.getValues('discoverSectionTitle.en'))} disabled={isTranslating['discoverSectionTitle']} >
+                                {isTranslating['discoverSectionTitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-3 pl-2 border-l-2">
+                            {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`discover-title-${lang.code}`} control={form.control} name={`discoverSectionTitle.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>{t('title')} ({lang.name})</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                            ))}
+                        </div>
+                        <div className="flex justify-between items-center mb-2 pt-6">
+                            <h4 className="text-base font-semibold">{t('description')}</h4>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('discoverSectionDescription', form.getValues('discoverSectionDescription.en'))} disabled={isTranslating['discoverSectionDescription']} >
+                                {isTranslating['discoverSectionDescription'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
+                            </Button>
+                        </div>
+                        <div className="space-y-3 pl-2 border-l-2">
+                            {SUPPORTED_LOCALES.map(lang => (
+                                <FormField key={`discover-desc-${lang.code}`} control={form.control} name={`discoverSectionDescription.${lang.code}`} render={({ field }) => ( <FormItem><FormLabel>({lang.name})</FormLabel><FormControl><Textarea {...field} rows={3} /></FormControl><FormMessage /></FormItem> )}/>
+                            ))}
+                        </div>
+                    </CardContent>
                 </Card>
                 <Card>
                   <CardHeader>

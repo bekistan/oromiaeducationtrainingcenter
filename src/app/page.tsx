@@ -15,8 +15,8 @@ import {
 import { useLanguage } from "@/hooks/use-language";
 import Link from "next/link";
 import { BedDouble, Presentation, ShieldCheck, Settings, Languages, HelpCircle, Loader2, Utensils, User, Calendar } from "lucide-react";
-import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, DEFAULT_PRICING_SETTINGS, PRICING_SETTINGS_DOC_PATH } from "@/constants";
-import { useEffect, useState } from "react";
+import { SITE_NAME, SITE_CONTENT_DOC_PATH, DEFAULT_SITE_CONTENT, DEFAULT_PRICING_SETTINGS, PRICING_SETTINGS_DOC_PATH, STATIC_IMAGES } from "@/constants";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from '@tanstack/react-query';
 import { doc, getDoc, getDocs, collection, query, where, limit, orderBy } from 'firebase/firestore';
 import type { SiteContentSettings, Locale, FAQItem, Dormitory, Hall, ServiceItem, PricingSettings, BlogPost } from '@/types';
@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, toDateObject } from "@/lib/date-utils";
+import { ImageViewer } from "@/components/shared/image-viewer";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
@@ -120,6 +121,8 @@ const fetchLatestPosts = async (): Promise<BlogPost[]> => {
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const { data: siteContent, isLoading: isLoadingContent } = useQuery<SiteContentSettings, Error>({
     queryKey: [SITE_CONTENT_QUERY_KEY],
@@ -144,6 +147,14 @@ export default function HomePage() {
     queryFn: fetchLatestPosts,
     staleTime: 1000 * 60 * 5,
   });
+
+  const openImageViewer = (index: number) => {
+    setViewerStartIndex(index);
+    setIsViewerOpen(true);
+  };
+
+  const galleryImages = useMemo(() => STATIC_IMAGES.filter(img => img.path !== '/images/logo.png'), []);
+  const displayGalleryImages = useMemo(() => galleryImages.filter(img => !img.path.includes('catering')).slice(0, 8), [galleryImages]);
 
   const features = [
     {
@@ -188,6 +199,8 @@ export default function HomePage() {
   const featuredDormitoriesSubtitle = siteContent?.featuredDormitoriesSubtitle?.[locale as Locale] || t('featuredDormitoriesSubtitle');
   const featuredHallsTitle = siteContent?.featuredHallsTitle?.[locale as Locale] || t('featuredHallsAndSections');
   const featuredHallsSubtitle = siteContent?.featuredHallsSubtitle?.[locale as Locale] || t('featuredHallsAndSectionsSubtitle');
+  const discoverSectionTitle = siteContent?.discoverSectionTitle?.[locale as Locale] || t('discoverOERTC');
+  const discoverSectionDescription = siteContent?.discoverSectionDescription?.[locale as Locale] || t('discoverSectionDescription');
   
   const featuredDormitories = featuredItems?.dormitories || [];
   const featuredHalls = featuredItems?.halls || [];
@@ -316,6 +329,27 @@ export default function HomePage() {
             <Button asChild variant="outline" size="lg">
               <Link href="/halls">{t('viewAllHalls')}</Link>
             </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Discover Section */}
+      <section className="py-16 md:py-24 bg-sidebar text-sidebar-foreground">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center text-sidebar-primary mb-2">{discoverSectionTitle}</h2>
+           <svg className="w-24 h-2 mx-auto text-sidebar-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+          </svg>
+          <p className="text-sidebar-foreground/80 text-center mb-12 max-w-2xl mx-auto">{discoverSectionDescription}</p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {displayGalleryImages.map((image, index) => (
+              <div key={image.path} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer shadow-lg" onClick={() => openImageViewer(galleryImages.findIndex(gi => gi.path === image.path))}>
+                <Image src={image.path} alt={image.name} fill className="object-cover transition-transform duration-300 group-hover:scale-110" />
+                <div className="absolute inset-0 bg-primary/60 group-hover:bg-primary/40 transition-colors duration-300"></div>
+                <h3 className="absolute bottom-4 left-4 text-white font-bold text-lg drop-shadow-md">{image.name}</h3>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -484,6 +518,13 @@ export default function HomePage() {
             }
         </div>
       </section>
+
+      <ImageViewer 
+        images={galleryImages.map(img => ({ src: img.path, title: img.name }))}
+        startIndex={viewerStartIndex}
+        isOpen={isViewerOpen}
+        onClose={() => setIsViewerOpen(false)}
+      />
     </PublicLayout>
   );
 }

@@ -15,6 +15,7 @@ export const STATIC_IMAGES = [
   { name: 'Catering Service', path: '/images/catering.jpg' },
   { name: 'Meeting Section', path: '/images/Sections.jpg' },
   { name: 'Standard Dormitory Room', path: '/images/dorm_room.jpg' },
+  { name: 'Main Logo', path: '/images/logo.png' },
 ];
 
 export const SUPPORTED_LOCALES = [
@@ -177,6 +178,16 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     en: "Versatile spaces perfect for your next meeting, conference, or event.",
     om: "Bakkeewwan adda addaa walgahii, koonfaransii fi sagantaaleef mijatoo.",
     am: "ለቀጣይ ስብሰባዎ፣ ኮንፈረንስዎ ወይም ዝግጅትዎ ተስማሚ የሆኑ ሁለገብ ቦታዎች።"
+  },
+  discoverSectionTitle: {
+    en: "Discover OERTC",
+    om: "MBLQBO Daawwadhu",
+    am: "የኦትምሥማን ይጎብኙ"
+  },
+  discoverSectionDescription: {
+    en: "Explore our state-of-the-art facilities, comfortable accommodations, and the serene environment that makes OERTC the perfect place for learning, growth, and collaboration.",
+    om: "Giddugala keenya kan ammayyaa, iddoo jireenyaa mijataa, fi naannoo tasgabbii kan MBLQBO iddoo barumsaa, guddinaa, fi wal-tumsaaf mijataa taasisu daawwadhaa.",
+    am: "ዘመናዊ ተቋሞቻችንን፣ ምቹ ማረፊያዎቻችንን እና የኦሮሚያ ትምህርት ማዕከልን ለመማር、ለማደግ እና ለትብብር ምቹ ቦታ የሚያደርገውን ሰላማዊ አካባቢ ያስሱ።"
   },
   servicesSectionTitle: {
     en: "Our Services",

@@ -214,6 +214,8 @@ export interface SiteContentSettings {
   featuredDormitoriesSubtitle: { [key in Locale]?: string };
   featuredHallsTitle: { [key in Locale]?: string };
   featuredHallsSubtitle: { [key in Locale]?: string };
+  discoverSectionTitle: { [key in Locale]?: string };
+  discoverSectionDescription: { [key in Locale]?: string };
   servicesSectionTitle: { [key in Locale]?: string };
   services: ServiceItem[];
   faqs: FAQItem[];
