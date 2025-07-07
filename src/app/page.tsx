@@ -334,18 +334,24 @@ export default function HomePage() {
       </section>
 
       {/* Discover Section */}
-      <section className="py-16 md:py-24 bg-sidebar text-sidebar-foreground">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-sidebar-primary mb-2">{discoverSectionTitle}</h2>
-           <svg className="w-24 h-2 mx-auto text-sidebar-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <h2 className="text-3xl font-bold text-center text-primary mb-2">{discoverSectionTitle}</h2>
+           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
           </svg>
-          <p className="text-sidebar-foreground/80 text-center mb-12 max-w-2xl mx-auto">{discoverSectionDescription}</p>
+          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{discoverSectionDescription}</p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {displayGalleryImages.map((image, index) => (
               <div key={image.path} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer shadow-lg" onClick={() => openImageViewer(galleryImages.findIndex(gi => gi.path === image.path))}>
-                <Image src={image.path} alt={image.name} fill className="object-cover transition-transform duration-300 group-hover:scale-110" />
+                <Image 
+                    src={image.path} 
+                    alt={image.name} 
+                    fill 
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-110" 
+                />
                 <div className="absolute inset-0 bg-primary/60 group-hover:bg-primary/40 transition-colors duration-300"></div>
                 <h3 className="absolute bottom-4 left-4 text-white font-bold text-lg drop-shadow-md">{image.name}</h3>
               </div>
@@ -355,7 +361,7 @@ export default function HomePage() {
       </section>
       
       {/* Our Services Section */}
-       <section className="py-16 md:py-24 bg-background">
+       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
            <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-primary mb-2">{servicesSectionTitle}</h2>
@@ -397,7 +403,7 @@ export default function HomePage() {
       </section>
 
       {/* Latest News Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('latestNewsAndEvents')}</h2>
           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -470,7 +476,7 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('features')}</h2>
           <svg className="w-24 h-2 mx-auto text-primary mb-12" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -495,7 +501,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
+      <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
           <div className="text-center mb-12">
             <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />

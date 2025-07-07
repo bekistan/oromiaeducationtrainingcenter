@@ -87,13 +87,14 @@ export function ImageViewer({ images, startIndex = 0, isOpen, onClose }: ImageVi
           )}
 
           {/* Image and Title */}
-          <div className="flex flex-col items-center justify-center w-full h-full p-16" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col items-center justify-center w-full h-full p-4" onClick={(e) => e.stopPropagation()}>
             <div className="relative w-full h-full">
               <Image
                 src={images[currentIndex].src}
                 alt={images[currentIndex].title}
                 fill
                 className="object-contain"
+                sizes="100vw"
               />
             </div>
              <h3 className="text-white text-lg font-semibold mt-4 bg-black/50 px-4 py-2 rounded-lg">
