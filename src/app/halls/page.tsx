@@ -247,7 +247,7 @@ export default function HallsAndSectionsPage() {
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourConferenceFacilitiesSubtitle')}</p>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
-              {t('ourConferenceFacilitiesDescParagraph')}
+              The Oromia Education Center is your premier destination for hosting successful meetings, workshops, and large-scale conferences. Our facilities include state-of-the-art conference halls and versatile meeting sections, all equipped to handle your event's specific needs. Whether you require a grand auditorium for a major symposium or a smaller, more intimate space for a workshop, our venues provide a professional atmosphere with modern amenities and dedicated support to ensure your event runs smoothly and efficiently.
             </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
                 <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>

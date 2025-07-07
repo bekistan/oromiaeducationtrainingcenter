@@ -228,7 +228,7 @@ export default function DormitoriesPage() {
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourDormitoryBuildingsSubtitle')}</p>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
-              {t('ourDormitoryBuildingsDescParagraph')}
+              At the Oromia Education Center, we provide a secure, comfortable, and conducive living environment for all our residents. Our two main dormitory buildings, Ifa Boru and Bu'ura Boru, are designed to meet the needs of modern learners and professionals. With a focus on safety, cleanliness, and convenience, our accommodations serve as the perfect home base for your educational journey and training programs. Each facility is managed with the utmost care to ensure a pleasant and productive stay.
             </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
                 <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
