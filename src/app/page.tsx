@@ -360,52 +360,58 @@ export default function HomePage() {
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
           
           {isLoadingLatestPosts ? (
-            <div className="grid grid-cols-1 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {Array.from({length: 3}).map((_, i) => (
-                <div key={i} className="flex flex-col md:flex-row items-center gap-6 rounded-lg border p-4">
-                  <Skeleton className="w-full md:w-1/4 aspect-video shrink-0" />
-                  <div className="flex flex-col space-y-3 w-full md:w-3/4">
-                    <Skeleton className="h-6 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-1/2" />
-                    <div className="flex gap-4 pt-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-4 w-1/4" />
-                    </div>
-                  </div>
-                </div>
+                <Card key={i}>
+                    <Skeleton className="h-56 w-full" />
+                    <CardHeader>
+                        <Skeleton className="h-6 w-3/4 mb-2" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </CardHeader>
+                    <CardContent>
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-4/5" />
+                    </CardContent>
+                    <CardFooter>
+                        <Skeleton className="h-10 w-full" />
+                    </CardFooter>
+                </Card>
               ))}
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
-             <div className="grid grid-cols-1 gap-8">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {latestPosts.map(post => (
-                <div key={post.id} className="group flex flex-col md:flex-row gap-6 items-center rounded-lg border bg-card p-4 text-card-foreground shadow-sm hover:shadow-lg transition-shadow duration-300">
-                  <Link href={`/blog/${post.slug}`} className="block w-full md:w-1/4 shrink-0">
-                    <div className="relative w-full aspect-video overflow-hidden rounded-md">
-                      <Image
-                        src={post.imageUrl || `https://placehold.co/400x400.png`}
-                        alt={post.title}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        data-ai-hint="blog post"
-                      />
-                    </div>
-                  </Link>
-                  <div className="flex flex-col md:w-3/4">
-                    <h3 className="text-xl font-semibold mb-2">
-                      <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">
-                        {post.title}
-                      </Link>
-                    </h3>
-                    <p className="text-sm text-muted-foreground flex-grow mb-4 line-clamp-2">
-                      {post.excerpt || post.content.substring(0, 150) + '...'}
-                    </p>
-                    <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-auto">
-                      <span className="flex items-center"><User className="mr-1 h-4 w-4" /> {post.authorName}</span>
-                      <span className="flex items-center"><Calendar className="mr-1 h-4 w-4" /> {formatDate(post.createdAt, 'MMMM d, yyyy')}</span>
-                    </div>
-                  </div>
-                </div>
+                 <Card key={post.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <Link href={`/blog/${post.slug}`} className="block">
+                      <div className="relative w-full h-56 bg-muted">
+                        <Image
+                          src={post.imageUrl || `https://placehold.co/600x400.png`}
+                          alt={post.title}
+                          fill
+                          className="object-cover"
+                          data-ai-hint="blog post"
+                        />
+                      </div>
+                    </Link>
+                    <CardHeader className="p-6">
+                      <CardTitle className="text-xl leading-snug">
+                        <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
+                      </CardTitle>
+                      <CardDescription className="text-xs pt-2 space-y-1">
+                         <span className="flex items-center"><User className="mr-2 h-3 w-3" /> {post.authorName}</span>
+                         <span className="flex items-center"><Calendar className="mr-2 h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-0 flex-grow">
+                      <p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt || post.content.substring(0, 150) + '...'}</p>
+                    </CardContent>
+                    <CardFooter className="p-6 pt-0">
+                      <Button asChild className="w-full">
+                        <Link href={`/blog/${post.slug}`}>{t('readMore')}</Link>
+                      </Button>
+                    </CardFooter>
+                  </Card>
               ))}
             </div>
           ) : (
