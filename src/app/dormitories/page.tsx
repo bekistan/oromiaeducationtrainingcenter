@@ -34,7 +34,7 @@ export default function DormitoriesPage() {
 
   const buildingImages = [
     { src: "/images/ifaboru.jpg", title: t('ifaBoruBuilding') },
-    { src: "/images/dorm_room.jpg", title: t('buuraBoruBuilding') }
+    { src: "/images/Bu'uraboru.jpg", title: t('buuraBoruBuilding') }
   ];
 
   const openImageViewer = (index: number) => {
@@ -242,7 +242,7 @@ export default function DormitoriesPage() {
                 </Card>
                  <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
                     <CardHeader className="p-0">
-                        <Image src="/images/dorm_room.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
+                        <Image src="/images/Bu'uraboru.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
                     </CardHeader>
                     <CardContent className="p-4">
                         <CardTitle className="mt-2">{t('buuraBoruBuilding')}</CardTitle>

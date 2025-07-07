@@ -6,6 +6,7 @@ export const SITE_DESCRIPTION = "Your premier destination for educational facili
 
 export const STATIC_IMAGES = [
   { name: 'Ifa Boru Building', path: '/images/ifaboru.jpg' },
+  { name: 'Bu\'ura Boru Building', path: '/images/Bu\'uraboru.jpg' },
   { name: 'Conference Hall', path: '/images/hall2.jpg' },
   { name: 'Catering Service', path: '/images/catering.jpg' },
   { name: 'Meeting Section', path: '/images/meeting_room.jpg' },
