@@ -19,6 +19,10 @@ const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicPayment";
 
 const fetchBankDetailsPublic = async (): Promise<BankAccountDetails | null> => {
+  if (!db) {
+    console.warn("Database not configured. Cannot fetch bank details.");
+    return null;
+  }
   const docRef = doc(db, BANK_DETAILS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -71,6 +75,11 @@ function PaymentDetailsContent() {
     if (!bookingId) return;
 
     const fetchBooking = async () => {
+      if (!db) {
+        setError(t('databaseConnectionError'));
+        setIsLoadingBooking(false);
+        return;
+      }
       setIsLoadingBooking(true);
       setError(null);
       try {
@@ -194,4 +203,3 @@ export default function PaymentDetailsPage() {
     </PublicLayout>
   );
 }
-    

@@ -62,6 +62,10 @@ type SiteContentFormValues = z.infer<typeof siteContentSchema>;
 const SITE_CONTENT_QUERY_KEY = "siteContentSettings";
 
 const fetchSiteContent = async (): Promise<SiteContentSettings> => {
+  if (!db) {
+      console.warn("Database not configured. Using default site content.");
+      return { ...DEFAULT_SITE_CONTENT, id: 'site_content' };
+  }
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -78,6 +82,7 @@ const fetchSiteContent = async (): Promise<SiteContentSettings> => {
 };
 
 const updateSiteContent = async (details: SiteContentFormValues): Promise<void> => {
+  if (!db) throw new Error("Database not configured. Cannot update site content.");
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   await setDoc(docRef, { ...details, lastUpdated: serverTimestamp() }, { merge: true });
 };
@@ -472,5 +477,3 @@ export default function AdminSiteContentPage() {
     </Form>
   );
 }
-
-    

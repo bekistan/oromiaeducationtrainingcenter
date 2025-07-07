@@ -22,6 +22,10 @@ interface KeyholderStats {
 }
 
 const fetchKeyholderDashboardData = async (): Promise<KeyholderStats> => {
+    if (!db) {
+        console.warn("Database not configured. Skipping fetchKeyholderDashboardData.");
+        return { totalActiveBookings: 0, keysIssued: 0, keysPendingIssuance: 0, recentActivities: [] };
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

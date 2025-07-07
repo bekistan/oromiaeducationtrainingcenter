@@ -60,6 +60,7 @@ export default function KeyholderReportsPage() {
   };
 
   const generateKeyActivityReport = useCallback(async (): Promise<ReportOutput> => {
+    if (!db) throw new Error("Database not configured.");
     if (!dateRange?.from || !dateRange?.to) throw new Error(t('selectDateRangeFirst'));
 
     const fromTimestamp = Timestamp.fromDate(dateRange.from);

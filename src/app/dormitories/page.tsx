@@ -33,8 +33,8 @@ export default function DormitoriesPage() {
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const buildingImages = [
-    { src: "/images/Ifaboru.jpg", title: t('ifaBoruBuilding') },
-    { src: "/images/Bu'uraboru.jpg", title: t('buuraBoruBuilding') }
+    { src: "/images/ifaboru.jpg", title: t('ifaBoruBuilding') },
+    { src: "/images/dorm_room.jpg", title: t('buuraBoruBuilding') }
   ];
 
   const openImageViewer = (index: number) => {
@@ -43,6 +43,11 @@ export default function DormitoriesPage() {
   };
 
   const fetchAllAdminEnabledDormitories = useCallback(async () => {
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        setIsLoadingInitialDorms(false);
+        return;
+    }
     setIsLoadingInitialDorms(true);
     try {
       const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
@@ -71,6 +76,10 @@ export default function DormitoriesPage() {
     }
 
     const findAvailableDorms = async () => {
+      if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        return;
+      }
       setIsCheckingRangeAvailability(true);
 
       const fromTimestamp = Timestamp.fromDate(selectedDateRange.from!);

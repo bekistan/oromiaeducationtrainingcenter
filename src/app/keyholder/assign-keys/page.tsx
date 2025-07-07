@@ -28,6 +28,11 @@ export default function KeyholderAssignKeysPage() {
   const [isUpdatingKeyStatus, setIsUpdatingKeyStatus] = useState<string | null>(null);
 
   const fetchPaidDormitoryBookings = useCallback(async () => {
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        setIsLoadingBookings(false);
+        return;
+    }
     setIsLoadingBookings(true);
     try {
       const q = query(
@@ -100,6 +105,10 @@ export default function KeyholderAssignKeysPage() {
   });
 
   const handleKeyStatusChange = async (bookingId: string, newStatus: KeyStatus) => {
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        return;
+    }
     setIsUpdatingKeyStatus(bookingId);
     try {
       const bookingRef = doc(db, "bookings", bookingId);

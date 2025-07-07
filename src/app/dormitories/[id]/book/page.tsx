@@ -30,6 +30,11 @@ export default function BookDormitoryPage() {
       setIsLoading(false);
       return;
     }
+    if (!db) {
+        setError(t('databaseConnectionError'));
+        setIsLoading(false);
+        return;
+    }
     setIsLoading(true);
     setError(null);
     try {

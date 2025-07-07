@@ -29,6 +29,10 @@ export default function CheckMyBookingPage() {
       setError(t('pleaseEnterPhoneNumber')); 
       return;
     }
+    if (!db) {
+      setError(t('databaseConnectionError'));
+      return;
+    }
     setIsLoading(true);
     setError(null);
     setBookings([]);

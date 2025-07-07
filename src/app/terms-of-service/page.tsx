@@ -33,7 +33,7 @@ const mergeDeep = (target: any, source: any): any => {
 
 
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
-  if (!isFirebaseConfigured) return DEFAULT_SITE_CONTENT;
+  if (!isFirebaseConfigured || !db) return DEFAULT_SITE_CONTENT;
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {

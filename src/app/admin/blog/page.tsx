@@ -52,7 +52,10 @@ const slugify = (text: string) =>
     .replace(/--+/g, '-');
 
 const fetchBlogPosts = async (): Promise<BlogPost[]> => {
-  if (!db) return [];
+  if (!db) {
+    console.warn("fetchBlogPosts: Firestore is not configured. Returning empty array.");
+    return [];
+  }
   try {
     // Removed orderby to prevent needing a composite index for this query. Sorting will be done client-side.
     const q = query(collection(db, "blog"));

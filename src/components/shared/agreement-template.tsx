@@ -20,7 +20,10 @@ interface AgreementTemplateProps {
 const BRAND_ASSETS_QUERY_KEY = "brandAssetsForAgreement";
 
 const fetchBrandAssets = async (): Promise<BrandAssets | null> => {
-  if (!db) return null;
+  if (!db) {
+    console.warn("Database not configured. Cannot fetch brand assets.");
+    return null;
+  }
   const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {

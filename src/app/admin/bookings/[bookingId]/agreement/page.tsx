@@ -43,6 +43,11 @@ export default function AdminBookingAgreementPage() {
       setIsLoading(false);
       return;
     }
+    if (!db) {
+        setError(t('databaseConnectionError'));
+        setIsLoading(false);
+        return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -89,6 +94,10 @@ export default function AdminBookingAgreementPage() {
 
   const handleSaveTerms = async () => {
     if (!booking) return;
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        return;
+    }
     setIsSaving(true);
     try {
       const bookingRef = doc(db, "bookings", booking.id);

@@ -58,7 +58,7 @@ const mergeDeep = (target: any, source: any): any => {
 
 
 const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
-  if (!isFirebaseConfigured) return DEFAULT_SITE_CONTENT;
+  if (!isFirebaseConfigured || !db) return DEFAULT_SITE_CONTENT;
   const docRef = doc(db, SITE_CONTENT_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -71,7 +71,7 @@ const fetchSiteContentPublic = async (): Promise<SiteContentSettings> => {
 
 
 const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: Hall[] }> => {
-    if (!isFirebaseConfigured) return { dormitories: [], halls: [] };
+    if (!isFirebaseConfigured || !db) return { dormitories: [], halls: [] };
     const dormsQuery = query(collection(db, "dormitories"), where("isAvailable", "==", true), limit(3));
     const hallsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), limit(3));
     
@@ -87,7 +87,7 @@ const fetchFeaturedItems = async (): Promise<{ dormitories: Dormitory[]; halls: 
 };
 
 const fetchPricingSettingsPublic = async (): Promise<PricingSettings> => {
-  if (!isFirebaseConfigured) return DEFAULT_PRICING_SETTINGS;
+  if (!isFirebaseConfigured || !db) return DEFAULT_PRICING_SETTINGS;
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {

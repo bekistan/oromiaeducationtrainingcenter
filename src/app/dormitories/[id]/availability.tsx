@@ -25,6 +25,10 @@ const DormitoryAvailabilityPage: React.FC = () => {
   useEffect(() => {
     if (id) {
       const fetchAvailability = async () => {
+        if (!db) {
+          setError(t('databaseConnectionError'));
+          return;
+        }
         try {
           setError(null);
           const docRef = doc(db, 'dormitories', id);
@@ -82,5 +86,3 @@ const DormitoryAvailabilityPage: React.FC = () => {
 };
 
 export default DormitoryAvailabilityPage;
-
-    

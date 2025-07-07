@@ -19,6 +19,10 @@ import { formatDate, toDateObject } from '@/lib/date-utils';
 const KEYHOLDER_REPORTS_QUERY_KEY = "keyholderDailyReports";
 
 const fetchActiveAndApprovedDormBookings = async (): Promise<Booking[]> => {
+    if (!db) {
+        console.warn("Database not configured. Skipping fetch for keyholder reports.");
+        return [];
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

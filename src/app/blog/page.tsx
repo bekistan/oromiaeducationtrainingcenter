@@ -19,7 +19,10 @@ import { PLACEHOLDER_IMAGE_SIZE } from '@/constants';
 const BLOG_POSTS_QUERY_KEY_PUBLIC = "publicBlogPosts";
 
 const fetchPublishedBlogPosts = async (): Promise<BlogPost[]> => {
-  if (!db) return [];
+  if (!db) {
+    console.warn("fetchPublishedBlogPosts: Firestore is not configured. Returning empty array.");
+    return [];
+  }
   try {
     // Removed orderby to prevent needing a composite index for this query. Sorting will be done client-side.
     const q = query(

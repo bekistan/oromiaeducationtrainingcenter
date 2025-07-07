@@ -50,6 +50,10 @@ const DEFAULT_TERMS_KEYS = [
 ];
 
 const fetchBookingsFromDb = async (): Promise<Booking[]> => {
+  if (!db) {
+    console.warn("Database not configured. Skipping fetchBookingsFromDb.");
+    return [];
+  }
   const q = query(collection(db, "bookings"), orderBy("bookedAt", "desc"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => {
@@ -83,6 +87,7 @@ export default function AdminBookingsPage() {
 
   const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessage: string }>({
     mutationFn: async ({ bookingId, updateData }) => {
+      if (!db) throw new Error("Database is not configured.");
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, updateData);
     },
@@ -97,6 +102,7 @@ export default function AdminBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
+      if (!db) throw new Error("Database is not configured.");
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {
@@ -183,6 +189,10 @@ export default function AdminBookingsPage() {
   };
   
   const handleFacilityPaymentStatusChange = async (bookingId: string, newPaymentStatus: 'paid') => {
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: "Database not configured." });
+        return;
+    }
     const bookingRef = doc(db, "bookings", bookingId);
     const bookingSnap = await getFirestoreDoc(bookingRef); 
     if (!bookingSnap.exists()) {
