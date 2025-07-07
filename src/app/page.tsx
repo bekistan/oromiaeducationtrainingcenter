@@ -169,6 +169,15 @@ export default function HomePage() {
     catering: Utensils,
   };
 
+  const getServiceLink = (serviceId: string): string => {
+    switch (serviceId) {
+      case 'dormitories': return '/dormitories';
+      case 'halls': return '/halls';
+      case 'catering': return '/brochure';
+      default: return '/';
+    }
+  };
+
   const welcomeMessage = siteContent?.welcomeMessage?.[locale as Locale] || t('homePageWelcomeMessage');
   const tagline = siteContent?.tagline?.[locale as Locale] || t('tagline');
   const servicesSectionTitle = siteContent?.servicesSectionTitle?.[locale as Locale] || t('ourServices');
@@ -315,7 +324,10 @@ export default function HomePage() {
        <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
            <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-primary">{servicesSectionTitle}</h2>
+            <h2 className="text-3xl font-bold text-primary mb-2">{servicesSectionTitle}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -339,7 +351,7 @@ export default function HomePage() {
                     </CardContent>
                     <CardFooter>
                        <Button asChild variant="outline">
-                          <Link href="/brochure">{t('learnMore')}</Link>
+                          <Link href={getServiceLink(service.id)}>{t('learnMore')}</Link>
                        </Button>
                     </CardFooter>
                   </Card>
