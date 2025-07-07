@@ -9,13 +9,15 @@ import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CalendarDays, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, CalendarDays, AlertCircle, ChevronLeft, ChevronRight, Building, Users, ArrowDown } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
 import { toDateObject } from '@/lib/date-utils';
+import Image from 'next/image';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -197,30 +199,68 @@ export default function DormitoriesPage() {
   return (
     <PublicLayout>
       <div className="container mx-auto py-12 px-4">
-        <h1 className="text-3xl font-bold text-primary mb-4 text-center">
-          {t('viewAvailableDormitories')}
-        </h1>
-        <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
-
-        <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow-sm">
-            <div className="flex-1 min-w-[300px]">
-                <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
-                <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+        
+        <section className="mb-16 text-center">
+            <h1 className="text-3xl font-bold text-primary mb-2 text-center">
+                {t('ourDormitoryBuildingsTitle')}
+            </h1>
+            <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourDormitoryBuildingsSubtitle')}</p>
+            <div className="grid md:grid-cols-2 gap-8 text-left">
+                <Card>
+                    <CardHeader>
+                        <Image src="/images/ifaboru.jpg" alt={t('ifaBoruBuilding')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="modern building" />
+                        <CardTitle className="mt-4">{t('ifaBoruBuilding')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground text-sm">{t('ifaBoruBuildingDesc')}</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <Image src="/images/dorm_room.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="modern building" />
+                        <CardTitle className="mt-4">{t('buuraBoruBuilding')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground text-sm">{t('buuraBoruBuildingDesc')}</p>
+                    </CardContent>
+                </Card>
             </div>
-        </div>
-        
-        {!selectedDateRange?.from && !isLoadingInitialDorms && allAdminEnabledDormitories.length > 0 && (
-           <Alert variant="default" className="max-w-xl mx-auto mb-8 bg-blue-50 border-blue-200">
-            <CalendarDays className="h-5 w-5 text-blue-600" />
-            <AlertTitle className="text-blue-700">{t('selectDatesForAccurateAvailability')}</AlertTitle>
-            <AlertDescription className="text-blue-600">
-              {t('showingAllAdminAvailableDorms')}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <div className="mt-8">
-            {renderContent()}
+             <div className="text-center mt-12">
+                <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
+                    <a href="#booking-section">
+                        <ArrowDown className="mr-2 h-5 w-5" />
+                        {t('goToBookingSection')}
+                    </a>
+                </Button>
+            </div>
+        </section>
+
+        <div id="booking-section" className="pt-8">
+            <h2 className="text-3xl font-bold text-primary mb-4 text-center">
+            {t('viewAvailableDormitories')}
+            </h2>
+            <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
+
+            <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow-sm">
+                <div className="flex-1 min-w-[300px]">
+                    <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
+                    <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+                </div>
+            </div>
+            
+            {!selectedDateRange?.from && !isLoadingInitialDorms && allAdminEnabledDormitories.length > 0 && (
+            <Alert variant="default" className="max-w-xl mx-auto mb-8 bg-blue-50 border-blue-200">
+                <CalendarDays className="h-5 w-5 text-blue-600" />
+                <AlertTitle className="text-blue-700">{t('selectDatesForAccurateAvailability')}</AlertTitle>
+                <AlertDescription className="text-blue-600">
+                {t('showingAllAdminAvailableDorms')}
+                </AlertDescription>
+            </Alert>
+            )}
+            
+            <div className="mt-8">
+                {renderContent()}
+            </div>
         </div>
       </div>
     </PublicLayout>

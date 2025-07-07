@@ -8,7 +8,7 @@ import type { Hall, Booking } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle } from "lucide-react";
+import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle, ArrowDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -18,6 +18,8 @@ import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toDateObject } from '@/lib/date-utils';
+import Image from 'next/image';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -225,70 +227,107 @@ export default function HallsAndSectionsPage() {
   return (
     <PublicLayout>
       <div className="container mx-auto py-12 px-4 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-primary mb-2 text-center">
-            {t('viewAvailableHallsAndSections')}
-          </h1>
-          <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateAndFilterFacility')}</p>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow">
-            <div className="flex-1 min-w-[300px]">
-                <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
-                <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+        
+        <section className="mb-12 text-center">
+            <h1 className="text-3xl font-bold text-primary mb-2 text-center">
+                {t('ourConferenceFacilitiesTitle')}
+            </h1>
+            <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourConferenceFacilitiesSubtitle')}</p>
+            <div className="grid md:grid-cols-2 gap-8 text-left">
+                <Card>
+                    <CardHeader>
+                        <Image src="/images/hall2.jpg" alt={t('halls')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="conference hall" />
+                        <CardTitle className="mt-4">{t('halls')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground text-sm">{t('hallsInfoSectionDesc')}</p>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <Image src="/images/meeting_room.jpg" alt={t('sections')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="meeting room" />
+                        <CardTitle className="mt-4">{t('sections')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground text-sm">{t('sectionsInfoSectionDesc')}</p>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="flex-1 min-w-[200px]">
-                 <label htmlFor="itemTypeFilter" className="text-sm font-medium mb-1 block">{t('filterByType')}</label>
-                <Select value={itemTypeFilter} onValueChange={(value) => setItemTypeFilter(value as ItemTypeFilter)}>
-                    <SelectTrigger id="itemTypeFilter" className="w-full">
-                        <SelectValue placeholder={t('filterByTypePlaceholder')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">{t('allItemTypes')}</SelectItem>
-                        <SelectItem value="hall">{t('hallsOnly')}</SelectItem>
-                        <SelectItem value="section">{t('sectionsOnly')}</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-
-        {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
-            <div className="text-center">
-                 <Button
-                    onClick={handleBookSelectedItems}
-                    disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
-                    size="lg"
-                    title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
-                 >
-                    <CalendarPlus className="mr-2 h-5 w-5" />
-                    {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
+             <div className="text-center mt-12">
+                <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
+                    <a href="#booking-section">
+                        <ArrowDown className="mr-2 h-5 w-5" />
+                        {t('goToBookingSection')}
+                    </a>
                 </Button>
-                {(!selectedDateRange?.from || !selectedDateRange?.to) && (
-                  <p className="text-xs text-muted-foreground mt-1">{t('pleaseSelectDateRangeToEnableBooking')}</p>
-                )}
             </div>
-        )}
-         {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
-            <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
-                <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
-                <AlertDescription>
-                {t('loginToBookMultipleDesc')}
-                <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
-                    const currentPath = window.location.pathname;
-                     let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
-                     if (selectedItems.length > 0) {
-                         const itemsQueryPart = selectedItems
-                             .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
-                             .join('&');
-                          queryParams += `&${itemsQueryPart}`;
-                     }
-                    router.push(`/auth/login${queryParams}`);
-                }}>{t('loginHere')}</Button>.
-                </AlertDescription>
-            </Alert>
-        )}
+        </section>
 
-        {renderContent()}
+        <div id="booking-section" className="pt-8">
+            <h2 className="text-3xl font-bold text-primary mb-2 text-center">
+                {t('viewAvailableHallsAndSections')}
+            </h2>
+            <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateAndFilterFacility')}</p>
+        
+
+            <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow">
+                <div className="flex-1 min-w-[300px]">
+                    <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
+                    <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                    <label htmlFor="itemTypeFilter" className="text-sm font-medium mb-1 block">{t('filterByType')}</label>
+                    <Select value={itemTypeFilter} onValueChange={(value) => setItemTypeFilter(value as ItemTypeFilter)}>
+                        <SelectTrigger id="itemTypeFilter" className="w-full">
+                            <SelectValue placeholder={t('filterByTypePlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">{t('allItemTypes')}</SelectItem>
+                            <SelectItem value="hall">{t('hallsOnly')}</SelectItem>
+                            <SelectItem value="section">{t('sectionsOnly')}</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+
+            {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
+                <div className="text-center">
+                    <Button
+                        onClick={handleBookSelectedItems}
+                        disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
+                        size="lg"
+                        title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
+                    >
+                        <CalendarPlus className="mr-2 h-5 w-5" />
+                        {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
+                    </Button>
+                    {(!selectedDateRange?.from || !selectedDateRange?.to) && (
+                    <p className="text-xs text-muted-foreground mt-1">{t('pleaseSelectDateRangeToEnableBooking')}</p>
+                    )}
+                </div>
+            )}
+            {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
+                <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
+                    <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
+                    <AlertDescription>
+                    {t('loginToBookMultipleDesc')}
+                    <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
+                        const currentPath = window.location.pathname;
+                        let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
+                        if (selectedItems.length > 0) {
+                            const itemsQueryPart = selectedItems
+                                .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
+                                .join('&');
+                            queryParams += `&${itemsQueryPart}`;
+                        }
+                        router.push(`/auth/login${queryParams}`);
+                    }}>{t('loginHere')}</Button>.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {renderContent()}
+        </div>
       </div>
     </PublicLayout>
   );
