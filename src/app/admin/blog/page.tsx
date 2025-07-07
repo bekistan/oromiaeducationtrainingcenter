@@ -27,6 +27,7 @@ import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { formatDate, toDateObject } from '@/lib/date-utils';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const blogPostSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
@@ -246,7 +247,7 @@ export default function AdminBlogPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <ScrollAnimate className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t('manageBlog')}</h1>
           <Button onClick={openFormForNew}>
@@ -293,7 +294,7 @@ export default function AdminBlogPage() {
             </CardContent>
           </Card>
         )}
-      </div>
+      </ScrollAnimate>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="max-w-3xl">

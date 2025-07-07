@@ -34,6 +34,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { STATIC_IMAGES } from '@/constants';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const dormitorySchema = z.object({
   roomNumber: z.string().min(1, { message: "Room number is required." }),
@@ -236,7 +237,7 @@ export default function AdminDormitoriesPage() {
 
   return (
     <>
-    <div className="space-y-6">
+    <ScrollAnimate className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-foreground">{t('manageDormitories')}</h1>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -499,7 +500,7 @@ export default function AdminDormitoriesPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </ScrollAnimate>
 
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

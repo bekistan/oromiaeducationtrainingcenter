@@ -17,6 +17,7 @@ import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { formatDate } from '@/lib/date-utils';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
@@ -314,7 +315,7 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <ScrollAnimate className="space-y-6">
       <h1 className="text-3xl font-bold text-foreground">{t('dashboard')}</h1>
       
       <div className={`grid gap-6 md:grid-cols-2 ${statCards.length === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-2 xl:grid-cols-' + statCards.length}`}>
@@ -450,6 +451,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </ScrollAnimate>
   );
 }

@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { toDateObject, formatDate } from '@/lib/date-utils';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
@@ -295,7 +296,7 @@ export default function AdminBookingsPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <ScrollAnimate className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t('manageBookings')}</h1>
           <div className="flex items-center space-x-2">
@@ -489,7 +490,7 @@ export default function AdminBookingsPage() {
             </CardContent>
           </Card>
         )}
-      </div>
+      </ScrollAnimate>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
