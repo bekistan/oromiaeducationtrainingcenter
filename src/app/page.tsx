@@ -372,57 +372,54 @@ export default function HomePage() {
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
           
           {isLoadingLatestPosts ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {Array.from({length: 3}).map((_, i) => (
-                <Card key={i}>
-                    <Skeleton className="h-56 w-full" />
-                    <CardHeader>
-                        <Skeleton className="h-6 w-3/4 mb-2" />
-                        <Skeleton className="h-4 w-1/2" />
-                    </CardHeader>
-                    <CardContent>
-                        <Skeleton className="h-4 w-full mb-2" />
-                        <Skeleton className="h-4 w-full mb-2" />
-                        <Skeleton className="h-4 w-4/5" />
-                    </CardContent>
-                    <CardFooter>
-                        <Skeleton className="h-10 w-full" />
-                    </CardFooter>
+            <div className="space-y-8">
+              {Array.from({length: 2}).map((_, i) => (
+                <Card key={i} className="flex flex-col md:flex-row overflow-hidden shadow-lg">
+                  <div className="md:w-1/3">
+                    <Skeleton className="h-56 w-full md:h-full" />
+                  </div>
+                  <div className="md:w-2/3 p-6 flex flex-col">
+                    <Skeleton className="h-8 w-3/4 mb-4" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-4/5 mb-auto" />
+                    <div className="flex items-center space-x-4 mt-4">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-24" />
+                    </div>
+                  </div>
                 </Card>
               ))}
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="space-y-8">
               {latestPosts.map(post => (
-                 <Card key={post.id} className="flex flex-col overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <Link href={`/blog/${post.slug}`} className="block">
-                      <div className="relative w-full h-56 bg-muted">
+                 <Card key={post.id} className="flex flex-col md:flex-row overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <Link href={`/blog/${post.slug}`} className="md:w-1/3 block relative h-56 md:h-auto bg-muted">
                         <Image
-                          src={post.imageUrl || `https://placehold.co/600x400.png`}
+                          src={post.imageUrl || `https://placehold.co/400x300.png`}
                           alt={post.title}
                           fill
                           className="object-cover"
                           data-ai-hint="blog post"
                         />
-                      </div>
                     </Link>
-                    <CardHeader className="p-6">
-                      <CardTitle className="text-xl leading-snug">
+                    <div className="flex flex-col md:w-2/3 p-6">
+                      <CardTitle className="text-2xl leading-snug mb-2">
                         <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
                       </CardTitle>
-                      <CardDescription className="text-xs pt-2 space-y-1">
-                         <span className="flex items-center"><User className="mr-2 h-3 w-3" /> {post.authorName}</span>
-                         <span className="flex items-center"><Calendar className="mr-2 h-3 w-3" /> {formatDate(post.createdAt, 'MMM d, yyyy')}</span>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-6 pt-0 flex-grow">
-                      <p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt || post.content.substring(0, 150) + '...'}</p>
-                    </CardContent>
-                    <CardFooter className="p-6 pt-0">
-                      <Button asChild className="w-full">
-                        <Link href={`/blog/${post.slug}`}>{t('readMore')}</Link>
-                      </Button>
-                    </CardFooter>
+                      <CardContent className="p-0 flex-grow mb-4">
+                        <p className="text-base text-muted-foreground line-clamp-3">
+                          {post.excerpt || post.content.substring(0, 150) + '...'}
+                        </p>
+                      </CardContent>
+                      <CardFooter className="p-0 pt-4 mt-auto">
+                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                          <span className="flex items-center uppercase"><User className="mr-1.5 h-4 w-4" /> {post.authorName}</span>
+                          <span className="flex items-center uppercase"><Calendar className="mr-1.5 h-4 w-4" /> {formatDate(post.createdAt, 'MMMM d, yyyy')}</span>
+                        </div>
+                      </CardFooter>
+                    </div>
                   </Card>
               ))}
             </div>
