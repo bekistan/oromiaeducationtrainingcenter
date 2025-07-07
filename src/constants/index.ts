@@ -5,7 +5,7 @@ export const SITE_NAME = "Oromia Education Center";
 export const SITE_DESCRIPTION = "Your premier destination for educational facilities and comfortable accommodations. Book with us for a seamless experience.";
 
 export const STATIC_IMAGES = [
-  { name: 'Ifa Boru Building', path: '/images/ifaboru.jpg' },
+  { name: 'Ifa Boru Building', path: '/images/ifaboru.png' },
   { name: 'Bu\'ura Boru Building', path: '/images/Bu\'uraboru.jpg' },
   { name: 'Conference Hall', path: '/images/hall2.jpg' },
   { name: 'Catering Service', path: '/images/catering.jpg' },
