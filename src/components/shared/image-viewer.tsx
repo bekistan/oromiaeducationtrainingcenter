@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -59,6 +59,10 @@ export function ImageViewer({ images, startIndex = 0, isOpen, onClose }: ImageVi
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-black/80 backdrop-blur-sm border-none p-0 w-screen h-screen max-w-none max-h-none flex items-center justify-center">
+        <DialogTitle className="sr-only">{`Image viewer: ${images[currentIndex].title}`}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Fullscreen image view. Use arrow keys to navigate or escape to close.
+        </DialogDescription>
         <div className="relative w-full h-full flex items-center justify-center" onClick={onClose}>
           {/* Close Button */}
           <Button

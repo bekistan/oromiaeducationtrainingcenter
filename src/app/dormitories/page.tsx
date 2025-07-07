@@ -33,8 +33,8 @@ export default function DormitoriesPage() {
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const buildingImages = [
-    { src: "/images/ifaboru.jpg", title: t('ifaBoruBuilding') },
-    { src: "/images/dorm_room.jpg", title: t('buuraBoruBuilding') }
+    { src: "/images/Ifaboru.jpg", title: t('ifaBoruBuilding') },
+    { src: "/images/Bu'uraboru.jpg", title: t('buuraBoruBuilding') }
   ];
 
   const openImageViewer = (index: number) => {
