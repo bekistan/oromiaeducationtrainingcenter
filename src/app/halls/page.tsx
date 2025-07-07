@@ -21,6 +21,7 @@ import { toDateObject } from '@/lib/date-utils';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ImageViewer } from '@/components/shared/image-viewer';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -246,6 +247,7 @@ export default function HallsAndSectionsPage() {
       <div className="container mx-auto py-12 px-4 space-y-8">
         
         <section className="mb-12 text-center">
+          <ScrollAnimate>
             <h1 className="text-3xl font-bold text-primary mb-2 text-center">
                 {t('ourConferenceFacilitiesTitle')}
             </h1>
@@ -253,7 +255,9 @@ export default function HallsAndSectionsPage() {
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
               The Oromia Education Center is your premier destination for hosting successful meetings, workshops, and large-scale conferences. Our facilities include state-of-the-art conference halls and versatile meeting sections, all equipped to handle your event's specific needs. Whether you require a grand auditorium for a major symposium or a smaller, more intimate space for a workshop, our venues provide a professional atmosphere with modern amenities and dedicated support to ensure your event runs smoothly and efficiently.
             </p>
+          </ScrollAnimate>
             <div className="grid md:grid-cols-2 gap-8 text-left">
+              <ScrollAnimate delay={100}>
                 <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
                     <CardHeader className="p-0">
                         <Image src="/images/Hall.jpg" alt={t('halls')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="conference hall" />
@@ -263,6 +267,8 @@ export default function HallsAndSectionsPage() {
                         <p className="text-muted-foreground text-sm mt-2">{t('hallsInfoSectionDesc')}</p>
                     </CardContent>
                 </Card>
+              </ScrollAnimate>
+              <ScrollAnimate delay={200}>
                  <Card className="cursor-pointer group" onClick={() => openImageViewer(5)}>
                     <CardHeader className="p-0">
                         <Image src="/images/Sections.jpg" alt={t('sections')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="meeting room" />
@@ -272,25 +278,28 @@ export default function HallsAndSectionsPage() {
                         <p className="text-muted-foreground text-sm mt-2">{t('sectionsInfoSectionDesc')}</p>
                     </CardContent>
                 </Card>
+              </ScrollAnimate>
             </div>
-             <div className="text-center mt-12">
+             <ScrollAnimate className="text-center mt-12">
                 <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
                     <a href="#booking-section">
                         <ArrowDown className="mr-2 h-5 w-5" />
                         {t('goToBookingSection')}
                     </a>
                 </Button>
-            </div>
+            </ScrollAnimate>
         </section>
 
         <div id="booking-section" className="pt-8">
-            <h2 className="text-3xl font-bold text-primary mb-2 text-center">
-                {t('viewAvailableHallsAndSections')}
-            </h2>
-            <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateAndFilterFacility')}</p>
+            <ScrollAnimate>
+              <h2 className="text-3xl font-bold text-primary mb-2 text-center">
+                  {t('viewAvailableHallsAndSections')}
+              </h2>
+              <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateAndFilterFacility')}</p>
+            </ScrollAnimate>
         
 
-            <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow">
+            <ScrollAnimate delay={100} className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow">
                 <div className="flex-1 min-w-[300px]">
                     <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
                     <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
@@ -308,43 +317,45 @@ export default function HallsAndSectionsPage() {
                         </SelectContent>
                     </Select>
                 </div>
-            </div>
-
-            {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
-                <div className="text-center">
-                    <Button
-                        onClick={handleBookSelectedItems}
-                        disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
-                        size="lg"
-                        title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
-                    >
-                        <CalendarPlus className="mr-2 h-5 w-5" />
-                        {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
-                    </Button>
-                    {(!selectedDateRange?.from || !selectedDateRange?.to) && (
-                    <p className="text-xs text-muted-foreground mt-1">{t('pleaseSelectDateRangeToEnableBooking')}</p>
-                    )}
-                </div>
-            )}
-            {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
-                <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
-                    <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
-                    <AlertDescription>
-                    {t('loginToBookMultipleDesc')}
-                    <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
-                        const currentPath = window.location.pathname;
-                        let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
-                        if (selectedItems.length > 0) {
-                            const itemsQueryPart = selectedItems
-                                .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
-                                .join('&');
-                            queryParams += `&${itemsQueryPart}`;
-                        }
-                        router.push(`/auth/login${queryParams}`);
-                    }}>{t('loginHere')}</Button>.
-                    </AlertDescription>
-                </Alert>
-            )}
+            </ScrollAnimate>
+            
+            <ScrollAnimate>
+              {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
+                  <div className="text-center">
+                      <Button
+                          onClick={handleBookSelectedItems}
+                          disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
+                          size="lg"
+                          title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
+                      >
+                          <CalendarPlus className="mr-2 h-5 w-5" />
+                          {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
+                      </Button>
+                      {(!selectedDateRange?.from || !selectedDateRange?.to) && (
+                      <p className="text-xs text-muted-foreground mt-1">{t('pleaseSelectDateRangeToEnableBooking')}</p>
+                      )}
+                  </div>
+              )}
+              {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
+                  <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
+                      <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
+                      <AlertDescription>
+                      {t('loginToBookMultipleDesc')}
+                      <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => {
+                          const currentPath = window.location.pathname;
+                          let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
+                          if (selectedItems.length > 0) {
+                              const itemsQueryPart = selectedItems
+                                  .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
+                                  .join('&');
+                              queryParams += `&${itemsQueryPart}`;
+                          }
+                          router.push(`/auth/login${queryParams}`);
+                      }}>{t('loginHere')}</Button>.
+                      </AlertDescription>
+                  </Alert>
+              )}
+            </ScrollAnimate>
 
             {renderContent()}
         </div>

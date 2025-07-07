@@ -19,6 +19,7 @@ import { toDateObject } from '@/lib/date-utils';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ImageViewer } from '@/components/shared/image-viewer';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -33,7 +34,7 @@ export default function DormitoriesPage() {
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const buildingImages = [
-    { src: "/images/ifaboru.jpg", title: t('ifaBoruBuilding') },
+    { src: "/images/Ifaboru.jpg", title: t('ifaBoruBuilding') },
     { src: "/images/Bu'uraboru.jpg", title: t('buuraBoruBuilding') }
   ];
 
@@ -223,6 +224,7 @@ export default function DormitoriesPage() {
       <div className="container mx-auto py-12 px-4">
         
         <section className="mb-16 text-center">
+          <ScrollAnimate>
             <h1 className="text-3xl font-bold text-primary mb-2 text-center">
                 {t('ourDormitoryBuildingsTitle')}
             </h1>
@@ -230,57 +232,66 @@ export default function DormitoriesPage() {
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
               At the Oromia Education Center, we provide a secure, comfortable, and conducive living environment for all our residents. Our two main dormitory buildings, Ifa Boru and Bu'ura Boru, are designed to meet the needs of modern learners and professionals. With a focus on safety, cleanliness, and convenience, our accommodations serve as the perfect home base for your educational journey and training programs. Each facility is managed with the utmost care to ensure a pleasant and productive stay.
             </p>
+          </ScrollAnimate>
             <div className="grid md:grid-cols-2 gap-8 text-left">
-                <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
-                    <CardHeader className="p-0">
-                        <Image src="/images/ifaboru.jpg" alt={t('ifaBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
-                    </CardHeader>
-                    <CardContent className="p-4">
-                        <CardTitle className="mt-2">{t('ifaBoruBuilding')}</CardTitle>
-                        <p className="text-muted-foreground text-sm mt-2">{t('ifaBoruBuildingDesc')}</p>
-                    </CardContent>
-                </Card>
-                 <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
-                    <CardHeader className="p-0">
-                        <Image src="/images/Bu'uraboru.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
-                    </CardHeader>
-                    <CardContent className="p-4">
-                        <CardTitle className="mt-2">{t('buuraBoruBuilding')}</CardTitle>
-                        <p className="text-muted-foreground text-sm mt-2">{t('buuraBoruBuildingDesc')}</p>
-                    </CardContent>
-                </Card>
+                <ScrollAnimate delay={100}>
+                  <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
+                      <CardHeader className="p-0">
+                          <Image src="/images/Ifaboru.jpg" alt={t('ifaBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
+                      </CardHeader>
+                      <CardContent className="p-4">
+                          <CardTitle className="mt-2">{t('ifaBoruBuilding')}</CardTitle>
+                          <p className="text-muted-foreground text-sm mt-2">{t('ifaBoruBuildingDesc')}</p>
+                      </CardContent>
+                  </Card>
+                </ScrollAnimate>
+                 <ScrollAnimate delay={200}>
+                    <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
+                      <CardHeader className="p-0">
+                          <Image src="/images/Bu'uraboru.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
+                      </CardHeader>
+                      <CardContent className="p-4">
+                          <CardTitle className="mt-2">{t('buuraBoruBuilding')}</CardTitle>
+                          <p className="text-muted-foreground text-sm mt-2">{t('buuraBoruBuildingDesc')}</p>
+                      </CardContent>
+                  </Card>
+                 </ScrollAnimate>
             </div>
-             <div className="text-center mt-12">
+             <ScrollAnimate className="text-center mt-12">
                 <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
                     <a href="#booking-section">
                         <ArrowDown className="mr-2 h-5 w-5" />
                         {t('goToBookingSection')}
                     </a>
                 </Button>
-            </div>
+            </ScrollAnimate>
         </section>
 
         <div id="booking-section" className="pt-8">
-            <h2 className="text-3xl font-bold text-primary mb-4 text-center">
-            {t('viewAvailableDormitories')}
-            </h2>
-            <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
+            <ScrollAnimate>
+              <h2 className="text-3xl font-bold text-primary mb-4 text-center">
+              {t('viewAvailableDormitories')}
+              </h2>
+              <p className="text-muted-foreground text-center mb-8 max-w-lg mx-auto">{t('selectDateRangePrompt')}</p>
+            </ScrollAnimate>
 
-            <div className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow-sm">
+            <ScrollAnimate delay={100} className="flex flex-col md:flex-row gap-4 justify-center items-center mb-8 p-4 bg-muted/50 rounded-lg shadow-sm">
                 <div className="flex-1 min-w-[300px]">
                     <label className="text-sm font-medium mb-1 block">{t('selectDates')}</label>
                     <DatePickerWithRange date={selectedDateRange} onDateChange={setSelectedDateRange} />
                 </div>
-            </div>
+            </ScrollAnimate>
             
             {!selectedDateRange?.from && !isLoadingInitialDorms && allAdminEnabledDormitories.length > 0 && (
-            <Alert variant="default" className="max-w-xl mx-auto mb-8 bg-blue-50 border-blue-200">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
-                <AlertTitle className="text-blue-700">{t('selectDatesForAccurateAvailability')}</AlertTitle>
-                <AlertDescription className="text-blue-600">
-                {t('showingAllAdminAvailableDorms')}
-                </AlertDescription>
-            </Alert>
+            <ScrollAnimate>
+              <Alert variant="default" className="max-w-xl mx-auto mb-8 bg-blue-50 border-blue-200">
+                  <CalendarDays className="h-5 w-5 text-blue-600" />
+                  <AlertTitle className="text-blue-700">{t('selectDatesForAccurateAvailability')}</AlertTitle>
+                  <AlertDescription className="text-blue-600">
+                  {t('showingAllAdminAvailableDorms')}
+                  </AlertDescription>
+              </Alert>
+            </ScrollAnimate>
             )}
             
             <div className="mt-8">

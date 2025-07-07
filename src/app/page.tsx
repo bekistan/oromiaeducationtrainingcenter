@@ -32,6 +32,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate, toDateObject } from "@/lib/date-utils";
 import { ImageViewer } from "@/components/shared/image-viewer";
+import { ScrollAnimate } from "@/components/shared/scroll-animate";
 
 const SITE_CONTENT_QUERY_KEY = "siteContentPublic";
 const FEATURED_ITEMS_QUERY_KEY = "featuredItemsPublic";
@@ -211,34 +212,38 @@ export default function HomePage() {
       <section className="relative py-20 md:py-32 bg-gradient-to-b from-primary/10 to-background">
         <div className="container mx-auto text-center">
            {isLoadingContent ? <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" /> :
-            <>
+            <ScrollAnimate>
               <h1 className="text-4xl font-bold tracking-tight text-primary sm:text-5xl md:text-6xl">
                 {welcomeMessage}
               </h1>
               <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-foreground/80">
                 {tagline}
               </p>
-            </>
+            </ScrollAnimate>
            }
-          <div className="mt-10 flex items-center justify-center gap-x-6">
-            <Link href="/dormitories" passHref>
-              <Button size="lg">{t('viewAvailableDormitories')}</Button>
-            </Link>
-            <Link href="/halls" passHref>
-              <Button variant="outline" size="lg">{t('viewAvailableHalls')}</Button>
-            </Link>
-          </div>
+          <ScrollAnimate delay={200}>
+            <div className="mt-10 flex items-center justify-center gap-x-6">
+              <Link href="/dormitories" passHref>
+                <Button size="lg">{t('viewAvailableDormitories')}</Button>
+              </Link>
+              <Link href="/halls" passHref>
+                <Button variant="outline" size="lg">{t('viewAvailableHalls')}</Button>
+              </Link>
+            </div>
+          </ScrollAnimate>
         </div>
       </section>
 
       {/* Featured Dormitories Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredDormitoriesTitle}</h2>
-          <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-          </svg>
-          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredDormitoriesSubtitle}</p>
+          <ScrollAnimate>
+            <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredDormitoriesTitle}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredDormitoriesSubtitle}</p>
+          </ScrollAnimate>
           
           {isLoadingFeaturedItems || isLoadingPricing ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -246,50 +251,54 @@ export default function HomePage() {
             </div>
           ) : featuredDormitories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredDormitories.map((dorm) => (
-                <Card key={dorm.id} className="bg-card border overflow-hidden flex flex-col group">
-                  <div className="relative overflow-hidden">
-                    <Image
-                      src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
-                      alt={dorm.roomNumber}
-                      width={600}
-                      height={400}
-                      className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
-                      data-ai-hint={dorm.dataAiHint || "hotel room"}
-                    />
-                    <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
-                      {(dorm.pricePerDay ?? pricingSettings?.defaultDormitoryPricePerDay ?? 0).toLocaleString()} {t('currencySymbol')} / {t('night')}
+              {featuredDormitories.map((dorm, index) => (
+                <ScrollAnimate key={dorm.id} delay={index * 100}>
+                  <Card className="bg-card border overflow-hidden flex flex-col group">
+                    <div className="relative overflow-hidden">
+                      <Image
+                        src={dorm.images?.[0] || `https://placehold.co/600x400.png`}
+                        alt={dorm.roomNumber}
+                        width={600}
+                        height={400}
+                        className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
+                        data-ai-hint={dorm.dataAiHint || "hotel room"}
+                      />
+                      <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
+                        {(dorm.pricePerDay ?? pricingSettings?.defaultDormitoryPricePerDay ?? 0).toLocaleString()} {t('currencySymbol')} / {t('night')}
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-4 mt-auto flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">{t('roomNumber')} {dorm.roomNumber}</h3>
-                    <Button asChild>
-                      <Link href="/dormitories">{t('viewDetails')}</Link>
-                    </Button>
-                  </div>
-                </Card>
+                    <div className="p-4 mt-auto flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">{t('roomNumber')} {dorm.roomNumber}</h3>
+                      <Button asChild>
+                        <Link href="/dormitories">{t('viewDetails')}</Link>
+                      </Button>
+                    </div>
+                  </Card>
+                </ScrollAnimate>
               ))}
             </div>
           ) : (
              <div className="text-center py-8 text-muted-foreground">{t('noFeaturedDormitories')}</div>
           )}
 
-          <div className="text-center mt-12">
+          <ScrollAnimate className="text-center mt-12">
             <Button asChild variant="outline" size="lg">
               <Link href="/dormitories">{t('viewAllDormitories')}</Link>
             </Button>
-          </div>
+          </ScrollAnimate>
         </div>
       </section>
 
       {/* Featured Halls Section */}
       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredHallsTitle}</h2>
-           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-          </svg>
-          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredHallsSubtitle}</p>
+          <ScrollAnimate>
+            <h2 className="text-3xl font-bold text-center text-primary mb-2">{featuredHallsTitle}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{featuredHallsSubtitle}</p>
+          </ScrollAnimate>
           
           {isLoadingFeaturedItems || isLoadingPricing ? (
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -297,64 +306,69 @@ export default function HomePage() {
             </div>
           ) : featuredHalls.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {featuredHalls.map((hall) => (
-                <Card key={hall.id} className="bg-card border overflow-hidden flex flex-col group">
-                  <div className="relative overflow-hidden">
-                    <Image
-                      src={hall.images?.[0] || `https://placehold.co/600x400.png`}
-                      alt={hall.name}
-                      width={600}
-                      height={400}
-                      className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
-                      data-ai-hint={hall.dataAiHint || "meeting space"}
-                    />
-                    <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
-                       {(hall.rentalCost ?? (hall.itemType === 'hall' ? pricingSettings?.defaultHallRentalCostPerDay : pricingSettings?.defaultSectionRentalCostPerDay) ?? 0).toLocaleString()} {t('currencySymbol')} / {t('day')}
+              {featuredHalls.map((hall, index) => (
+                <ScrollAnimate key={hall.id} delay={index * 100}>
+                  <Card className="bg-card border overflow-hidden flex flex-col group">
+                    <div className="relative overflow-hidden">
+                      <Image
+                        src={hall.images?.[0] || `https://placehold.co/600x400.png`}
+                        alt={hall.name}
+                        width={600}
+                        height={400}
+                        className="object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105"
+                        data-ai-hint={hall.dataAiHint || "meeting space"}
+                      />
+                      <div className="absolute top-3 left-3 bg-black/60 text-white px-3 py-1 text-sm font-bold rounded">
+                        {(hall.rentalCost ?? (hall.itemType === 'hall' ? pricingSettings?.defaultHallRentalCostPerDay : pricingSettings?.defaultSectionRentalCostPerDay) ?? 0).toLocaleString()} {t('currencySymbol')} / {t('day')}
+                      </div>
                     </div>
-                  </div>
-                  <div className="p-4 mt-auto flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">{hall.name}</h3>
-                     <Button asChild>
-                      <Link href="/halls">{t('viewDetails')}</Link>
-                    </Button>
-                  </div>
-                </Card>
+                    <div className="p-4 mt-auto flex justify-between items-center">
+                      <h3 className="text-lg font-semibold">{hall.name}</h3>
+                      <Button asChild>
+                        <Link href="/halls">{t('viewDetails')}</Link>
+                      </Button>
+                    </div>
+                  </Card>
+                </ScrollAnimate>
               ))}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">{t('noFeaturedHalls')}</div>
           )}
-
-          <div className="text-center mt-12">
+          <ScrollAnimate className="text-center mt-12">
             <Button asChild variant="outline" size="lg">
               <Link href="/halls">{t('viewAllHalls')}</Link>
             </Button>
-          </div>
+          </ScrollAnimate>
         </div>
       </section>
 
       {/* Discover Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{discoverSectionTitle}</h2>
-           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-          </svg>
-          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{discoverSectionDescription}</p>
+          <ScrollAnimate>
+            <h2 className="text-3xl font-bold text-center text-primary mb-2">{discoverSectionTitle}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{discoverSectionDescription}</p>
+          </ScrollAnimate>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {displayGalleryImages.map((image, index) => (
-              <div key={image.path} className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer shadow-lg" onClick={() => openImageViewer(galleryImages.findIndex(gi => gi.path === image.path))}>
-                <Image 
-                    src={image.path} 
-                    alt={image.name} 
-                    fill 
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-110" 
-                />
-                <div className="absolute inset-0 bg-primary/60 group-hover:bg-primary/40 transition-colors duration-300"></div>
-                <h3 className="absolute bottom-4 left-4 text-white font-bold text-lg drop-shadow-md">{image.name}</h3>
-              </div>
+              <ScrollAnimate key={image.path} delay={index * 50}>
+                <div className="relative aspect-square rounded-lg overflow-hidden group cursor-pointer shadow-lg" onClick={() => openImageViewer(galleryImages.findIndex(gi => gi.path === image.path))}>
+                  <Image 
+                      src={image.path} 
+                      alt={image.name} 
+                      fill 
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-110" 
+                  />
+                  <div className="absolute inset-0 bg-primary/60 group-hover:bg-primary/40 transition-colors duration-300"></div>
+                  <h3 className="absolute bottom-4 left-4 text-white font-bold text-lg drop-shadow-md">{image.name}</h3>
+                </div>
+              </ScrollAnimate>
             ))}
           </div>
         </div>
@@ -363,38 +377,40 @@ export default function HomePage() {
       {/* Our Services Section */}
        <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
-           <div className="text-center mb-12">
+           <ScrollAnimate className="text-center mb-12">
             <h2 className="text-3xl font-bold text-primary mb-2">{servicesSectionTitle}</h2>
             <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
             </svg>
             <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
-          </div>
+          </ScrollAnimate>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {isLoadingContent ? (
               Array.from({ length: 3 }).map((_, index) => (
                 <Card key={index}><CardContent className="p-6"><Skeleton className="h-40" /></CardContent></Card>
               ))
             ) : (
-              services.map((service) => {
+              services.map((service, index) => {
                 const Icon = serviceIcons[service.id] || Settings;
                 return (
-                  <Card key={service.id} className="flex flex-col text-center items-center shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <CardHeader className="items-center">
-                       <div className="p-4 rounded-full bg-primary/10 mb-4">
-                          <Icon className="h-10 w-10 text-primary" />
-                        </div>
-                      <CardTitle className="text-xl">{service.title[locale as Locale] || service.title['en']}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <p className="text-muted-foreground">{service.description[locale as Locale] || service.description['en']}</p>
-                    </CardContent>
-                    <CardFooter>
-                       <Button asChild variant="outline">
-                          <Link href={getServiceLink(service.id)}>{t('learnMore')}</Link>
-                       </Button>
-                    </CardFooter>
-                  </Card>
+                  <ScrollAnimate key={service.id} delay={index * 100}>
+                    <Card className="flex flex-col text-center items-center shadow-lg hover:shadow-xl transition-shadow duration-300 h-full">
+                      <CardHeader className="items-center">
+                        <div className="p-4 rounded-full bg-primary/10 mb-4">
+                            <Icon className="h-10 w-10 text-primary" />
+                          </div>
+                        <CardTitle className="text-xl">{service.title[locale as Locale] || service.title['en']}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-grow">
+                        <p className="text-muted-foreground">{service.description[locale as Locale] || service.description['en']}</p>
+                      </CardContent>
+                      <CardFooter>
+                        <Button asChild variant="outline">
+                            <Link href={getServiceLink(service.id)}>{t('learnMore')}</Link>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  </ScrollAnimate>
                 );
               })
             )}
@@ -405,11 +421,13 @@ export default function HomePage() {
       {/* Latest News Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('latestNewsAndEvents')}</h2>
-          <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-          </svg>
-          <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
+          <ScrollAnimate>
+            <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('latestNewsAndEvents')}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+            <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">{t('latestNewsAndEventsSubtitle')}</p>
+          </ScrollAnimate>
           
           {isLoadingLatestPosts ? (
             <div className="space-y-8">
@@ -433,68 +451,74 @@ export default function HomePage() {
             </div>
           ) : latestPosts && latestPosts.length > 0 ? (
             <div className="space-y-8">
-              {latestPosts.map(post => (
-                 <Card key={post.id} className="flex flex-col md:flex-row overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-                    <Link href={`/blog/${post.slug}`} className="md:w-1/3 block relative h-56 md:h-auto bg-muted">
-                        <Image
-                          src={post.imageUrl || `https://placehold.co/400x300.png`}
-                          alt={post.title}
-                          fill
-                          className="object-cover"
-                          data-ai-hint="blog post"
-                        />
-                    </Link>
-                    <div className="flex flex-col md:w-2/3 p-6">
-                      <CardTitle className="text-2xl leading-snug mb-2">
-                        <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
-                      </CardTitle>
-                      <CardContent className="p-0 flex-grow mb-4">
-                        <p className="text-base text-muted-foreground line-clamp-3">
-                          {post.excerpt || post.content.substring(0, 150) + '...'}
-                        </p>
-                      </CardContent>
-                      <CardFooter className="p-0 pt-4 mt-auto">
-                        <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                          <span className="flex items-center uppercase"><User className="mr-1.5 h-4 w-4" /> {post.authorName}</span>
-                          <span className="flex items-center uppercase"><Calendar className="mr-1.5 h-4 w-4" /> {formatDate(post.createdAt, 'MMMM d, yyyy')}</span>
-                        </div>
-                      </CardFooter>
-                    </div>
-                  </Card>
+              {latestPosts.map((post, index) => (
+                 <ScrollAnimate key={post.id} delay={index * 100}>
+                    <Card className="flex flex-col md:flex-row overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                      <Link href={`/blog/${post.slug}`} className="md:w-1/3 block relative h-56 md:h-auto bg-muted">
+                          <Image
+                            src={post.imageUrl || `https://placehold.co/400x300.png`}
+                            alt={post.title}
+                            fill
+                            className="object-cover"
+                            data-ai-hint="blog post"
+                          />
+                      </Link>
+                      <div className="flex flex-col md:w-2/3 p-6">
+                        <CardTitle className="text-2xl leading-snug mb-2">
+                          <Link href={`/blog/${post.slug}`} className="hover:text-primary transition-colors">{post.title}</Link>
+                        </CardTitle>
+                        <CardContent className="p-0 flex-grow mb-4">
+                          <p className="text-base text-muted-foreground line-clamp-3">
+                            {post.excerpt || post.content.substring(0, 150) + '...'}
+                          </p>
+                        </CardContent>
+                        <CardFooter className="p-0 pt-4 mt-auto">
+                          <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                            <span className="flex items-center uppercase"><User className="mr-1.5 h-4 w-4" /> {post.authorName}</span>
+                            <span className="flex items-center uppercase"><Calendar className="mr-1.5 h-4 w-4" /> {formatDate(post.createdAt, 'MMMM d, yyyy')}</span>
+                          </div>
+                        </CardFooter>
+                      </div>
+                    </Card>
+                 </ScrollAnimate>
               ))}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">{t('noNewsFound')}</div>
           )}
           
-          <div className="text-center mt-12">
+          <ScrollAnimate className="text-center mt-12">
             <Button asChild variant="outline" size="lg">
               <Link href="/blog">{t('viewAllNews')}</Link>
             </Button>
-          </div>
+          </ScrollAnimate>
         </div>
       </section>
 
       {/* Features Section */}
       <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('features')}</h2>
-          <svg className="w-24 h-2 mx-auto text-primary mb-12" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
-          </svg>
+          <ScrollAnimate>
+            <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('features')}</h2>
+            <svg className="w-24 h-2 mx-auto text-primary mb-12" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 5 Q 12.5 0, 25 5 T 50 5 T 75 5 T 100 5" stroke="currentColor" strokeWidth="2" fill="none" />
+            </svg>
+          </ScrollAnimate>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {features.map((feature) => (
-              <Card key={feature.titleKey} className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300">
-                <CardHeader className="items-center p-6">
-                  <div className="p-4 rounded-full bg-primary/10 mb-4">
-                    {feature.icon}
-                  </div>
-                  <CardTitle className="text-xl">{t(feature.titleKey)}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-0">
-                  <CardDescription>{t(feature.descriptionKey)}</CardDescription>
-                </CardContent>
-              </Card>
+            {features.map((feature, index) => (
+              <ScrollAnimate key={feature.titleKey} delay={index * 100}>
+                <Card className="flex flex-col items-center text-center shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <CardHeader className="items-center p-6">
+                    <div className="p-4 rounded-full bg-primary/10 mb-4">
+                      {feature.icon}
+                    </div>
+                    <CardTitle className="text-xl">{t(feature.titleKey)}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 pt-0">
+                    <CardDescription>{t(feature.descriptionKey)}</CardDescription>
+                  </CardContent>
+                </Card>
+              </ScrollAnimate>
             ))}
           </div>
         </div>
@@ -503,24 +527,26 @@ export default function HomePage() {
       {/* FAQ Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="container mx-auto">
-          <div className="text-center mb-12">
+          <ScrollAnimate className="text-center mb-12">
             <HelpCircle className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="text-3xl font-bold text-primary">{t('faqTitle')}</h2>
             <p className="text-muted-foreground mt-2">{t('faqSubtitle')}</p>
-          </div>
+          </ScrollAnimate>
            {isLoadingContent ? <Loader2 className="h-8 w-8 mx-auto animate-spin" /> :
-              <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
-                {faqs.map((item) => (
-                  <AccordionItem value={item.id} key={item.id}>
-                    <AccordionTrigger className="text-lg text-left hover:text-primary">
-                      {item.question[locale as Locale] || item.question['en']}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-base text-muted-foreground leading-relaxed">
-                      {item.answer[locale as Locale] || item.answer['en']}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              <ScrollAnimate>
+                <Accordion type="single" collapsible className="w-full max-w-3xl mx-auto">
+                  {faqs.map((item) => (
+                    <AccordionItem value={item.id} key={item.id}>
+                      <AccordionTrigger className="text-lg text-left hover:text-primary">
+                        {item.question[locale as Locale] || item.question['en']}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-base text-muted-foreground leading-relaxed">
+                        {item.answer[locale as Locale] || item.answer['en']}
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </ScrollAnimate>
             }
         </div>
       </section>
