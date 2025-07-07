@@ -205,6 +205,9 @@ export default function DormitoriesPage() {
                 {t('ourDormitoryBuildingsTitle')}
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourDormitoryBuildingsSubtitle')}</p>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
+              Our center features two modern and secure dormitory buildings, Ifa Boru and Bu'ura Boru, designed to provide a comfortable and conducive environment for all our guests. Whether you are here for a short training or an extended stay, our facilities are equipped to meet your needs, ensuring a pleasant and productive experience. Below you can see details of each building before proceeding to book your room for your desired dates.
+            </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
                 <Card>
                     <CardHeader>

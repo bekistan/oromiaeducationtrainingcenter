@@ -233,6 +233,9 @@ export default function HallsAndSectionsPage() {
                 {t('ourConferenceFacilitiesTitle')}
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourConferenceFacilitiesSubtitle')}</p>
+            <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
+              We offer a range of versatile and professionally equipped halls and sections perfect for your next conference, meeting, seminar, or event. Our facilities are designed to be flexible, accommodating both large-scale gatherings and more intimate workshops. Each space is supported by our dedicated team to ensure your event runs smoothly and successfully. Explore our main hall and section offerings below before proceeding to check availability and make a reservation.
+            </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
                 <Card>
                     <CardHeader>
