@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { toDateObject } from '@/lib/date-utils';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ImageViewer } from '@/components/shared/image-viewer';
 
 export default function DormitoriesPage() {
   const { t } = useLanguage();
@@ -28,6 +29,18 @@ export default function DormitoriesPage() {
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [isLoadingInitialDorms, setIsLoadingInitialDorms] = useState(true);
   const [isCheckingRangeAvailability, setIsCheckingRangeAvailability] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
+
+  const buildingImages = [
+    { src: "/images/ifaboru.jpg", title: t('ifaBoruBuilding') },
+    { src: "/images/dorm_room.jpg", title: t('buuraBoruBuilding') }
+  ];
+
+  const openImageViewer = (index: number) => {
+    setViewerStartIndex(index);
+    setIsViewerOpen(true);
+  };
 
   const fetchAllAdminEnabledDormitories = useCallback(async () => {
     setIsLoadingInitialDorms(true);
@@ -206,25 +219,25 @@ export default function DormitoriesPage() {
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourDormitoryBuildingsSubtitle')}</p>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
-              Our center features two modern and secure dormitory buildings, Ifa Boru and Bu'ura Boru, designed to provide a comfortable and conducive environment for all our guests. Whether you are here for a short training or an extended stay, our facilities are equipped to meet your needs, ensuring a pleasant and productive experience. Below you can see details of each building before proceeding to book your room for your desired dates.
+              {t('ourDormitoryBuildingsDescParagraph')}
             </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
-                <Card>
-                    <CardHeader>
-                        <Image src="/images/ifaboru.jpg" alt={t('ifaBoruBuilding')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="modern building" />
-                        <CardTitle className="mt-4">{t('ifaBoruBuilding')}</CardTitle>
+                <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
+                    <CardHeader className="p-0">
+                        <Image src="/images/ifaboru.jpg" alt={t('ifaBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground text-sm">{t('ifaBoruBuildingDesc')}</p>
+                    <CardContent className="p-4">
+                        <CardTitle className="mt-2">{t('ifaBoruBuilding')}</CardTitle>
+                        <p className="text-muted-foreground text-sm mt-2">{t('ifaBoruBuildingDesc')}</p>
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <Image src="/images/dorm_room.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="modern building" />
-                        <CardTitle className="mt-4">{t('buuraBoruBuilding')}</CardTitle>
+                 <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
+                    <CardHeader className="p-0">
+                        <Image src="/images/dorm_room.jpg" alt={t('buuraBoruBuilding')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="modern building" />
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground text-sm">{t('buuraBoruBuildingDesc')}</p>
+                    <CardContent className="p-4">
+                        <CardTitle className="mt-2">{t('buuraBoruBuilding')}</CardTitle>
+                        <p className="text-muted-foreground text-sm mt-2">{t('buuraBoruBuildingDesc')}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -266,6 +279,12 @@ export default function DormitoriesPage() {
             </div>
         </div>
       </div>
+      <ImageViewer 
+        images={buildingImages}
+        startIndex={viewerStartIndex}
+        isOpen={isViewerOpen}
+        onClose={() => setIsViewerOpen(false)}
+      />
     </PublicLayout>
   );
 }

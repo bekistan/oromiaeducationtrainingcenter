@@ -20,6 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toDateObject } from '@/lib/date-utils';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ImageViewer } from '@/components/shared/image-viewer';
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -39,7 +40,19 @@ export default function HallsAndSectionsPage() {
 
   const [selectedDateRange, setSelectedDateRange] = useState<DateRange | undefined>(undefined);
   const [itemTypeFilter, setItemTypeFilter] = useState<ItemTypeFilter>("all");
+  
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
+  const facilityImages = [
+    { src: "/images/hall2.jpg", title: t('halls') },
+    { src: "/images/meeting_room.jpg", title: t('sections') }
+  ];
+
+  const openImageViewer = (index: number) => {
+    setViewerStartIndex(index);
+    setIsViewerOpen(true);
+  };
 
   const fetchAllAdminEnabledFacilities = useCallback(async () => {
     if (!db) {
@@ -234,25 +247,25 @@ export default function HallsAndSectionsPage() {
             </h1>
             <p className="text-muted-foreground text-center mb-8 max-w-2xl mx-auto">{t('ourConferenceFacilitiesSubtitle')}</p>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-10">
-              We offer a range of versatile and professionally equipped halls and sections perfect for your next conference, meeting, seminar, or event. Our facilities are designed to be flexible, accommodating both large-scale gatherings and more intimate workshops. Each space is supported by our dedicated team to ensure your event runs smoothly and successfully. Explore our main hall and section offerings below before proceeding to check availability and make a reservation.
+              {t('ourConferenceFacilitiesDescParagraph')}
             </p>
             <div className="grid md:grid-cols-2 gap-8 text-left">
-                <Card>
-                    <CardHeader>
-                        <Image src="/images/hall2.jpg" alt={t('halls')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="conference hall" />
-                        <CardTitle className="mt-4">{t('halls')}</CardTitle>
+                <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
+                    <CardHeader className="p-0">
+                        <Image src="/images/hall2.jpg" alt={t('halls')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="conference hall" />
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground text-sm">{t('hallsInfoSectionDesc')}</p>
+                    <CardContent className="p-4">
+                        <CardTitle className="mt-2">{t('halls')}</CardTitle>
+                        <p className="text-muted-foreground text-sm mt-2">{t('hallsInfoSectionDesc')}</p>
                     </CardContent>
                 </Card>
-                 <Card>
-                    <CardHeader>
-                        <Image src="/images/meeting_room.jpg" alt={t('sections')} width={600} height={400} className="rounded-lg object-cover w-full h-56" data-ai-hint="meeting room" />
-                        <CardTitle className="mt-4">{t('sections')}</CardTitle>
+                 <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
+                    <CardHeader className="p-0">
+                        <Image src="/images/meeting_room.jpg" alt={t('sections')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="meeting room" />
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground text-sm">{t('sectionsInfoSectionDesc')}</p>
+                    <CardContent className="p-4">
+                        <CardTitle className="mt-2">{t('sections')}</CardTitle>
+                        <p className="text-muted-foreground text-sm mt-2">{t('sectionsInfoSectionDesc')}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -332,6 +345,12 @@ export default function HallsAndSectionsPage() {
             {renderContent()}
         </div>
       </div>
+      <ImageViewer 
+        images={facilityImages}
+        startIndex={viewerStartIndex}
+        isOpen={isViewerOpen}
+        onClose={() => setIsViewerOpen(false)}
+      />
     </PublicLayout>
   );
 }
