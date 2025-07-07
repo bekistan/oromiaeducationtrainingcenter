@@ -120,7 +120,6 @@ const fetchLatestPosts = async (): Promise<BlogPost[]> => {
 
 export default function HomePage() {
   const { t, locale } = useLanguage();
-  const [activeService, setActiveService] = useState('dormitories');
 
   const { data: siteContent, isLoading: isLoadingContent } = useQuery<SiteContentSettings, Error>({
     queryKey: [SITE_CONTENT_QUERY_KEY],
@@ -183,13 +182,6 @@ export default function HomePage() {
   
   const featuredDormitories = featuredItems?.dormitories || [];
   const featuredHalls = featuredItems?.halls || [];
-
-  const currentService = siteContent?.services.find(s => s.id === activeService);
-  const currentServiceImage = currentService?.image || "https://placehold.co/800x600.png";
-  const currentServiceHint = currentService?.dataAiHint || "resort service";
-  const currentServiceTitle = currentService?.title?.[locale as Locale] || currentService?.title?.['en'] || '';
-  const currentServiceDescription = currentService?.description?.[locale as Locale] || currentService?.description?.['en'] || '';
-
 
   return (
     <PublicLayout>
@@ -318,9 +310,48 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      
+      {/* Our Services Section */}
+       <section className="py-16 md:py-24 bg-background">
+        <div className="container mx-auto">
+           <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-primary">{servicesSectionTitle}</h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {isLoadingContent ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <Card key={index}><CardContent className="p-6"><Skeleton className="h-40" /></CardContent></Card>
+              ))
+            ) : (
+              services.map((service) => {
+                const Icon = serviceIcons[service.id] || Settings;
+                return (
+                  <Card key={service.id} className="flex flex-col text-center items-center shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <CardHeader className="items-center">
+                       <div className="p-4 rounded-full bg-primary/10 mb-4">
+                          <Icon className="h-10 w-10 text-primary" />
+                        </div>
+                      <CardTitle className="text-xl">{service.title[locale as Locale] || service.title['en']}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      <p className="text-muted-foreground">{service.description[locale as Locale] || service.description['en']}</p>
+                    </CardContent>
+                    <CardFooter>
+                       <Button asChild variant="outline">
+                          <Link href="/brochure">{t('learnMore')}</Link>
+                       </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Latest News Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section className="py-16 md:py-24 bg-secondary/30">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center text-primary mb-2">{t('latestNewsAndEvents')}</h2>
           <svg className="w-24 h-2 mx-auto text-primary mb-4" viewBox="0 0 100 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -388,79 +419,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Our Services Section */}
-      <section className="py-16 md:py-24 bg-secondary/30">
-        <div className="container mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-primary">{servicesSectionTitle}</h2>
-            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{t('ourServicesSubtitle')}</p>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-             <div className="relative aspect-[4/3] rounded-lg overflow-hidden shadow-lg transition-all duration-500 ease-in-out">
-                <Image
-                  src={currentServiceImage}
-                  alt={currentServiceTitle}
-                  fill
-                  className="object-cover"
-                  data-ai-hint={currentServiceHint}
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  key={activeService} 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-6 flex flex-col justify-end">
-                    <h3 className="text-2xl font-bold text-white shadow-lg">{currentServiceTitle}</h3>
-                    <p className="text-sm text-white/90 mt-2 shadow-lg">{currentServiceDescription}</p>
-                </div>
-            </div>
-            <div className="space-y-4">
-              {isLoadingContent ? (
-                Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="flex items-start gap-6 p-4 rounded-lg bg-muted animate-pulse">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2 flex-1">
-                      <Skeleton className="h-5 w-1/3" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                services.map((service) => {
-                  const Icon = serviceIcons[service.id] || Settings;
-                  const isActive = activeService === service.id;
-                  return (
-                    <div
-                      key={service.id}
-                      className={cn(
-                        "flex items-start gap-6 p-4 rounded-lg cursor-pointer transition-all duration-300",
-                        isActive ? "bg-primary/10 shadow-md ring-2 ring-primary/20" : "hover:bg-muted/50"
-                      )}
-                      onClick={() => setActiveService(service.id)}
-                      onKeyPress={(e) => e.key === 'Enter' && setActiveService(service.id)}
-                      tabIndex={0}
-                    >
-                      <div className="flex-shrink-0">
-                        <div className={cn("p-3 rounded-full transition-colors", isActive ? "bg-primary" : "bg-primary/10")}>
-                          <Icon className={cn("h-7 w-7", isActive ? "text-primary-foreground" : "text-primary")} />
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-foreground">
-                          {service.title[locale as Locale] || service.title['en']}
-                        </h4>
-                        <p className="mt-1 text-muted-foreground">
-                          {service.description[locale as Locale] || service.description['en']}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
 
       {/* Features Section */}
       <section className="py-16 md:py-24 bg-background">

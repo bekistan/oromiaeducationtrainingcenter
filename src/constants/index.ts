@@ -30,6 +30,7 @@ export const PUBLIC_NAVS: NavItem[] = [
     ]
   },
   { labelKey: 'halls', href: '/halls' },
+  { labelKey: 'brochure', href: '/brochure' },
   { labelKey: 'blog', href: '/blog' },
   { labelKey: 'contactUs', href: '/contact' },
 ];
