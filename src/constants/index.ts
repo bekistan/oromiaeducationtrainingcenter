@@ -5,11 +5,15 @@ export const SITE_NAME = "Oromia Education Center";
 export const SITE_DESCRIPTION = "Your premier destination for educational facilities and comfortable accommodations. Book with us for a seamless experience.";
 
 export const STATIC_IMAGES = [
-  { name: 'Ifa Boru Building', path: '/images/ifaboru.jpg' },
+  { name: 'Ifa Boru Building', path: '/images/Ifaboru.jpg' },
   { name: 'Bu\'ura Boru Building', path: '/images/Bu\'uraboru.jpg' },
-  { name: 'Conference Hall', path: '/images/hall2.jpg' },
+  { name: 'Conference Hall (Wide)', path: '/images/Hall.jpg' },
+  { name: 'Conference Hall (Side)', path: '/images/Hall2.jpg' },
+  { name: 'Hall Interior', path: '/images/Hall_inside.jpg' },
+  { name: 'Hall Interior 2', path: '/images/Hall_inside_2.jpg' },
+  { name: 'Hall Stage View', path: '/images/Hall_stage.jpg' },
   { name: 'Catering Service', path: '/images/catering.jpg' },
-  { name: 'Meeting Section', path: '/images/meeting_room.jpg' },
+  { name: 'Meeting Section', path: '/images/Sections.jpg' },
   { name: 'Standard Dormitory Room', path: '/images/dorm_room.jpg' },
 ];
 

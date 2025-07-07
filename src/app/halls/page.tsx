@@ -45,8 +45,12 @@ export default function HallsAndSectionsPage() {
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const facilityImages = [
-    { src: "/images/hall2.jpg", title: t('halls') },
-    { src: "/images/meeting_room.jpg", title: t('sections') }
+    { src: "/images/Hall.jpg", title: t('halls') },
+    { src: "/images/Hall2.jpg", title: t('halls') },
+    { src: "/images/Hall_inside.jpg", title: t('hallInterior') },
+    { src: "/images/Hall_inside_2.jpg", title: t('hallInterior') },
+    { src: "/images/Hall_stage.jpg", title: t('hallStageView') },
+    { src: "/images/Sections.jpg", title: t('sections') }
   ];
 
   const openImageViewer = (index: number) => {
@@ -56,9 +60,9 @@ export default function HallsAndSectionsPage() {
 
   const fetchAllAdminEnabledFacilities = useCallback(async () => {
     if (!db) {
-      toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
-      setIsLoadingInitialFacilities(false);
-      return;
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        setIsLoadingInitialFacilities(false);
+        return;
     }
     setIsLoadingInitialFacilities(true);
     try {
@@ -252,16 +256,16 @@ export default function HallsAndSectionsPage() {
             <div className="grid md:grid-cols-2 gap-8 text-left">
                 <Card className="cursor-pointer group" onClick={() => openImageViewer(0)}>
                     <CardHeader className="p-0">
-                        <Image src="/images/hall2.jpg" alt={t('halls')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="conference hall" />
+                        <Image src="/images/Hall.jpg" alt={t('halls')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="conference hall" />
                     </CardHeader>
                     <CardContent className="p-4">
                         <CardTitle className="mt-2">{t('halls')}</CardTitle>
                         <p className="text-muted-foreground text-sm mt-2">{t('hallsInfoSectionDesc')}</p>
                     </CardContent>
                 </Card>
-                 <Card className="cursor-pointer group" onClick={() => openImageViewer(1)}>
+                 <Card className="cursor-pointer group" onClick={() => openImageViewer(5)}>
                     <CardHeader className="p-0">
-                        <Image src="/images/meeting_room.jpg" alt={t('sections')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="meeting room" />
+                        <Image src="/images/Sections.jpg" alt={t('sections')} width={600} height={400} className="rounded-t-lg object-cover w-full h-56 transition-transform duration-300 group-hover:scale-105" data-ai-hint="meeting room" />
                     </CardHeader>
                     <CardContent className="p-4">
                         <CardTitle className="mt-2">{t('sections')}</CardTitle>
