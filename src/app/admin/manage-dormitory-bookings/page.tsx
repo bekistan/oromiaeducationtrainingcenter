@@ -47,12 +47,15 @@ const DORMITORY_BOOKINGS_QUERY_KEY = "dormitoryBookings";
 const ALL_DORMITORIES_QUERY_KEY_FOR_IMAGES = "allDormitoriesForBookingImages";
 
 const fetchAllDormitoriesForImages = async (): Promise<Dormitory[]> => {
+  if (!db) return [];
   const querySnapshot = await getDocs(collection(db, "dormitories"));
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
 };
 
 const fetchDormitoryBookingsFromDb = async (): Promise<Booking[]> => {
-  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "dormitory"), orderBy("bookedAt", "desc"));
+  if (!db) return [];
+  // Simplified query to avoid composite index on (bookingCategory, bookedAt)
+  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "dormitory"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => {
     const data = docSnap.data();
@@ -94,6 +97,7 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string; bookingToNotify?: Booking }>({
     mutationFn: async ({ bookingId, updateData }) => {
+      if (!db) throw new Error("Database not configured.");
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, updateData);
     },
@@ -115,6 +119,7 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
+      if (!db) throw new Error("Database not configured.");
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {

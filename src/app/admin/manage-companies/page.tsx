@@ -21,7 +21,13 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 const COMPANIES_QUERY_KEY = "adminCompanies";
 
 const fetchCompaniesFromDb = async (): Promise<User[]> => {
-  const q = query(collection(db, "users"), where("role", "==", "company_representative"), firestoreOrderBy("companyName", "asc"));
+  if (!db) {
+    console.warn("Database not configured. Skipping fetchCompaniesFromDb.");
+    return [];
+  }
+  // Simplified query to avoid composite index on (role, companyName).
+  // Sorting will be handled client-side by useSimpleTable.
+  const q = query(collection(db, "users"), where("role", "==", "company_representative"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as User));
 };
@@ -41,6 +47,7 @@ export default function ManageCompaniesPage() {
 
   const updateCompanyStatusMutation = useMutation<void, Error, { companyId: string; newStatus: 'approved' | 'rejected' }>({
     mutationFn: async ({ companyId, newStatus }) => {
+      if (!db) throw new Error("Database not configured.");
       await updateUserDocument(companyId, { approvalStatus: newStatus });
     },
     onSuccess: (_, variables) => {

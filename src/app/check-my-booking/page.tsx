@@ -39,17 +39,17 @@ export default function CheckMyBookingPage() {
     setSearched(true);
 
     try {
+      // Simplified query to avoid composite index.
       const q = query(
         collection(db, "bookings"),
-        where("bookingCategory", "==", "dormitory"),
-        where("phone", "==", phoneNumber.trim()),
-        where("approvalStatus", "in", ["pending", "approved", "rejected"]) // Fetch all relevant statuses
+        where("phone", "==", phoneNumber.trim())
       );
       const querySnapshot = await getDocs(q);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0); 
 
+      // Client-side filtering
       const foundBookings = querySnapshot.docs
         .map(docSnap => {
           const data = docSnap.data();
@@ -62,8 +62,10 @@ export default function CheckMyBookingPage() {
           } as Booking;
         })
         .filter(booking => {
+            if (booking.bookingCategory !== 'dormitory') return false;
+            
             const bookingEndDate = toDateObject(booking.endDate);
-            if (!bookingEndDate) return false;
+            if (!bookingEndDate) return false; 
             bookingEndDate.setHours(23, 59, 59, 999);
             return bookingEndDate >= today; // Only show active or upcoming
         })

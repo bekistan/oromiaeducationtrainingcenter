@@ -47,7 +47,9 @@ type PaymentStatusFilter = "all" | Booking['paymentStatus'];
 const FACILITY_BOOKINGS_QUERY_KEY = "adminFacilityBookings";
 
 const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
-  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"), orderBy("bookedAt", "desc"));
+  if (!db) return [];
+  // Simplified query to avoid composite index on (bookingCategory, bookedAt)
+  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"));
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => {
     const data = docSnap.data();
@@ -64,6 +66,7 @@ const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
 };
 
 const fetchAgreementTemplate = async (): Promise<string> => {
+    if (!db) return DEFAULT_AGREEMENT_TERMS;
     const docRef = doc(db, AGREEMENT_TEMPLATE_DOC_PATH);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists() && docSnap.data()?.defaultTerms) {
@@ -93,6 +96,7 @@ export default function AdminManageFacilityBookingsPage() {
 
   const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string }>({
     mutationFn: async ({ bookingId, updateData }) => {
+      if (!db) throw new Error("Database not configured.");
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, updateData);
     },
@@ -107,6 +111,7 @@ export default function AdminManageFacilityBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
+      if (!db) throw new Error("Database not configured.");
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {

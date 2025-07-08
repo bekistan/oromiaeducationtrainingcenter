@@ -51,9 +51,23 @@ type DormitoryFormValues = z.infer<typeof dormitorySchema>;
 const DORMITORIES_QUERY_KEY = "dormitories";
 
 const fetchDormitoriesFromDb = async (): Promise<Dormitory[]> => {
-  const q = query(collection(db, "dormitories"), firestoreOrderBy("buildingName"), firestoreOrderBy("floor", "asc"), firestoreOrderBy("roomNumber", "asc"));
+  if (!db) {
+    console.warn("Database not configured. Skipping fetchDormitoriesFromDb.");
+    return [];
+  }
+  // Removed complex orderBy to prevent composite index requirement.
+  const q = query(collection(db, "dormitories"));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
+  const dorms = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
+
+  // Perform sorting on the client side.
+  return dorms.sort((a, b) => {
+    if (a.buildingName < b.buildingName) return -1;
+    if (a.buildingName > b.buildingName) return 1;
+    if (a.floor < b.floor) return -1;
+    if (a.floor > b.floor) return 1;
+    return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+  });
 };
 
 export default function AdminDormitoriesPage() {
@@ -91,6 +105,7 @@ export default function AdminDormitoriesPage() {
 
   const addDormitoryMutation = useMutation<void, Error, DormitoryFormValues>({
     mutationFn: async (values) => {
+      if (!db) throw new Error("Database not configured.");
       const dormData = {
         ...values,
         buildingName: (user?.role === 'admin' && user.buildingAssignment) ? user.buildingAssignment : values.buildingName,
@@ -117,6 +132,7 @@ export default function AdminDormitoriesPage() {
 
   const editDormitoryMutation = useMutation<void, Error, { id: string; values: DormitoryFormValues }>({
     mutationFn: async ({ id, values }) => {
+      if (!db) throw new Error("Database not configured.");
       const dormRef = doc(db, "dormitories", id);
       const updatedData: Partial<Dormitory> = {
         ...values,
@@ -141,6 +157,7 @@ export default function AdminDormitoriesPage() {
 
   const deleteDormitoryMutation = useMutation<void, Error, string>({
     mutationFn: async (id) => {
+      if (!db) throw new Error("Database not configured.");
       await deleteDoc(doc(db, "dormitories", id));
     },
     onSuccess: () => {
