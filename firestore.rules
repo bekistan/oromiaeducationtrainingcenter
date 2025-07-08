@@ -1,82 +1,86 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isSuperAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
+    // Helper function to check if the user is an admin or superadmin.
     function isAdmin() {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
     }
-    function isGeneralAdmin() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null;
+    
+    // Helper function to check if the user is the owner of the document.
+    function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
     }
+    
+    // Helper function to check if a user is a keyholder
     function isKeyholder() {
         return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
+    
+    // Helper function to check if a user is a company representative
     function isCompanyRep() {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
     }
-    function isSignedIn() {
-      return request.auth != null;
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Admins can read/write any user document.
+      // Users can read/update their own document.
+      allow read, update: if isAdmin() || isOwner(userId);
+      // Anyone can create a user document (signup).
+      allow create: if true;
+      // Only admins can delete users.
+      allow delete: if isAdmin();
     }
-    
-    // PUBLIC COLLECTIONS
+
+    // --- Publicly Readable Collections ---
     match /dormitories/{dormId} {
+      // Anyone can list/read dormitories. Admins can write.
       allow read: if true;
       allow write: if isAdmin();
     }
+    
     match /halls/{hallId} {
+      // Anyone can list/read halls. Admins can write.
       allow read: if true;
-      allow write: if isSuperAdmin() || isGeneralAdmin();
-    }
-    match /blog/{postId} {
-      allow get: if resource.data.isPublished == true || isAdmin();
-      allow list: if true; // Public can list, but reads are filtered by query `where("isPublished", "==", true)`
-      allow write: if isSuperAdmin() || isGeneralAdmin();
-    }
-    match /site_configuration/{docId} {
-      allow read: if true;
-      allow write: if isSuperAdmin() || isGeneralAdmin();
+      allow write: if isAdmin();
     }
     
-    // BOOKINGS
+    match /blog/{postId} {
+        // Anyone can read published posts. Admins can read/write all posts.
+        allow read: if resource.data.isPublished == true || isAdmin();
+        allow write: if isAdmin();
+    }
+    
+    match /site_configuration/{docId} {
+        // Anyone can read configuration, only admins can write.
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+
+    // --- Bookings Collection ---
     match /bookings/{bookingId} {
-      // LIST (queries)
-      allow list: if isAdmin() || isKeyholder(); 
-
-      // GET (single doc)
-      allow get: if isAdmin() ||
-                    isKeyholder() || // Keyholders can get docs they know the ID of
-                    (isSignedIn() && request.auth.uid == resource.data.userId) || // User can get their own booking
-                    (isCompanyRep() && request.auth.uid == resource.data.userId && resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId);
-
-      allow create: if true; // Anyone can create a booking request.
+      // Anyone can create a booking.
+      allow create: if true;
       
-      // UPDATE
-      allow update: if isAdmin() ||
-                       (isKeyholder() && request.resource.data.keys().hasAny(['keyStatus'])) ||
-                       (request.resource.data.paymentScreenshotUrl != resource.data.paymentScreenshotUrl) ||
-                       (request.resource.data.signedAgreementUrl != resource.data.signedAgreementUrl);
-
-      // DELETE
+      // Allow read if user is an admin, keyholder, or the company rep who owns the booking.
+      allow read: if isAdmin() || isKeyholder() || (isCompanyRep() && request.auth.uid == resource.data.userId);
+      
+      // Admins can fully update/delete. Company reps can only update specific fields for their own agreement upload.
+      allow update: if isAdmin() || (isCompanyRep() && request.auth.uid == resource.data.userId && request.resource.data.keys().hasOnly(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt']));
       allow delete: if isAdmin();
     }
     
-    // USERS
-    match /users/{userId} {
-      allow list: if isAdmin();
-      allow get: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid == userId; // A user can create their own document on signup.
-      allow update: if request.auth.uid == userId || isAdmin();
-      allow delete: if isSuperAdmin();
+    // --- Notifications Collection ---
+    match /notifications/{notificationId} {
+        // Only admins can read/write notifications.
+        allow read, write: if isAdmin();
     }
 
-    // NOTIFICATIONS
-    match /notifications/{notificationId} {
-      allow read, write: if isAdmin(); // Read is get and list.
+    // Fallback security rule - deny all other access
+    match /{path=**} {
+      allow read, write: if false;
     }
   }
 }
