@@ -37,6 +37,11 @@ export default function CompanyBookingAgreementViewPage() {
       setIsLoading(false);
       return;
     }
+    if (!db) {
+      setError(t('databaseConnectionError'));
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -109,7 +114,10 @@ export default function CompanyBookingAgreementViewPage() {
         method: 'POST',
         body: formData,
       });
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Upload failed with a non-JSON response.' }));
+        throw new Error(errorData.details || errorData.error || t('failedToUploadAgreement'));
+      }
       const result = await response.json();
       toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
       setBooking(prev => prev ? { ...prev, signedAgreementUrl: result.cloudinaryUrl, agreementStatus: 'signed_by_client' } : null);

@@ -51,20 +51,27 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
      console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // --- Upload to Cloudinary using a more reliable Data URI method ---
-    console.log('[API] Converting file to Data URI and uploading to Cloudinary...');
+    // --- Upload to Cloudinary using a stream ---
+    console.log('[API] Converting file to buffer and uploading to Cloudinary via stream...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64String = buffer.toString('base64');
-    const dataUri = `data:${file.type};base64,${base64String}`;
-    
-    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
-        folder: 'signed_agreements',
-        resource_type: 'auto',
+
+    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: 'signed_agreements', resource_type: 'auto' },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve({ secure_url: result?.secure_url });
+          }
+        }
+      );
+      uploadStream.end(buffer);
     });
 
     if (!cloudinaryUploadResult?.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error);
       return NextResponse.json({ error: 'Failed to upload agreement.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
