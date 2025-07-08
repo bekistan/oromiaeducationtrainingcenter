@@ -1,94 +1,114 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions to check user roles.
+    
+    // =================================
+    // Helper Functions
+    // =================================
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
 
-    function isAnyAdmin() {
-      return isSignedIn() && getUserData().role in ['admin', 'superadmin'];
-    }
-
-    function isSuperAdmin() {
-      return isSignedIn() && getUserData().role == 'superadmin';
-    }
-    
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    function getUserRole() {
+      // Caching the result of get() is handled by Firestore for a single request evaluation
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
 
-    function isCompanyMember(companyId) {
-      // Check if user is signed in, is a company rep, and their companyId matches the booking's companyId
-      return isSignedIn() 
-          && getUserData().role == 'company_representative' 
-          && getUserData().companyId == companyId;
+    function isAdmin() {
+      return isSignedIn() && getUserRole() in ['admin', 'superadmin'];
     }
     
-    // Default deny all access to all documents.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // PUBLIC COLLECTIONS
-    // Anyone can read published blog posts, dormitories, halls, and site configuration.
-    match /dormitories/{dormId} {
-      allow read: if true;
-    }
-    match /halls/{hallId} {
-      allow read: if true;
-    }
-    match /site_configuration/{configDoc} {
-        allow read: if true;
+    function isSuperAdmin() {
+      return isSignedIn() && getUserRole() == 'superadmin';
     }
     
-    match /blog/{postId} {
-      allow read, write: if true;
+    function isKeyholder() {
+      return isSignedIn() && getUserRole() == 'keyholder';
+    }
+    
+    function isGeneralAdmin() {
+        return isSignedIn() && (isSuperAdmin() || (getUserRole() == 'admin' && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null));
     }
 
-    // USER-SPECIFIC DATA
-    // Rules for user profiles and their bookings.
+    // =================================
+    // Users Collection
+    // =================================
     match /users/{userId} {
-      allow read: if true;
-      allow create: if true; // Allows new user registration.
+      // Allow user document creation on signup.
+      allow create: if isOwner(userId);
+      // Allow users to read their own profile. Admins can read any profile.
+      allow read: if isOwner(userId) || isAdmin();
+      // Allow users to update their own profile. Superadmins can update any.
       allow update: if isOwner(userId) || isSuperAdmin();
+      // Only superadmins can delete user documents.
       allow delete: if isSuperAdmin();
     }
+
+    // =================================
+    // Publicly Readable Content
+    // =================================
+    match /blog/{postId} {
+      // Admins can manage all posts, public can read published ones.
+      allow read: if resource.data.isPublished == true || isAdmin();
+      allow write: if isAdmin();
+    }
     
-    match /bookings/{bookingId} {
-      // Public can create dormitory bookings.
-      // Company reps must be signed in to create facility bookings.
-      allow create: if (request.resource.data.bookingCategory == 'dormitory' || isSignedIn());
-      
-      // Admins can read everything.
-      // Owners can read their own bookings.
-      // Public can read dormitory bookings for availability checks.
-      // Company members can read their company's bookings.
-      allow read: if isAnyAdmin() || isOwner(resource.data.userId) || resource.data.bookingCategory == 'dormitory' || isCompanyMember(resource.data.companyId);
-      
-      allow update: if isAnyAdmin() || isOwner(resource.data.userId) || isCompanyMember(resource.data.companyId);
-      allow delete: if isAnyAdmin();
+    match /dormitories/{dormId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /halls/{hallId} {
+      allow read: if true;
+      allow write: if isGeneralAdmin();
+    }
+    
+    match /site_configuration/{docId} {
+        allow read: if true;
+        allow write: if isGeneralAdmin();
     }
 
-    // ADMIN-ONLY COLLECTIONS
-    // Only admins can write to these collections.
-    match /dormitories/{dormId} {
-      allow write: if isAnyAdmin();
+    // =================================
+    // Bookings Collection
+    // =================================
+    match /bookings/{bookingId} {
+      // Any signed-in user can create a booking for themselves.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Admins and keyholders can read any booking. Users can read their own.
+      // The public cannot list all bookings, which secures the `check-my-booking` endpoint from data leakage.
+      // Note: The public check-my-booking page will not work with these secure rules and requires a different implementation (e.g., a Cloud Function).
+      allow read: if (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin() || isKeyholder()));
+      
+      // Update permissions are granular.
+      allow update: if isSignedIn() && (
+        // Admins have full update power.
+        isAdmin() || 
+        // Keyholders can only update the keyStatus field.
+        (isKeyholder() && request.resource.data.keys().hasOnly(['keyStatus'])) ||
+        // The booking owner can only update payment/agreement files.
+        (isOwner(resource.data.userId) && (
+            (request.resource.data.keys().hasAll(['paymentScreenshotUrl', 'paymentStatus'])) ||
+            (request.resource.data.keys().hasAll(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt']))
+          )
+        )
+      );
+
+      // Only admins can delete bookings.
+      allow delete: if isAdmin();
     }
-    match /halls/{hallId} {
-      allow write: if isAnyAdmin();
-    }
+    
+    // =================================
+    // Notifications Collection (Admins only)
+    // =================================
     match /notifications/{notificationId} {
-      allow read, write: if isAnyAdmin();
-    }
-    match /site_configuration/{configDoc} {
-      allow write: if isAnyAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }
