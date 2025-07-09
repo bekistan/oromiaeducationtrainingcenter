@@ -1,11 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { Booking } from '@/types';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, Timestamp, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth'; 
@@ -105,23 +104,44 @@ export default function CompanyBookingAgreementViewPage() {
 
   const handleUpload = async () => {
     if (!selectedFile || !bookingId) return;
+    if (!db) {
+        toast({ variant: 'destructive', title: t('error'), description: t('databaseConnectionError') });
+        return;
+    }
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('bookingId', bookingId);
     try {
+      // Step 1: Upload to Cloudinary via our API route
       const response = await fetch('/api/upload-agreement', {
         method: 'POST',
         body: formData,
       });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Upload failed with a non-JSON response.' }));
         throw new Error(errorData.details || errorData.error || t('failedToUploadAgreement'));
       }
       const result = await response.json();
+      const cloudinaryUrl = result.url;
+      
+      if (!cloudinaryUrl) {
+          throw new Error('API did not return a valid URL.');
+      }
+
+      // Step 2: Update Firestore from the client now that we have the URL
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        signedAgreementUrl: cloudinaryUrl,
+        agreementStatus: 'signed_by_client',
+        agreementSignedAt: serverTimestamp(),
+      });
+      
       toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
-      setBooking(prev => prev ? { ...prev, signedAgreementUrl: result.cloudinaryUrl, agreementStatus: 'signed_by_client' } : null);
+      setBooking(prev => prev ? { ...prev, signedAgreementUrl: cloudinaryUrl, agreementStatus: 'signed_by_client' } : null);
       setSelectedFile(null);
+
     } catch (err) {
       toast({ variant: 'destructive', title: t('error'), description: (err as Error).message || t('failedToUploadAgreement') });
     } finally {

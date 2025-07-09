@@ -1,32 +1,12 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-// This is a placeholder for a secure session validation mechanism
-// In a real app, you'd use something like Next-Auth.js or Firebase Auth server-side validation
-async function validateUserSession(req: NextRequest): Promise<{ isValid: boolean; userId?: string }> {
-  // For now, we'll assume the request is valid if it reaches here.
-  // This should be replaced with actual session validation logic.
-  return { isValid: true };
-}
-
+// This API route is now responsible ONLY for uploading to Cloudinary and returning the URL.
+// The authenticated client-side component will handle the Firestore database write.
 
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-agreement] START ---');
   
-  if (!db) {
-    console.error("[API] FAILED: Firebase is not configured.");
-    return NextResponse.json({ error: "Database service is not configured." }, { status: 500 });
-  }
-
-  // Securely validate user session
-  const { isValid } = await validateUserSession(req);
-  if (!isValid) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid session.' }, { status: 401 });
-  }
-
   // --- Cloudinary Configuration ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
@@ -77,20 +57,10 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
-    // Update Firestore
-    console.log('[API] Updating Firestore document...');
-    const bookingRef = doc(db, "bookings", bookingId);
-    await updateDoc(bookingRef, {
-        signedAgreementUrl: cloudinaryUrl,
-        agreementStatus: 'signed_by_client',
-        agreementSignedAt: serverTimestamp(),
-    });
-    console.log('[API] Firestore update successful.');
-
     console.log('--- [API /upload-agreement] END: Success ---');
     return NextResponse.json({
       message: "Agreement uploaded successfully.",
-      cloudinaryUrl: cloudinaryUrl,
+      url: cloudinaryUrl,
     }, { status: 200 });
 
   } catch (error: any) {
