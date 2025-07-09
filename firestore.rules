@@ -4,125 +4,132 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =================================
     // Helper Functions
-    // =================================
-    function isAuth() {
+    function isSignedIn() {
       return request.auth != null;
     }
-    function isSignedInUser(uid) {
-      return isAuth() && request.auth.uid == uid;
-    }
+
     function getUserData(uid) {
       return get(/databases/$(database)/documents/users/$(uid)).data;
     }
+
     function isRole(role) {
-      return isAuth() && getUserData(request.auth.uid).role == role;
+      return isSignedIn() && getUserData(request.auth.uid).role == role;
     }
+
     function isSuperAdmin() {
       return isRole('superadmin');
     }
-    function isAdmin() {
-      return isRole('admin');
+
+    function isAnyAdmin() {
+      return isRole('admin') || isRole('superadmin');
     }
+
     function isKeyholder() {
       return isRole('keyholder');
     }
-    function isCompanyRep() {
-      return isRole('company_representative');
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    // =================================
-    // Bookings Collection Rules
-    // =================================
-    match /bookings/{bookingId} {
-      // Allow read access for the user who made the booking, or any admin/keyholder staff.
-      allow get: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin() || isSuperAdmin() || isKeyholder();
-
-      // Allow admins, superadmins, and keyholders to list bookings.
-      allow list: if isAdmin() || isSuperAdmin() || isKeyholder();
-
-      // Any authenticated user can create a booking request.
-      allow create: if isAuth();
-
-      // Deletion is restricted to admins.
-      allow delete: if isAdmin() || isSuperAdmin();
-
-      // Update permissions are role-based.
-      allow update: if
-        // Admins/Superadmins can update any booking.
-        (isAdmin() || isSuperAdmin()) ||
-        // A company representative can update their own company's booking to upload a signed agreement.
-        (
-          isCompanyRep() &&
-          getUserData(request.auth.uid).companyId == resource.data.companyId &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt'])
-        ) ||
-        // A keyholder can only update the key status of a booking.
-        (
-          isKeyholder() &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus'])
-        );
+    function isCompanyOwnerOfBooking(bookingData) {
+      let user = getUserData(request.auth.uid);
+      return isRole('company_representative') && user.companyId == bookingData.companyId;
     }
 
-    // =================================
-    // Users Collection Rules
-    // =================================
+    // Default deny all access unless explicitly allowed by a rule below
+    match /{path=**} {
+      allow read, write: if false;
+    }
+
+    // USER DATA
     match /users/{userId} {
-      // A user can get their own data. Superadmins can get anyone's data.
-      allow get: if isSignedInUser(userId) || isSuperAdmin() || isAdmin();
+      // Who can create a user?
+      // 1. Anyone can create a "company_representative" account during registration.
+      // 2. A superadmin can create other admins or keyholders.
+      allow create: if request.resource.data.role == 'company_representative' || isSuperAdmin();
 
-      // Only superadmins and admins can list all users.
-      allow list: if isSuperAdmin() || isAdmin();
+      // Who can read a user document?
+      // 1. A user can read their own document.
+      // 2. A superadmin can read any user document.
+      allow get: if isOwner(userId) || isSuperAdmin();
+      
+      // A superadmin can list all users for the management panel.
+      allow list: if isSuperAdmin();
 
-      // Anyone can create a user account (signup).
-      allow create: if true;
+      // Who can update a user document?
+      // 1. A user can update their own name and phone number.
+      // 2. A superadmin can update any user, but cannot change their own role.
+      // 3. An admin can update a company's approval status.
+      allow update: if (isOwner(userId) && request.resource.data.keys().hasOnly(['name', 'phone'])) ||
+                       (isSuperAdmin() && (userId != request.auth.uid || !('role' in request.resource.data))) ||
+                       (isAnyAdmin() && request.resource.data.keys().hasOnly(['approvalStatus']));
 
-      // Restrict updates based on role.
-      allow update: if
-        // A user can update their own name and phone number.
-        (isSignedInUser(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone'])) ||
-        // An admin can approve/reject a company registration.
-        (isAdmin() && getUserData(request.auth.uid).buildingAssignment == null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus'])) ||
-        // A superadmin can update user roles and assignments.
-        (isSuperAdmin());
-
-      // Only superadmins can delete users.
-      allow delete: if isSuperAdmin();
+      // Superadmins can delete users, but not themselves.
+      allow delete: if isSuperAdmin() && request.auth.uid != userId;
     }
 
-    // =================================
-    // Public Content Rules
-    // =================================
-    match /dormitories/{docId} {
-      allow read: if true;
-      allow write: if isAdmin() || isSuperAdmin();
+    // PUBLICLY READABLE DATA
+    match /blog/{postId} {
+      // Anyone can read a post if it is published.
+      allow get: if resource.data.isPublished == true;
+      // Anyone can query the blog collection (client filters for published).
+      allow list: if true;
+      
+      // Admins have full read/write access to all posts.
+      allow read, write: if isAnyAdmin();
     }
-
-    match /halls/{docId} {
-      allow read: if true;
-      allow write: if isAdmin() || isSuperAdmin();
+    
+    match /{collection}/{docId} where collection in ['dormitories', 'halls'] {
+        // Anyone can read lists of dorms/halls and individual documents.
+        allow get, list: if true;
+        // Admins have full write access.
+        allow write: if isAnyAdmin();
     }
-
-    match /blog/{docId} {
-      allow get: if resource.data.isPublished == true || isAdmin() || isSuperAdmin();
-      allow list: if true; 
-      allow write: if isAdmin() || isSuperAdmin(); 
-    }
-
-    // =================================
-    // Configuration Rules
-    // =================================
+    
     match /site_configuration/{docId} {
-        allow read: if true;
-        allow write: if isAdmin() || isSuperAdmin();
+        // Anyone can get site config.
+        allow get: if true;
+        // Only admins can write site config.
+        allow write: if isAnyAdmin();
     }
 
-    // =================================
-    // Notification Rules
-    // =================================
+    // BOOKINGS
+    match /bookings/{bookingId} {
+        // Anyone can create a dormitory booking.
+        // A company representative can create a facility booking.
+        allow create: if request.resource.data.bookingCategory == 'dormitory' || (request.resource.data.bookingCategory == 'facility' && isRole('company_representative'));
+        
+        // Admins and keyholders can get any booking document.
+        // The user who created the booking can get it.
+        // A company representative can get a booking belonging to their company.
+        allow get: if isAnyAdmin() || isKeyholder() || (isSignedIn() && resource.data.userId == request.auth.uid) || isCompanyOwnerOfBooking(resource.data);
+
+        // Admins/keyholders can list all bookings.
+        // Company reps can list bookings for their company.
+        // Public can list bookings by their phone number.
+        allow list: if (isAnyAdmin() || isKeyholder()) || 
+                       (isRole('company_representative') && request.query.where[0][0] == 'companyId') || 
+                       (request.query.where[0][0] == 'phone');
+
+        // Admins/keyholders can update any booking.
+        // Company reps can update their own booking with an agreement.
+        // Anyone can update a booking with a payment screenshot (for dormitory bookings).
+        allow update: if (isAnyAdmin() || isKeyholder()) || 
+                         (isCompanyOwnerOfBooking(resource.data) && request.resource.data.keys().hasAny(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt'])) ||
+                         (request.resource.data.keys().hasAny(['paymentScreenshotUrl', 'paymentStatus']));
+
+        // Admins can delete bookings.
+        allow delete: if isAnyAdmin();
+    }
+    
+    // NOTIFICATIONS (internal)
     match /notifications/{notificationId} {
-      allow read, write: if isAdmin() || isSuperAdmin();
+        // Any signed-in user can create a notification (triggered by server actions after booking).
+        allow create: if isSignedIn();
+        // Only admins can read/update notifications.
+        allow read, update: if isAnyAdmin();
     }
   }
 }
