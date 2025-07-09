@@ -1,86 +1,128 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin or superadmin.
+    // =================================
+    // Helper Functions
+    // =================================
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isSignedInUser(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    function isRole(role) {
+      return isAuth() && getUserData(request.auth.uid).role == role;
+    }
+    function isSuperAdmin() {
+      return isRole('superadmin');
+    }
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      return isRole('admin');
     }
-    
-    // Helper function to check if the user is the owner of the document.
-    function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Helper function to check if a user is a keyholder
     function isKeyholder() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
+      return isRole('keyholder');
     }
-    
-    // Helper function to check if a user is a company representative
     function isCompanyRep() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
+      return isRole('company_representative');
     }
 
-    // --- Users Collection ---
-    match /users/{userId} {
-      // Admins can read/write any user document.
-      // Users can read/update their own document.
-      allow read, update: if isAdmin() || isOwner(userId);
-      // Anyone can create a user document (signup).
-      allow create: if true;
-      // Only admins can delete users.
-      allow delete: if isAdmin();
-    }
-
-    // --- Publicly Readable Collections ---
-    match /dormitories/{dormId} {
-      // Anyone can list/read dormitories. Admins can write.
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /halls/{hallId} {
-      // Anyone can list/read halls. Admins can write.
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
-    match /blog/{postId} {
-        // Anyone can read published posts. Admins can read/write all posts.
-        allow read: if resource.data.isPublished == true || isAdmin();
-        allow write: if isAdmin();
-    }
-    
-    match /site_configuration/{docId} {
-        // Anyone can read configuration, only admins can write.
-        allow read: if true;
-        allow write: if isAdmin();
-    }
-
-    // --- Bookings Collection ---
+    // =================================
+    // Bookings Collection Rules
+    // =================================
     match /bookings/{bookingId} {
-      // Anyone can create a booking.
-      allow create: if true;
-      
-      // Allow read if user is an admin, keyholder, or the company rep who owns the booking.
-      allow read: if isAdmin() || isKeyholder() || (isCompanyRep() && request.auth.uid == resource.data.userId);
-      
-      // Admins can fully update/delete. Company reps can only update specific fields for their own agreement upload.
-      allow update: if isAdmin() || (isCompanyRep() && request.auth.uid == resource.data.userId && request.resource.data.keys().hasOnly(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt']));
-      allow delete: if isAdmin();
-    }
-    
-    // --- Notifications Collection ---
-    match /notifications/{notificationId} {
-        // Only admins can read/write notifications.
-        allow read, write: if isAdmin();
+      // Allow read access for the user who made the booking, or any admin/keyholder staff.
+      allow get: if (isAuth() && resource.data.userId == request.auth.uid) || isAdmin() || isSuperAdmin() || isKeyholder();
+
+      // Allow admins, superadmins, and keyholders to list bookings.
+      allow list: if isAdmin() || isSuperAdmin() || isKeyholder();
+
+      // Any authenticated user can create a booking request.
+      allow create: if isAuth();
+
+      // Deletion is restricted to admins.
+      allow delete: if isAdmin() || isSuperAdmin();
+
+      // Update permissions are role-based.
+      allow update: if
+        // Admins/Superadmins can update any booking.
+        (isAdmin() || isSuperAdmin()) ||
+        // A company representative can update their own company's booking to upload a signed agreement.
+        (
+          isCompanyRep() &&
+          getUserData(request.auth.uid).companyId == resource.data.companyId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt'])
+        ) ||
+        // A keyholder can only update the key status of a booking.
+        (
+          isKeyholder() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus'])
+        );
     }
 
-    // Fallback security rule - deny all other access
-    match /{path=**} {
-      allow read, write: if false;
+    // =================================
+    // Users Collection Rules
+    // =================================
+    match /users/{userId} {
+      // A user can get their own data. Superadmins can get anyone's data.
+      allow get: if isSignedInUser(userId) || isSuperAdmin() || isAdmin();
+
+      // Only superadmins and admins can list all users.
+      allow list: if isSuperAdmin() || isAdmin();
+
+      // Anyone can create a user account (signup).
+      allow create: if true;
+
+      // Restrict updates based on role.
+      allow update: if
+        // A user can update their own name and phone number.
+        (isSignedInUser(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone'])) ||
+        // An admin can approve/reject a company registration.
+        (isAdmin() && getUserData(request.auth.uid).buildingAssignment == null && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['approvalStatus'])) ||
+        // A superadmin can update user roles and assignments.
+        (isSuperAdmin());
+
+      // Only superadmins can delete users.
+      allow delete: if isSuperAdmin();
+    }
+
+    // =================================
+    // Public Content Rules
+    // =================================
+    match /dormitories/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /halls/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    match /blog/{docId} {
+      allow get: if resource.data.isPublished == true || isAdmin() || isSuperAdmin();
+      allow list: if true; 
+      allow write: if isAdmin() || isSuperAdmin(); 
+    }
+
+    // =================================
+    // Configuration Rules
+    // =================================
+    match /site_configuration/{docId} {
+        allow read: if true;
+        allow write: if isAdmin() || isSuperAdmin();
+    }
+
+    // =================================
+    // Notification Rules
+    // =================================
+    match /notifications/{notificationId} {
+      allow read, write: if isAdmin() || isSuperAdmin();
     }
   }
 }
