@@ -68,7 +68,7 @@ const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
 const fetchAgreementTemplate = async (): Promise<string> => {
     if (!db) return DEFAULT_AGREEMENT_TERMS;
     const docRef = doc(db, AGREEMENT_TEMPLATE_DOC_PATH);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getFirestoreDoc(docRef);
     if (docSnap.exists() && docSnap.data()?.defaultTerms) {
         return docSnap.data().defaultTerms;
     }
