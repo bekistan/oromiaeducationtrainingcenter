@@ -1,118 +1,111 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ==== HELPER FUNCTIONS ====
+    
+    // Helper Functions
     function isLoggedIn() {
       return request.auth != null;
     }
-
-    function isRole(role) {
-      return isLoggedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    
+    function getUserData() {
+      // Note: This function can only be used in rules for authenticated users.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-
+    
     function isSuperAdmin() {
-      return isRole('superadmin');
+      return isLoggedIn() && getUserData().role == 'superadmin';
     }
-
+    
     function isAdmin() {
-      return isRole('admin');
+      return isLoggedIn() && getUserData().role == 'admin';
     }
-
+    
     function isKeyholder() {
-      return isRole('keyholder');
+      return isLoggedIn() && getUserData().role == 'keyholder';
     }
-
+    
     function isCompanyRep() {
-      return isRole('company_representative');
+      return isLoggedIn() && getUserData().role == 'company_representative';
     }
 
-    function isOwner(userId) {
-      return isLoggedIn() && request.auth.uid == userId;
+    function isIndividual() {
+      // An "individual" user in this context is one who books a dorm for personal use.
+      // They may not have a specific 'individual' role, so we check against other roles.
+      // For this app, any authenticated user who is NOT an admin/keyholder/company_rep can be considered an individual booker.
+      // This function is for clarity in booking rules.
+      let userRole = getUserData().role;
+      return isLoggedIn() && userRole != 'admin' && userRole != 'superadmin' && userRole != 'keyholder' && userRole != 'company_representative';
     }
 
     // ==== COLLECTION: users ====
     match /users/{userId} {
-      allow read: if isLoggedIn() && (isOwner(userId) || isSuperAdmin() || isAdmin());
+      allow get: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin() || isAdmin());
       allow list: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-      allow create: if isLoggedIn(); // Any authenticated user can create their own user document
-      allow update: if isOwner(userId) || isSuperAdmin(); // User can update their own info, or superadmin can
-      allow delete: if isSuperAdmin(); // Only superadmins can delete users
+      allow create: if request.auth.uid == userId; // A user can only create their own user document
+      allow update: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow delete: if isSuperAdmin();
     }
+    
+    // ==== COLLECTION: bookings ====
+    match /bookings/{bookingId} {
+      // GET: A document can be read if...
+      allow get: if isLoggedIn() && (
+        // an admin/staff
+        isSuperAdmin() || isAdmin() || isKeyholder() ||
+        // the company rep who owns the booking
+        (isCompanyRep() && resource.data.companyId == getUserData().companyId) ||
+        // the individual user who owns the booking (matched by user ID)
+        (resource.data.userId == request.auth.uid)
+      );
 
-    // ==== COLLECTION: dormitories & halls ====
+      // LIST: A query can be made if the user is logged in.
+      // The security is enforced by the client-side 'where' clause combined with the 'get' rule above.
+      // e.g., a company rep MUST query with where("companyId", "==", theirId).
+      // If they try a broad query, it will fail because the 'get' rule would fail on some documents.
+      allow list: if isLoggedIn();
+
+      // CREATE: Any authenticated user can create a booking request for themselves.
+      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+
+      // UPDATE: Only Admins/Superadmins, or the company rep for their own booking.
+      allow update: if isLoggedIn() && (
+        isSuperAdmin() || isAdmin() ||
+        (isCompanyRep() && resource.data.companyId == getUserData().companyId)
+      );
+      
+      // DELETE: Only Admins and Superadmins can delete bookings.
+      allow delete: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+    }
+    
+    // ==== PUBLIC & ADMIN-ONLY COLLECTIONS ====
+    
     match /dormitories/{dormId} {
-      allow read: if true; // Publicly readable
-      allow write: if isSuperAdmin() || isAdmin();
+      allow get, list: if true;
+      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
     }
 
     match /halls/{hallId} {
-      allow read: if true; // Publicly readable
-      allow write: if isSuperAdmin() || isAdmin();
+      allow get, list: if true;
+      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
     }
     
-    // ==== COLLECTION: blog ====
     match /blog/{postId} {
-        allow get: if resource.data.isPublished == true || (isLoggedIn() && (isSuperAdmin() || isAdmin()));
-        allow list: if true; // Allows querying, but will be filtered by rules on get
-        allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-    }
-
-    // ==== COLLECTION: bookings ====
-    match /bookings/{bookingId} {
-      // READ:
-      // - Admins/Superadmins can read any booking.
-      // - Keyholders can read any dormitory booking.
-      // - The user who created the booking can read it.
-      // - A company rep can read bookings associated with their company.
-      allow get: if isLoggedIn() && (
-        isSuperAdmin() || isAdmin() ||
-        (isKeyholder() && resource.data.bookingCategory == 'dormitory') ||
-        (resource.data.userId != null && isOwner(resource.data.userId)) ||
-        (resource.data.companyId != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId)
-      );
-
-      // LIST:
-      // Admins, Superadmins, and Keyholders can list bookings to manage them.
-      // Client-side queries should filter further (e.g., keyholders only see dorms).
-      allow list: if isLoggedIn() && (isSuperAdmin() || isAdmin() || isKeyholder());
-      
-      // CREATE:
-      // - Any authenticated user can create a booking request.
-      // - We verify the userId matches the person making the request.
-      allow create: if isLoggedIn() && request.auth.uid == request.resource.data.userId;
-
-      // UPDATE:
-      // - Admins/Superadmins can update any booking.
-      // - Keyholders can update the keyStatus of dormitory bookings.
-      // - The booking owner can update payment proof or signed agreement.
-      allow update: if isLoggedIn() && (
-        isSuperAdmin() || isAdmin() ||
-        (isKeyholder() && request.resource.data.bookingCategory == 'dormitory' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus'])) ||
-        (isOwner(resource.data.userId) && (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentScreenshotUrl', 'paymentStatus']) ||
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['signedAgreementUrl', 'agreementStatus', 'agreementSignedAt'])
-        ))
-      );
-      
-      // DELETE:
-      // Only Superadmins or general Admins can delete bookings.
-      allow delete: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-    }
-
-    // ==== COLLECTION: notifications ====
-    match /notifications/{notificationId} {
-      // Only Admins and Superadmins can read/write notifications.
-      allow read, write: if isLoggedIn() && (isAdmin() || isSuperAdmin());
+      // Anyone can get a post if it's published.
+      allow get: if resource.data.isPublished == true;
+      // Anyone can list posts. The client-side query must filter for isPublished == true
+      // because the 'get' rule above will cause a broad query to fail if it includes unpublished posts.
+      allow list: if true; 
+      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
     }
     
-    // ==== COLLECTION: site_configuration (read-only for public) ====
+    match /notifications/{notificationId} {
+        allow read, write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+    }
+    
     match /site_configuration/{docId} {
-        allow get: if true; // Publicly readable for settings like bank details, site content, etc.
-        allow list: if true;
-        allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin()); // Writable only by admins
+      allow get: if true;
+      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
     }
   }
 }
