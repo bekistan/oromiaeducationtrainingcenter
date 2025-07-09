@@ -165,7 +165,8 @@ export default function AdminManageFacilityBookingsPage() {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
     if (newStatus === 'approved') {
       const defaultTerms = await fetchAgreementTemplate();
-      updateData.agreementStatus = 'pending_admin_action';
+      updateData.agreementStatus = 'sent_to_client';
+      updateData.agreementSentAt = Timestamp.now();
       updateData.customAgreementTerms = defaultTerms;
     } else if (newStatus === 'rejected') {
       updateData.paymentStatus = 'failed';
@@ -270,7 +271,7 @@ export default function AdminManageFacilityBookingsPage() {
 
   return (
     <>
-      <div className="space-y-6">
+      <ScrollAnimate className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">{t('manageFacilityBookings')}</h1>
           <div className="flex items-center space-x-2">
@@ -380,12 +381,6 @@ export default function AdminManageFacilityBookingsPage() {
                                   </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                  disabled={booking.agreementStatus !== 'pending_admin_action'}
-                                >
-                                  <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
-                                </DropdownMenuItem>
-                                 <DropdownMenuItem
                                   onClick={() => handleAgreementStatusChange(booking.id, 'completed')}
                                   disabled={booking.agreementStatus !== 'signed_by_client'}
                                 >
@@ -428,7 +423,7 @@ export default function AdminManageFacilityBookingsPage() {
             </CardContent>
           </Card>
         )}
-      </div>
+      </ScrollAnimate>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>

@@ -168,7 +168,8 @@ export default function AdminBookingsPage() {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
 
     if (newStatus === 'approved' && currentBooking?.bookingCategory === 'facility') {
-      updateData.agreementStatus = 'pending_admin_action';
+      updateData.agreementStatus = 'sent_to_client';
+      updateData.agreementSentAt = Timestamp.now();
       const defaultTerms = DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
       updateData.customAgreementTerms = defaultTerms;
     } else if (newStatus === 'rejected' && currentBooking?.bookingCategory === 'facility') {
@@ -414,18 +415,6 @@ export default function AdminBookingsPage() {
                                       <Link href={`/admin/bookings/${booking.id}/agreement`} target="_blank" rel="noopener noreferrer">
                                         <FileText className="mr-2 h-4 w-4" /> {t('viewEditAgreement')}
                                       </Link>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleAgreementStatusChange(booking.id, 'sent_to_client')}
-                                      disabled={!(!booking.agreementStatus || booking.agreementStatus === 'pending_admin_action')}
-                                    >
-                                      <Send className="mr-2 h-4 w-4" /> {t('markAgreementSent')}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleAgreementStatusChange(booking.id, 'signed_by_client')}
-                                      disabled={booking.agreementStatus !== 'sent_to_client'}
-                                    >
-                                      <FileSignature className="mr-2 h-4 w-4" /> {t('confirmAgreementSigned')}
                                     </DropdownMenuItem>
                                      <DropdownMenuItem
                                       onClick={() => handleAgreementStatusChange(booking.id, 'completed')}
