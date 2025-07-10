@@ -115,7 +115,7 @@ export default function CompanyBookingAgreementViewPage() {
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('bookingId', bookingId);
-    formData.append('companyId', booking.companyId); // Pass companyId to API
+    formData.append('companyId', booking.companyId);
 
     try {
       const response = await fetch('/api/upload-agreement', {

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
-    const companyId = formData.get('companyId') as string | null; // Get companyId from the form data
+    const companyId = formData.get('companyId') as string | null;
 
     if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
@@ -36,31 +36,37 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // --- Upload to Cloudinary using direct upload with specified public_id ---
-    console.log('[API] Converting file to buffer and uploading to Cloudinary...');
+    const folderPath = `signed_agreements/${companyId}/${bookingId}`;
+    console.log(`[API] Uploading to Cloudinary folder: "${folderPath}"`);
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
     
-    // Create a specific, predictable public_id to control the file path
-    const publicId = `signed_agreements/${companyId}/${bookingId}/signed_agreement`;
-    console.log(`[API] Using public_id for upload: "${publicId}"`);
-
-    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
-        public_id: publicId,
-        resource_type: 'auto',
-        overwrite: true, // Overwrite if a file with the same name already exists for this booking
+    // Use a promise-based approach for upload_stream to get the result
+    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: folderPath, resource_type: 'auto' },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result || {});
+          }
+        }
+      );
+      uploadStream.end(buffer);
     });
 
-
-    if (!cloudinaryUploadResult?.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
+    if (!cloudinaryUploadResult.secure_url) {
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error || 'No secure_url returned.');
       return NextResponse.json({ error: 'Failed to upload agreement.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
+    
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
     console.log('--- [API /upload-agreement] END: Success ---');
+    // Return the EXACT URL provided by Cloudinary
     return NextResponse.json({
       message: "Agreement uploaded successfully.",
       url: cloudinaryUrl,
