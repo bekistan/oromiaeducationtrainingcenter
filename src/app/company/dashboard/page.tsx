@@ -279,7 +279,7 @@ export default function CompanyDashboardPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {booking.approvalStatus === 'approved' ? (
+                          {booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed' ? (
                               <Button asChild size="sm" variant="outline">
                                 <Link href={`/company/bookings/${booking.id}/agreement`}>
                                   <FileText className="mr-2 h-4 w-4" />

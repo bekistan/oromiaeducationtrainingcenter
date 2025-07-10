@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -10,7 +11,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth'; 
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, CheckCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, CheckCircle, ExternalLink } from 'lucide-react';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -210,6 +211,14 @@ export default function CompanyBookingAgreementViewPage() {
                         <CardTitle className="text-yellow-700 flex items-center"><Hourglass className="mr-2 h-5 w-5" />{t('agreementUnderReviewTitle')}</CardTitle>
                         <CardDescription className="text-yellow-600">{t('agreementUnderReviewDesc')}</CardDescription>
                     </CardHeader>
+                     <CardContent>
+                        <Button asChild variant="outline">
+                            <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-2 h-4 w-4"/>
+                                {t('viewYourUploadedAgreement')}
+                            </a>
+                        </Button>
+                    </CardContent>
                 </Card>
             );
         case 'completed':
@@ -219,6 +228,14 @@ export default function CompanyBookingAgreementViewPage() {
                         <CardTitle className="text-green-700 flex items-center"><CheckCircle className="mr-2 h-5 w-5" />{t('agreementCompletedTitle')}</CardTitle>
                         <CardDescription className="text-green-600">{t('agreementCompletedDesc')}</CardDescription>
                     </CardHeader>
+                     <CardContent>
+                        <Button asChild variant="outline">
+                             <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-2 h-4 w-4"/>
+                                {t('viewCompletedAgreement')}
+                            </a>
+                        </Button>
+                    </CardContent>
                 </Card>
             );
         default:
