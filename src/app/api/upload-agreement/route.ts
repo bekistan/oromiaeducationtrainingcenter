@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
     const folderPath = `signed_agreements/${companyId}/${bookingId}`;
-    console.log(`[API] Uploading to Cloudinary folder: "${folderPath}"`);
+    const publicId = `${folderPath}/signed_agreement`;
+    console.log(`[API] Uploading to Cloudinary with explicit public_id: "${publicId}"`);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -45,7 +46,11 @@ export async function POST(req: NextRequest) {
     // Use a promise-based approach for upload_stream to get the result
     const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: folderPath, resource_type: 'auto' },
+        { 
+          public_id: publicId,
+          resource_type: 'auto',
+          overwrite: true, // Overwrite if a file with the same name exists for this booking
+        },
         (error, result) => {
           if (error) {
             reject(error);
