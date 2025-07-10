@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -104,7 +103,10 @@ export default function CompanyBookingAgreementViewPage() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !bookingId) return;
+    if (!selectedFile || !bookingId || !booking?.companyId) {
+        toast({ variant: 'destructive', title: t('error'), description: t('fileOrBookingInfoMissing') });
+        return;
+    }
     if (!db) {
         toast({ variant: 'destructive', title: t('error'), description: t('databaseConnectionError') });
         return;
@@ -113,6 +115,8 @@ export default function CompanyBookingAgreementViewPage() {
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('bookingId', bookingId);
+    formData.append('companyId', booking.companyId); // Pass companyId to API
+
     try {
       const response = await fetch('/api/upload-agreement', {
         method: 'POST',

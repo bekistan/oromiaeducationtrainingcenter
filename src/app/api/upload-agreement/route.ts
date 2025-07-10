@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
@@ -29,27 +28,13 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const bookingId = formData.get('bookingId') as string | null;
+    const companyId = formData.get('companyId') as string | null; // Get companyId from the form data
 
     if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
-    console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
+    if (!companyId) return NextResponse.json({ error: 'Company ID is required.' }, { status: 400 });
 
-    // Fetch companyId from the booking document to create a nested folder structure.
-    if (!db) {
-        console.error('[API] FAILED: Database not configured.');
-        return NextResponse.json({ error: 'Database service is not configured.' }, { status: 500 });
-    }
-    const bookingRef = doc(db, 'bookings', bookingId);
-    const bookingSnap = await getDoc(bookingRef);
-    if (!bookingSnap.exists()) {
-        console.error(`[API] FAILED: Booking document not found for ID: ${bookingId}`);
-        return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
-    }
-    const companyId = bookingSnap.data()?.companyId;
-    if (!companyId) {
-        console.error(`[API] FAILED: Booking ${bookingId} does not have a companyId.`);
-        return NextResponse.json({ error: 'Booking is not associated with a company.' }, { status: 400 });
-    }
+    console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
     // --- Upload to Cloudinary using direct upload with specified public_id ---
     console.log('[API] Converting file to buffer and uploading to Cloudinary...');
