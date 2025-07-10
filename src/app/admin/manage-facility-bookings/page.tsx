@@ -39,6 +39,7 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tansta
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/lib/date-utils';
 import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
+import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
