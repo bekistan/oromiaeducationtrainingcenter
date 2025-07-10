@@ -36,20 +36,16 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    const folderPath = `signed_agreements/${companyId}/${bookingId}`;
-    const publicId = `${folderPath}/signed_agreement`;
-    console.log(`[API] Uploading to Cloudinary with explicit public_id: "${publicId}"`);
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
     // Use a promise-based approach for upload_stream to get the result
+    // Let Cloudinary generate a unique filename within the specified folder.
     const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { 
-          public_id: publicId,
+          folder: 'signed_agreements',
           resource_type: 'auto',
-          overwrite: true, // Overwrite if a file with the same name exists for this booking
         },
         (error, result) => {
           if (error) {
