@@ -1,5 +1,8 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // This API route is now responsible ONLY for uploading to Cloudinary and returning the URL.
 // The authenticated client-side component will handle the Firestore database write.
@@ -29,16 +32,35 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
-     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
+    console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // --- Upload to Cloudinary using a stream ---
+    // Fetch companyId from the booking document to create a nested folder structure.
+    if (!db) {
+        console.error('[API] FAILED: Database not configured.');
+        return NextResponse.json({ error: 'Database service is not configured.' }, { status: 500 });
+    }
+    const bookingRef = doc(db, 'bookings', bookingId);
+    const bookingSnap = await getDoc(bookingRef);
+    if (!bookingSnap.exists()) {
+        console.error(`[API] FAILED: Booking document not found for ID: ${bookingId}`);
+        return NextResponse.json({ error: 'Booking not found.' }, { status: 404 });
+    }
+    const companyId = bookingSnap.data()?.companyId;
+    if (!companyId) {
+        console.error(`[API] FAILED: Booking ${bookingId} does not have a companyId.`);
+        return NextResponse.json({ error: 'Booking is not associated with a company.' }, { status: 400 });
+    }
+
+    // --- Upload to Cloudinary using a stream with a nested folder path ---
     console.log('[API] Converting file to buffer and uploading to Cloudinary via stream...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
     const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
+      // Create a unique folder path for each agreement
+      const folderPath = `signed_agreements/${companyId}/${bookingId}`;
       const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: 'signed_agreements', resource_type: 'auto' },
+        { folder: folderPath, resource_type: 'auto' },
         (error, result) => {
           if (error) {
             reject(error);
