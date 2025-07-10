@@ -114,7 +114,6 @@ export default function CompanyBookingAgreementViewPage() {
     formData.append('file', selectedFile);
     formData.append('bookingId', bookingId);
     try {
-      // Step 1: Upload to Cloudinary via our API route
       const response = await fetch('/api/upload-agreement', {
         method: 'POST',
         body: formData,
@@ -131,7 +130,6 @@ export default function CompanyBookingAgreementViewPage() {
           throw new Error('API did not return a valid URL.');
       }
 
-      // Step 2: Update Firestore from the client now that we have the URL
       const bookingRef = doc(db, "bookings", bookingId);
       await updateDoc(bookingRef, {
         signedAgreementUrl: cloudinaryUrl,
@@ -176,73 +174,43 @@ export default function CompanyBookingAgreementViewPage() {
     );
   }
   
-  const renderStatusCard = () => {
-    if (!booking) return null;
-    switch(booking.agreementStatus) {
-        case 'pending_admin_action':
-            return (
-                <Card className="my-6 bg-blue-50 border-blue-200">
-                    <CardHeader>
-                        <CardTitle className="text-blue-700 flex items-center"><Hourglass className="mr-2 h-5 w-5" />{t('agreementInPreparationTitle')}</CardTitle>
-                        <CardDescription className="text-blue-600">{t('agreementInPreparationDesc')}</CardDescription>
-                    </CardHeader>
-                </Card>
-            );
-        case 'sent_to_client':
-            return (
-                <Card className="my-6">
-                    <CardHeader>
-                        <CardTitle>{t('uploadYourSignedAgreement')}</CardTitle>
-                        <CardDescription>{t('uploadSignedAgreementDesc')}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-                        <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" className="flex-grow" />
-                        <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
-                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
-                            {t('uploadFile')}
-                        </Button>
-                    </CardContent>
-                </Card>
-            );
-        case 'signed_by_client':
-            return (
-                <Card className="my-6 bg-yellow-50 border-yellow-200">
-                    <CardHeader>
-                        <CardTitle className="text-yellow-700 flex items-center"><Hourglass className="mr-2 h-5 w-5" />{t('agreementUnderReviewTitle')}</CardTitle>
-                        <CardDescription className="text-yellow-600">{t('agreementUnderReviewDesc')}</CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button asChild variant="outline">
-                            <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-2 h-4 w-4"/>
-                                {t('viewYourUploadedAgreement')}
-                            </a>
-                        </Button>
-                    </CardContent>
-                </Card>
-            );
-        case 'completed':
-            return (
-                 <Card className="my-6 bg-green-50 border-green-200">
-                    <CardHeader>
-                        <CardTitle className="text-green-700 flex items-center"><CheckCircle className="mr-2 h-5 w-5" />{t('agreementCompletedTitle')}</CardTitle>
-                        <CardDescription className="text-green-600">{t('agreementCompletedDesc')}</CardDescription>
-                    </CardHeader>
-                     <CardContent>
-                        <Button asChild variant="outline">
-                             <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-2 h-4 w-4"/>
-                                {t('viewCompletedAgreement')}
-                            </a>
-                        </Button>
-                    </CardContent>
-                </Card>
-            );
-        default:
-            return null;
-    }
+  const renderUploadCard = () => {
+    return (
+        <Card className="my-6">
+            <CardHeader>
+                <CardTitle>{t('uploadYourSignedAgreement')}</CardTitle>
+                <CardDescription>{t('uploadSignedAgreementDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+                <Input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".pdf,.png,.jpg,.jpeg" className="flex-grow" />
+                <Button onClick={handleUpload} disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
+                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <UploadCloud className="mr-2 h-4 w-4"/>}
+                    {t('uploadFile')}
+                </Button>
+            </CardContent>
+        </Card>
+    );
+  };
+  
+  const renderViewSignedCard = () => {
+      if (!booking?.signedAgreementUrl) return null;
+      return (
+           <Card className="my-6 bg-green-50 border-green-200">
+              <CardHeader>
+                  <CardTitle className="text-green-700 flex items-center"><CheckCircle className="mr-2 h-5 w-5" />{t('agreementSubmittedTitle')}</CardTitle>
+                  <CardDescription className="text-green-600">{t('agreementSubmittedDesc')}</CardDescription>
+              </CardHeader>
+               <CardContent>
+                  <Button asChild variant="outline">
+                       <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="mr-2 h-4 w-4"/>
+                          {t('viewYourUploadedAgreement')}
+                      </a>
+                  </Button>
+              </CardContent>
+          </Card>
+      );
   }
-
 
   return (
     <PublicLayout>
@@ -252,13 +220,16 @@ export default function CompanyBookingAgreementViewPage() {
                     <Button onClick={() => router.push('/company/dashboard')} variant="outline" size="sm">
                         <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToCompanyDashboard')}
                     </Button>
-                    <Button onClick={() => window.print()} variant="default" size="sm">
-                        <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
-                    </Button>
+                    {booking?.agreementStatus === 'sent_to_client' && !booking?.signedAgreementUrl && (
+                        <Button onClick={() => window.print()} variant="default" size="sm">
+                            <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
+                        </Button>
+                    )}
                 </div>
-                {renderStatusCard()}
+                {booking?.signedAgreementUrl ? renderViewSignedCard() : renderUploadCard()}
             </div>
-            <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />
+            {/* Only show the default agreement template if it has NOT been signed and uploaded yet */}
+            {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
         </div>
     </PublicLayout>
   );

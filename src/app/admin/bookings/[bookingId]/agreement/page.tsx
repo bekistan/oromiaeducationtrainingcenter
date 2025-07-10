@@ -153,9 +153,12 @@ export default function AdminBookingAgreementPage() {
                 </div>
             </div>
 
-            {booking?.signedAgreementUrl && (booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed') && (
+            {booking?.signedAgreementUrl && (
                 <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
                     <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
+                    <p className="text-sm text-green-600 mb-3">
+                        {t('clientSignedAgreementUploadedDescAdmin')}
+                    </p>
                     <Button asChild variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
                         <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
