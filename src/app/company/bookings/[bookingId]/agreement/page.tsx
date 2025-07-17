@@ -15,7 +15,6 @@ import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, Che
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 export default function CompanyBookingAgreementViewPage() {
   const params = useParams();
@@ -207,30 +206,12 @@ export default function CompanyBookingAgreementViewPage() {
                   <CardDescription className="text-green-600">{t('agreementSubmittedDesc')}</CardDescription>
               </CardHeader>
                <CardContent>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline">
-                                <ExternalLink className="mr-2 h-4 w-4"/>
-                                {t('viewYourUploadedAgreement')}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl h-[90vh]">
-                            <DialogHeader>
-                                <DialogTitle>{t('signedAgreementPreview')}</DialogTitle>
-                                <DialogDescription>{t('agreementFilePreview')}</DialogDescription>
-                            </DialogHeader>
-                            <div className="h-full w-full">
-                                <iframe src={booking.signedAgreementUrl} width="100%" height="100%" />
-                            </div>
-                            <DialogFooter>
-                                <Button asChild variant="default">
-                                    <a href={booking.signedAgreementUrl} download target="_blank" rel="noopener noreferrer">
-                                        <FileDown className="mr-2 h-4 w-4" /> {t('download')}
-                                    </a>
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <Button asChild variant="outline">
+                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-2 h-4 w-4"/>
+                        {t('viewYourUploadedAgreement')}
+                      </a>
+                    </Button>
               </CardContent>
           </Card>
       );
@@ -258,4 +239,3 @@ export default function CompanyBookingAgreementViewPage() {
     </PublicLayout>
   );
 }
-

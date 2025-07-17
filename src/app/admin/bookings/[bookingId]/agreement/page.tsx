@@ -160,29 +160,11 @@ export default function AdminBookingAgreementPage() {
                     <p className="text-sm text-green-600 mb-3">
                         {t('clientSignedAgreementUploadedDescAdmin')}
                     </p>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
-                                <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl h-[90vh]">
-                            <DialogHeader>
-                                <DialogTitle>{t('signedAgreementPreview')}</DialogTitle>
-                                <DialogDescription>{t('agreementFilePreview')}</DialogDescription>
-                            </DialogHeader>
-                            <div className="h-full w-full">
-                                <iframe src={booking.signedAgreementUrl} width="100%" height="100%" />
-                            </div>
-                            <DialogFooter>
-                                <Button asChild variant="default">
-                                    <a href={booking.signedAgreementUrl} download target="_blank" rel="noopener noreferrer">
-                                        <FileDown className="mr-2 h-4 w-4" /> {t('download')}
-                                    </a>
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <Button asChild variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
+                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
+                      </a>
+                    </Button>
                 </div>
             )}
 
