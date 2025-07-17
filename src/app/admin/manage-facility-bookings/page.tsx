@@ -31,19 +31,21 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, getDoc as getFirestoreDoc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
+type BookingView = 'active' | 'due';
 
 const FACILITY_BOOKINGS_QUERY_KEY = "adminFacilityBookings";
 
@@ -86,6 +88,7 @@ export default function AdminManageFacilityBookingsPage() {
 
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
+  const [bookingView, setBookingView] = useState<BookingView>('active');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
@@ -128,12 +131,21 @@ export default function AdminManageFacilityBookingsPage() {
 
 
   const filteredBookings = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
     return allBookingsFromDb.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
-      return approvalMatch && paymentMatch;
+
+      const bookingEndDate = toDateObject(booking.endDate);
+      if (!bookingEndDate) return false; 
+      bookingEndDate.setHours(23, 59, 59, 999); 
+      const viewMatch = bookingView === 'active' ? bookingEndDate >= today : bookingEndDate < today;
+
+      return approvalMatch && paymentMatch && viewMatch;
     });
-  }, [allBookingsFromDb, approvalFilter, paymentFilter]);
+  }, [allBookingsFromDb, approvalFilter, paymentFilter, bookingView]);
 
   const {
     paginatedData: displayedBookings,
@@ -309,12 +321,19 @@ export default function AdminManageFacilityBookingsPage() {
           </div>
         </div>
 
+        <Tabs value={bookingView} onValueChange={(value) => setBookingView(value as BookingView)}>
+          <TabsList>
+            <TabsTrigger value="active">{t('activeBookings')}</TabsTrigger>
+            <TabsTrigger value="due">{t('dueBookings')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {isLoadingBookings && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
         {!isLoadingBookings && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noFacilityBookingsMatchFilters') : t('noFacilityBookingsFoundAdminCta')}</p>
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noFacilityBookingsMatchFilters') : t('noBookingsInView', { view: t(bookingView) })}</p>
             </CardContent>
           </Card>
         )}
@@ -323,7 +342,7 @@ export default function AdminManageFacilityBookingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{t('facilityBookingList')}</CardTitle>
+                <CardTitle>{bookingView === 'active' ? t('facilityBookingList') : t('dueBookingList')}</CardTitle>
                 {(updateBookingMutation.isPending || deleteBookingMutation.isPending) && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
               <CardDescription>{t('viewAndManageFacilityBookings')}</CardDescription>

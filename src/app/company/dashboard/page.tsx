@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Button } from '@/components/ui/button';
@@ -72,7 +72,7 @@ export default function CompanyDashboardPage() {
     }
   }, [user, authLoading, fetchBookings]);
 
-  const filteredBookings = React.useMemo(() => {
+  const filteredBookings = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 

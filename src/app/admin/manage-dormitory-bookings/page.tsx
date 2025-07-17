@@ -32,16 +32,18 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, query, where, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate, toDateObject } from '@/lib/date-utils';
 import { notifyKeyholdersOfDormApproval } from '@/actions/notification-actions';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
+type BookingView = 'active' | 'due';
 
 const DORMITORY_BOOKINGS_QUERY_KEY = "dormitoryBookings";
 const ALL_DORMITORIES_QUERY_KEY_FOR_IMAGES = "allDormitoriesForBookingImages";
@@ -77,6 +79,7 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
+  const [bookingView, setBookingView] = useState<BookingView>('active');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
@@ -135,6 +138,10 @@ export default function AdminManageDormitoryBookingsPage() {
 
   const filteredBookingsForAdmin = useMemo(() => {
     if (isLoadingDormsForFilter || !user || !allBookingsFromDb) return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+    
     let bookingsToFilter = allBookingsFromDb;
 
     if (user.role === 'admin' && user.buildingAssignment) {
@@ -149,9 +156,15 @@ export default function AdminManageDormitoryBookingsPage() {
     return bookingsToFilter.filter(booking => {
       const approvalMatch = approvalFilter === "all" || booking.approvalStatus === approvalFilter;
       const paymentMatch = paymentFilter === "all" || booking.paymentStatus === paymentFilter;
-      return approvalMatch && paymentMatch;
+      
+      const bookingEndDate = toDateObject(booking.endDate);
+      if (!bookingEndDate) return false; 
+      bookingEndDate.setHours(23, 59, 59, 999); 
+      const viewMatch = bookingView === 'active' ? bookingEndDate >= today : bookingEndDate < today;
+
+      return approvalMatch && paymentMatch && viewMatch;
     });
-  }, [allBookingsFromDb, approvalFilter, paymentFilter, user, dormDataMap, isLoadingDormsForFilter]);
+  }, [allBookingsFromDb, approvalFilter, paymentFilter, user, dormDataMap, isLoadingDormsForFilter, bookingView]);
 
   const {
     paginatedData: displayedBookings,
@@ -300,12 +313,19 @@ export default function AdminManageDormitoryBookingsPage() {
           </div>
         </div>
 
+        <Tabs value={bookingView} onValueChange={(value) => setBookingView(value as BookingView)}>
+          <TabsList>
+            <TabsTrigger value="active">{t('activeBookings')}</TabsTrigger>
+            <TabsTrigger value="due">{t('dueBookings')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {(isLoadingBookings || isLoadingDormsForFilter) && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
         {!(isLoadingBookings || isLoadingDormsForFilter) && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noDormitoryBookingsMatchFilters') : (user?.role === 'admin' && !user.buildingAssignment) ? t('adminNoBuildingAssignmentDormBookings') : t('noDormitoryBookingsFoundAdminCta')}</p>
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noDormitoryBookingsMatchFilters') : t('noBookingsInView', { view: t(bookingView) })}</p>
             </CardContent>
           </Card>
         )}
@@ -314,7 +334,7 @@ export default function AdminManageDormitoryBookingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{t('dormitoryBookingList')}</CardTitle>
+                <CardTitle>{bookingView === 'active' ? t('dormitoryBookingList') : t('dueBookingList')}</CardTitle>
                 {(updateBookingMutation.isPending || deleteBookingMutation.isPending) && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
               <CardDescription>{t('viewAndManageDormitoryBookings')}</CardDescription>
