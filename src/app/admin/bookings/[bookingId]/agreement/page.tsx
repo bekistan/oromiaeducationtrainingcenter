@@ -11,8 +11,9 @@ import { useLanguage } from '@/hooks/use-language';
 import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, FileDown, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, FileDown, ExternalLink, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import Image from 'next/image';
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -115,6 +116,10 @@ export default function AdminBookingAgreementPage() {
     }
   };
 
+  const isImageFile = (url: string = '') => {
+    return /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
+  };
+  
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-slate-100">
@@ -160,11 +165,37 @@ export default function AdminBookingAgreementPage() {
                     <p className="text-sm text-green-600 mb-3">
                         {t('clientSignedAgreementUploadedDescAdmin')}
                     </p>
-                    <Button asChild variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
-                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
-                      </a>
-                    </Button>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
+                                <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle>{t('signedAgreementPreview')}</DialogTitle>
+                                <DialogDescription>{t('previewOfUploadedFile')}</DialogDescription>
+                            </DialogHeader>
+                            <div className="flex-grow overflow-auto p-4 flex items-center justify-center bg-muted/50 rounded-md">
+                                {isImageFile(booking.signedAgreementUrl) ? (
+                                    <Image src={booking.signedAgreementUrl} alt={t('signedAgreementPreview')} width={800} height={1100} className="max-w-full h-auto object-contain" />
+                                ) : (
+                                    <div className="text-center">
+                                        <FileDown className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+                                        <p className="font-semibold">{t('previewNotAvailable')}</p>
+                                        <p className="text-sm text-muted-foreground">{t('downloadToViewFile')}</p>
+                                    </div>
+                                )}
+                            </div>
+                            <DialogFooter>
+                                <Button asChild variant="default">
+                                    <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer" download>
+                                        <Download className="mr-2 h-4 w-4" /> {t('downloadFile')}
+                                    </a>
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             )}
 
