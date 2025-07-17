@@ -205,12 +205,12 @@ export default function CompanyBookingAgreementViewPage() {
                   <CardDescription className="text-green-600">{t('agreementSubmittedDesc')}</CardDescription>
               </CardHeader>
                <CardContent>
-                    <Button asChild variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
-                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="mr-2 h-4 w-4"/>
-                        {t('viewYourUploadedAgreement')}
-                      </a>
+                  <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                      <ExternalLink className="mr-2 h-4 w-4"/>
+                      {t('viewYourUploadedAgreement')}
                     </Button>
+                  </a>
               </CardContent>
           </Card>
       );
