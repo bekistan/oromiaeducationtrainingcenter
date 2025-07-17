@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from 'next/server';
 import { v2 as cloudinary } from 'cloudinary';
 import { db } from '@/lib/firebase';
@@ -36,30 +37,22 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
+    // Convert file to a base64 string for direct upload
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+    console.log('[API] Uploading new asset to Cloudinary using data URI...');
     
-    // Use a promise to handle the stream-based upload
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { 
-          folder: `signed_agreements/${companyId}/${bookingId}`,
-          resource_type: "auto" // This is the crucial part that auto-detects PDF, images, etc.
-        },
-        (error, result) => {
-          if (error) {
-            console.error('[API] Cloudinary stream upload error:', error);
-            reject(error);
-          } else {
-            resolve({ secure_url: result?.secure_url });
-          }
-        }
-      );
-      uploadStream.end(buffer);
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+      folder: `signed_agreements/${companyId}/${bookingId}`,
+      resource_type: 'auto', // This is the critical change to auto-detect file type
+      use_filename: true, // Use the original filename
+      unique_filename: false, // Prevent Cloudinary from adding random characters
     });
 
-    if (!cloudinaryUploadResult.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error || 'No secure_url returned.');
+    if (!cloudinaryUploadResult?.secure_url) {
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
       return NextResponse.json({ error: 'Failed to upload agreement.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     
