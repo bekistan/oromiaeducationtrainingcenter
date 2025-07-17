@@ -32,31 +32,23 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
+    // Convert file to a base64 string for direct upload
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const base64String = buffer.toString('base64');
+    const dataUri = `data:${file.type};base64,${base64String}`;
 
-    console.log('[API] Uploading new asset to Cloudinary using upload_stream with resource_type: auto');
+    console.log('[API] Uploading new asset to Cloudinary with resource_type: auto...');
     
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { 
-            folder: 'signed_agreements', // Simplified to a single top-level folder
-            resource_type: 'auto' // Crucial change to auto-detect file type (PDF, image, etc.)
-          }, 
-          (error, result) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve({ secure_url: result?.secure_url });
-            }
-          }
-        );
-        uploadStream.end(buffer);
+    // Using cloudinary.uploader.upload is more robust for various file types
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+      folder: 'signed_agreements',
+      resource_type: 'auto', // This is the crucial part to handle PDFs and other file types correctly
     });
 
     if (!cloudinaryUploadResult?.secure_url) {
-      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload agreement.', details: cloudinaryUploadResult.error?.message || 'Cloudinary did not return a secure URL.' }, { status: 500 });
+      console.error('[API] Cloudinary upload failed:', cloudinaryUploadResult);
+      return NextResponse.json({ error: 'Failed to upload agreement.', details: 'Cloudinary did not return a secure URL.' }, { status: 500 });
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
