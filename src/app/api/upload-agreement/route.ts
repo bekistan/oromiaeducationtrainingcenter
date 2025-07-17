@@ -39,14 +39,23 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    // Switch to direct upload using a Data URI, which is more reliable for various file types.
-    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
-
-    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
-        folder: `signed_agreements/${companyId}/${bookingId}`,
-        resource_type: "auto", // This is the key change to handle PDFs and other files correctly
-        public_id: file.name, // Use original filename
-        overwrite: true,
+    // Use a promise to handle the stream-based upload
+    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { 
+          folder: `signed_agreements/${companyId}/${bookingId}`,
+          resource_type: "auto" // This is the crucial part that auto-detects PDF, images, etc.
+        },
+        (error, result) => {
+          if (error) {
+            console.error('[API] Cloudinary stream upload error:', error);
+            reject(error);
+          } else {
+            resolve({ secure_url: result?.secure_url });
+          }
+        }
+      );
+      uploadStream.end(buffer);
     });
 
     if (!cloudinaryUploadResult.secure_url) {
