@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       const uploadStream = cloudinary.uploader.upload_stream(
         { 
           folder: 'signed_agreements',
-          resource_type: 'auto',
+          resource_type: 'auto', // Correctly set resource_type to 'auto'
         },
         (error, result) => {
           if (error) {
