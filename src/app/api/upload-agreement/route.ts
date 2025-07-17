@@ -39,23 +39,14 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    // Use a promise-based approach for upload_stream to get the result
-    // Let Cloudinary generate a unique filename within the specified folder.
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { 
-          folder: 'signed_agreements',
-          resource_type: 'auto', // Correctly set resource_type to 'auto'
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(result || {});
-          }
-        }
-      );
-      uploadStream.end(buffer);
+    // Switch to direct upload using a Data URI, which is more reliable for various file types.
+    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
+
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: `signed_agreements/${companyId}/${bookingId}`,
+        resource_type: "auto", // This is the key change to handle PDFs and other files correctly
+        public_id: file.name, // Use original filename
+        overwrite: true,
     });
 
     if (!cloudinaryUploadResult.secure_url) {
@@ -67,7 +58,6 @@ export async function POST(req: NextRequest) {
     console.log('[API] Cloudinary upload successful. URL:', cloudinaryUrl);
     
     console.log('--- [API /upload-agreement] END: Success ---');
-    // Return the EXACT URL provided by Cloudinary
     return NextResponse.json({
       message: "Agreement uploaded successfully.",
       url: cloudinaryUrl,

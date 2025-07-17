@@ -15,8 +15,6 @@ import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, Che
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import Image from 'next/image';
 
 export default function CompanyBookingAgreementViewPage() {
   const params = useParams();
@@ -155,10 +153,6 @@ export default function CompanyBookingAgreementViewPage() {
     }
   };
 
-  const isImageFile = (url: string = '') => {
-    return /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
-  };
-
   if (isLoading || authLoading) {
     return (
       <PublicLayout>
@@ -211,38 +205,12 @@ export default function CompanyBookingAgreementViewPage() {
                   <CardDescription className="text-green-600">{t('agreementSubmittedDesc')}</CardDescription>
               </CardHeader>
                <CardContent>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
-                              <ExternalLink className="mr-2 h-4 w-4"/>
-                              {t('viewYourUploadedAgreement')}
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-                            <DialogHeader>
-                                <DialogTitle>{t('signedAgreementPreview')}</DialogTitle>
-                                <DialogDescription>{t('previewOfUploadedFile')}</DialogDescription>
-                            </DialogHeader>
-                            <div className="flex-grow overflow-auto p-4 flex items-center justify-center bg-muted/50 rounded-md">
-                                {isImageFile(booking.signedAgreementUrl) ? (
-                                    <Image src={booking.signedAgreementUrl} alt={t('signedAgreementPreview')} width={800} height={1100} className="max-w-full h-auto object-contain" />
-                                ) : (
-                                    <div className="text-center">
-                                        <FileDown className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-                                        <p className="font-semibold">{t('previewNotAvailable')}</p>
-                                        <p className="text-sm text-muted-foreground">{t('clickToViewFile')}</p>
-                                    </div>
-                                )}
-                            </div>
-                            <DialogFooter>
-                                <Button asChild variant="default">
-                                    <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                                        <Download className="mr-2 h-4 w-4" /> {t('downloadOrViewFile')}
-                                    </a>
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <Button asChild variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                      <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-2 h-4 w-4"/>
+                        {t('viewYourUploadedAgreement')}
+                      </a>
+                    </Button>
               </CardContent>
           </Card>
       );
