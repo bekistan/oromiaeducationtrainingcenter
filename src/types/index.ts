@@ -86,6 +86,7 @@ export type BookingItem = {
   rentalCost?: number; 
   ledProjectorCost?: number | null; 
   capacity?: number;
+  date?: string; // Used for advanced booking schedule
 };
 
 export type AgreementStatus =
@@ -126,6 +127,8 @@ export interface Booking {
   agreementSignedAt?: string | import('firebase/firestore').Timestamp;
   signedAgreementUrl?: string;
   keyStatus?: KeyStatus; 
+  // For advanced scheduling
+  schedule?: BookingItem[];
 }
 
 export type KeyStatus = 'not_issued' | 'issued' | 'returned'; 

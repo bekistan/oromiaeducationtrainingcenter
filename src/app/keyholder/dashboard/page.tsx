@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import type { Booking } from "@/types";
 import { KeyRound, Hourglass, CheckCircle, Loader2 } from "lucide-react";
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
 import { toDateObject, formatDualDate } from '@/lib/date-utils';
 
 const KEYHOLDER_DATA_QUERY_KEY = "keyholderDashboardData";
@@ -22,52 +22,59 @@ interface KeyholderStats {
 }
 
 const fetchKeyholderDashboardData = async (): Promise<KeyholderStats> => {
-    if (!db) {
-        console.warn("Database not configured. Skipping fetchKeyholderDashboardData.");
-        return { totalActiveBookings: 0, keysIssued: 0, keysPendingIssuance: 0, recentActivities: [] };
-    }
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const q = query(
-        collection(db, "bookings"),
-        where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"),
-        where("endDate", ">=", Timestamp.fromDate(today))
-    );
-    
-    const querySnapshot = await getDocs(q);
-    
-    const allActiveBookings = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-            id: docSnap.id,
-            ...data,
-            bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-            startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-            endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
-        } as Booking;
-    });
-
-    const stats: KeyholderStats = {
-        totalActiveBookings: allActiveBookings.length,
-        keysIssued: allActiveBookings.filter(b => b.keyStatus === 'issued').length,
-        keysPendingIssuance: allActiveBookings.filter(b => !b.keyStatus || b.keyStatus === 'not_issued').length,
-        recentActivities: allActiveBookings
-            .sort((a,b) => toDateObject(b.bookedAt)!.getTime() - toDateObject(a.bookedAt)!.getTime())
-            .slice(0, 5) // Get the 5 most recently booked
-    };
-
-    return stats;
+    // This function can be kept for initial load or SSR if needed, but the main logic moves to the listener
+    return { totalActiveBookings: 0, keysIssued: 0, keysPendingIssuance: 0, recentActivities: [] };
 };
 
 export default function KeyholderDashboardPage() {
     const { t } = useLanguage();
     
-    const { data: stats, isLoading, error } = useQuery<KeyholderStats, Error>({
+    const { data: initialData, isLoading: isLoadingInitial, error } = useQuery<KeyholderStats, Error>({
         queryKey: [KEYHOLDER_DATA_QUERY_KEY],
         queryFn: fetchKeyholderDashboardData,
+        staleTime: Infinity, // We rely on the real-time listener for updates
     });
+
+    const [liveStats, setLiveStats] = React.useState<KeyholderStats | null>(null);
+
+    useEffect(() => {
+        if (!db) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const q = query(
+            collection(db, "bookings"),
+            where("bookingCategory", "==", "dormitory"),
+            where("approvalStatus", "==", "approved"),
+            where("endDate", ">=", Timestamp.fromDate(today))
+        );
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const allActiveBookings = querySnapshot.docs.map(docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+                bookedAt: docSnap.data().bookedAt instanceof Timestamp ? docSnap.data().bookedAt.toDate().toISOString() : docSnap.data().bookedAt,
+            } as Booking));
+
+            const newStats: KeyholderStats = {
+                totalActiveBookings: allActiveBookings.length,
+                keysIssued: allActiveBookings.filter(b => b.keyStatus === 'issued').length,
+                keysPendingIssuance: allActiveBookings.filter(b => !b.keyStatus || b.keyStatus === 'not_issued').length,
+                recentActivities: allActiveBookings
+                    .sort((a,b) => toDateObject(b.bookedAt)!.getTime() - toDateObject(a.bookedAt)!.getTime())
+                    .slice(0, 5)
+            };
+            setLiveStats(newStats);
+        }, (err) => {
+            console.error("Keyholder dashboard listener error:", err);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const stats = liveStats || initialData;
+    const isLoading = isLoadingInitial && !liveStats;
 
     const statCards = [
         { titleKey: "totalActiveBookingsForKeyholder", value: stats?.totalActiveBookings, icon: <KeyRound className="h-6 w-6 text-primary" />, detailsKey: "bookingsRequiringKeyManagement" },

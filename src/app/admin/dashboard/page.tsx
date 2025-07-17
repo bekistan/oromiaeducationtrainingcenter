@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit, Timestamp, getCountFromServer, DocumentData, doc, getDoc, onSnapshot } from 'firebase/firestore';
 import type { Booking, Dormitory, Hall, BankAccountDetails } from '@/types';
 import { DollarSign, Users, Bed, Building, PackageCheck, ClipboardList, Loader2, ChevronLeft, ChevronRight, Landmark, ArrowUpDown, Settings as SettingsIcon, CalendarClock } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
@@ -21,229 +21,115 @@ import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetails";
-const DORMITORIES_FOR_DASHBOARD_QUERY_KEY = "dormitoriesForDashboard";
-const HALLS_FOR_DASHBOARD_QUERY_KEY = "hallsForDashboard";
-const ALL_BOOKINGS_FOR_DASHBOARD_QUERY_KEY = "allBookingsForDashboard";
 
 interface DashboardStats {
-  totalBookings: number | null;
-  totalRevenue: number | null;
-  totalUsers: number | null;
-  availableBedsStat: { available: number; total: number } | null;
-  availableHalls: { available: number; total: number } | null;
+  totalBookings: number;
+  totalRevenue: number;
+  totalUsers: number;
+  availableBedsStat: { available: number; total: number };
+  availableHalls: { available: number; total: number };
 }
-
-const fetchBankDetailsForDashboard = async (): Promise<BankAccountDetails | null> => {
-  const docRef = doc(db, BANK_DETAILS_DOC_PATH);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    return {
-      bankName: data.bankName || "",
-      accountName: data.accountName || "",
-      accountNumber: data.accountNumber || "",
-    } as BankAccountDetails;
-  }
-  return null;
-};
-
-const fetchAllDormitories = async (): Promise<Dormitory[]> => {
-  const querySnapshot = await getDocs(collection(db, "dormitories"));
-  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Dormitory));
-};
-
-const fetchAllHalls = async (): Promise<Hall[]> => {
-  const querySnapshot = await getDocs(collection(db, "halls"));
-  return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Hall));
-};
-
-const fetchAllBookingsForStats = async (): Promise<Booking[]> => {
-    const querySnapshot = await getDocs(collection(db, "bookings"));
-    return querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : data.bookedAt,
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : data.startDate,
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : data.endDate,
-        } as Booking;
-    });
-};
-
 
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { toast } = useToast();
+
   const [stats, setStats] = useState<DashboardStats>({
-    totalBookings: null,
-    totalRevenue: null,
-    totalUsers: null,
-    availableBedsStat: null,
-    availableHalls: null,
+    totalBookings: 0,
+    totalRevenue: 0,
+    totalUsers: 0,
+    availableBedsStat: { available: 0, total: 0 },
+    availableHalls: { available: 0, total: 0 },
   });
   const [allRecentBookings, setAllRecentBookings] = useState<Booking[]>([]);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-  const [isLoadingRecentBookings, setIsLoadingRecentBookings] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: bankDetails, isLoading: isLoadingBankDetails } = useQuery<BankAccountDetails | null, Error>({
+  const { data: bankDetails } = useQuery<BankAccountDetails | null, Error>({
     queryKey: [BANK_DETAILS_QUERY_KEY],
-    queryFn: fetchBankDetailsForDashboard,
+    queryFn: async (): Promise<BankAccountDetails | null> => {
+      const docRef = doc(db, BANK_DETAILS_DOC_PATH);
+      const docSnap = await getDoc(docRef);
+      return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as BankAccountDetails : null;
+    },
   });
 
-  const { data: dormitoriesFromDb } = useQuery<Dormitory[], Error>({
-    queryKey: [DORMITORIES_FOR_DASHBOARD_QUERY_KEY],
-    queryFn: fetchAllDormitories,
-  });
-  
-  const { data: allBookingsFromDb } = useQuery<Booking[], Error>({
-    queryKey: [ALL_BOOKINGS_FOR_DASHBOARD_QUERY_KEY],
-    queryFn: fetchAllBookingsForStats,
-    enabled: !!user, 
-  });
+  useEffect(() => {
+    if (!user || !db) return;
 
+    const isBuildingAdmin = user.role === 'admin' && !!user.buildingAssignment;
+    const isSuperOrGeneralAdmin = user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment);
 
-  const { data: hallsFromDb } = useQuery<Hall[], Error>({
-    queryKey: [HALLS_FOR_DASHBOARD_QUERY_KEY],
-    queryFn: fetchAllHalls,
-  });
-  
-  const dormIdToBuildingMap = useMemo(() => {
-    if (!dormitoriesFromDb) return new Map<string, string>();
-    return new Map(dormitoriesFromDb.map(dorm => [dorm.id, dorm.buildingName]));
-  }, [dormitoriesFromDb]);
-
-  const fetchDashboardData = useCallback(async () => {
-    if (!user || !allBookingsFromDb) return;
-    setIsLoadingStats(true);
-
-    try {
-        let totalBookings: number | null = null;
-        let totalRevenue: number | null = 0;
-        let totalUsers: number | null = null;
-        let availableBedsStat: { available: number; total: number } | null = null;
-        let availableHalls: { available: number; total: number } | null = null;
-        let bookingsForStats = allBookingsFromDb;
-
-        const isBuildingAdmin = user.role === 'admin' && !!user.buildingAssignment;
-        const isSuperOrGeneralAdmin = user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment);
-
-        // Filter bookings for building-specific admins
-        if (isBuildingAdmin && dormitoriesFromDb) {
-            const buildingDormIds = new Set(dormitoriesFromDb.filter(d => d.buildingName === user.buildingAssignment).map(d => d.id));
-            bookingsForStats = allBookingsFromDb.filter(b => 
-                b.items.some(item => buildingDormIds.has(item.id))
-            );
-        }
-
-        totalBookings = bookingsForStats.length;
-        
-        bookingsForStats.forEach(booking => {
-            if (booking.paymentStatus === 'paid') {
-                totalRevenue! += booking.totalCost;
-            }
-        });
-        
-        if (isSuperOrGeneralAdmin) {
-            const usersCol = collection(db, "users");
-            const usersAggregateSnapshot = await getCountFromServer(usersCol);
-            totalUsers = usersAggregateSnapshot.data().count;
-        }
+    // Real-time listener for bookings
+    const bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"));
+    const unsubscribeBookings = onSnapshot(bookingsQuery, async (snapshot) => {
+      setIsLoading(true);
+      const allBookingsFromDb = snapshot.docs.map(docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data(),
+        bookedAt: docSnap.data().bookedAt instanceof Timestamp ? docSnap.data().bookedAt.toDate().toISOString() : docSnap.data().bookedAt,
+      } as Booking));
       
-        const dormsCol = collection(db, "dormitories");
-        let dormsQuery = query(dormsCol);
-        if (isBuildingAdmin) {
-            dormsQuery = query(dormsCol, where("buildingName", "==", user.buildingAssignment));
-        }
-        const dormsSnapshot = await getDocs(dormsQuery);
-        let availableBedCount = 0;
-        let totalBedCount = 0;
-        dormsSnapshot.forEach(docSnap => {
-            const dormData = docSnap.data() as DocumentData as Dormitory; 
-            totalBedCount += dormData.capacity || 0;
-            if (dormData.isAvailable && dormData.capacity > 0) {
-            availableBedCount += dormData.capacity || 0; 
-            }
-        });
-        availableBedsStat = { available: availableBedCount, total: totalBedCount };
-        
-        if (isSuperOrGeneralAdmin && hallsFromDb) {
-            let availableHallCount = hallsFromDb.filter(hall => hall.isAvailable).length;
-            availableHalls = { available: availableHallCount, total: hallsFromDb.length };
-        } else {
-            availableHalls = { available: 0, total: 0}; 
-        }
-
-        setStats({
-            totalBookings,
-            totalRevenue,
-            totalUsers,
-            availableBedsStat,
-            availableHalls,
-        });
-
-    } catch (error) {
-      console.error("Error fetching dashboard stats: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDashboardStats') });
-    } finally {
-      setIsLoadingStats(false);
-    }
-  }, [t, toast, user, allBookingsFromDb, dormitoriesFromDb, hallsFromDb]);
-
-  const fetchRecentBookings = useCallback(async () => {
-    setIsLoadingRecentBookings(true);
-    try {
-      let bookingsQuery = query(collection(db, "bookings"), orderBy("bookedAt", "desc"), limit(25));
-      
-      const querySnapshot = await getDocs(bookingsQuery);
-      let bookingsData = querySnapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          bookedAt: data.bookedAt instanceof Timestamp ? data.bookedAt.toDate().toISOString() : (typeof data.bookedAt === 'string' ? data.bookedAt : new Date().toISOString()),
-          startDate: data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString().split('T')[0] : (typeof data.startDate === 'string' ? data.startDate : new Date().toISOString().split('T')[0]),
-          endDate: data.endDate instanceof Timestamp ? data.endDate.toDate().toISOString().split('T')[0] : (typeof data.endDate === 'string' ? data.endDate : new Date().toISOString().split('T')[0]),
-        } as Booking;
-      });
-
-      if (user?.role === 'admin' && user.buildingAssignment && dormIdToBuildingMap.size > 0) {
-        bookingsData = bookingsData.filter(booking => {
-          if (booking.bookingCategory === 'facility') return false; 
-          if (booking.bookingCategory === 'dormitory' && booking.items.length > 0) {
-            const firstItemId = booking.items[0]?.id;
-            if (!firstItemId) return false;
-            const buildingOfBooking = dormIdToBuildingMap.get(firstItemId);
-            return buildingOfBooking === user.buildingAssignment;
-          }
-          return false;
-        });
-      } else if (user?.role === 'admin' && user.buildingAssignment && dormIdToBuildingMap.size === 0 && !isLoadingStats) {
-        bookingsData = [];
+      let bookingsForStats = allBookingsFromDb;
+      if (isBuildingAdmin) {
+        const dormsSnapshot = await getDocs(query(collection(db, "dormitories"), where("buildingName", "==", user.buildingAssignment)));
+        const buildingDormIds = new Set(dormsSnapshot.docs.map(d => d.id));
+        bookingsForStats = allBookingsFromDb.filter(b => b.items.some(item => buildingDormIds.has(item.id)));
       }
+      
+      const totalBookings = bookingsForStats.length;
+      const totalRevenue = bookingsForStats.reduce((acc, b) => b.paymentStatus === 'paid' ? acc + b.totalCost : acc, 0);
 
+      let recentBookingsForTable = allBookingsFromDb;
+      if (isBuildingAdmin) {
+        const dormsSnapshot = await getDocs(query(collection(db, "dormitories"), where("buildingName", "==", user.buildingAssignment)));
+        const buildingDormIds = new Set(dormsSnapshot.docs.map(d => d.id));
+        recentBookingsForTable = allBookingsFromDb.filter(b => b.bookingCategory === 'dormitory' && b.items.some(item => buildingDormIds.has(item.id)));
+      }
+      setAllRecentBookings(recentBookingsForTable.slice(0, 25));
 
-      setAllRecentBookings(bookingsData);
-    } catch (error) {
-      console.error("Error fetching recent bookings: ", error);
-      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingRecentBookings') });
-    } finally {
-      setIsLoadingRecentBookings(false);
-    }
-  }, [t, toast, user, dormIdToBuildingMap, isLoadingStats]);
+      setStats(prev => ({ ...prev, totalBookings, totalRevenue }));
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error with bookings listener:", error);
+      toast({ variant: "destructive", title: t('error'), description: t('errorFetchingDashboardStats') });
+      setIsLoading(false);
+    });
 
-  useEffect(() => {
-    if (user && allBookingsFromDb && dormitoriesFromDb && hallsFromDb) {
-      fetchDashboardData();
-    }
-  }, [user, allBookingsFromDb, dormitoriesFromDb, hallsFromDb, fetchDashboardData]);
+    // One-time fetches for less dynamic data
+    const fetchOtherStats = async () => {
+      let totalUsers = 0;
+      if (isSuperOrGeneralAdmin) {
+        const usersAggregateSnapshot = await getCountFromServer(collection(db, "users"));
+        totalUsers = usersAggregateSnapshot.data().count;
+      }
+      
+      const dormsQuery = isBuildingAdmin ? query(collection(db, "dormitories"), where("buildingName", "==", user.buildingAssignment)) : query(collection(db, "dormitories"));
+      const dormsSnapshot = await getDocs(dormsQuery);
+      const dormsData = dormsSnapshot.docs.map(d => d.data() as Dormitory);
+      const totalBedCount = dormsData.reduce((acc, d) => acc + (d.capacity || 0), 0);
+      const availableBedCount = dormsData.reduce((acc, d) => d.isAvailable ? acc + (d.capacity || 0) : acc, 0);
+      
+      let availableHalls = { available: 0, total: 0 };
+      if (isSuperOrGeneralAdmin) {
+        const hallsSnapshot = await getDocs(collection(db, "halls"));
+        const hallsData = hallsSnapshot.docs.map(d => d.data() as Hall);
+        availableHalls = {
+          available: hallsData.filter(h => h.isAvailable).length,
+          total: hallsData.length,
+        };
+      }
+      
+      setStats(prev => ({ ...prev, totalUsers, availableBedsStat: { available: availableBedCount, total: totalBedCount }, availableHalls }));
+    };
 
-  useEffect(() => {
-    if (user && dormitoriesFromDb) { 
-        fetchRecentBookings();
-    }
-  }, [user, fetchRecentBookings, dormitoriesFromDb]);
+    fetchOtherStats().catch(console.error);
+
+    return () => {
+      unsubscribeBookings();
+    };
+  }, [user, t, toast]);
+
 
   const {
     paginatedData: displayedRecentBookings,
@@ -267,11 +153,11 @@ export default function AdminDashboardPage() {
 
   const statCards = useMemo(() => {
     const cards = [
-      { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
-      { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `${t('currencySymbol')} ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
-      { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
-      { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
-      { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", isLoading: isLoadingStats, roles: ['superadmin', 'admin'] }, 
+      { titleKey: "totalBookings", value: stats.totalBookings, icon: <PackageCheck className="h-6 w-6 text-primary" />, detailsKey: "allTime", roles: ['superadmin', 'admin'] }, 
+      { titleKey: "totalRevenue", value: stats.totalRevenue !== null ? `${t('currencySymbol')} ${stats.totalRevenue.toLocaleString()}` : null, icon: <DollarSign className="h-6 w-6 text-primary" />, detailsKey: "fromPaidBookings", roles: ['superadmin', 'admin'] }, 
+      { titleKey: "totalUsers", value: stats.totalUsers, icon: <Users className="h-6 w-6 text-primary" />, detailsKey: "registeredUsers", roles: ['superadmin', 'admin'] }, 
+      { titleKey: "availableBedsDashboard", value: stats.availableBedsStat ? `${stats.availableBedsStat.available} / ${stats.availableBedsStat.total}` : null, icon: <Bed className="h-6 w-6 text-primary" />, detailsKey: "totalBedsInSystem", roles: ['superadmin', 'admin'] }, 
+      { titleKey: "availableHalls", value: stats.availableHalls ? `${stats.availableHalls.available} / ${stats.availableHalls.total}` : null, icon: <Building className="h-6 w-6 text-primary" />, detailsKey: "hallsAndSections", roles: ['superadmin', 'admin'] }, 
     ];
 
     return cards.filter(card => {
@@ -283,7 +169,7 @@ export default function AdminDashboardPage() {
         }
         return false;
     });
-  }, [stats, isLoadingStats, t, user]);
+  }, [stats, t, user]);
 
 
   const getSortIndicator = (columnKey: keyof Booking | 'bookedAt') => {
@@ -328,7 +214,7 @@ export default function AdminDashboardPage() {
               {stat.icon}
             </CardHeader>
             <CardContent>
-              {stat.isLoading ? (
+              {isLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               ) : (
                 <div className="text-2xl font-bold text-foreground">{stat.value !== null ? stat.value : t('notAvailable')}</div>
@@ -357,7 +243,7 @@ export default function AdminDashboardPage() {
             <CardDescription>{t('lastNBookings', { count: totalItems })}</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoadingRecentBookings && !allRecentBookings.length ? (
+            {isLoading && !allRecentBookings.length ? (
               <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : displayedRecentBookings.length === 0 ? (
               <p className="text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noRecentBookings')}</p>
@@ -425,7 +311,7 @@ export default function AdminDashboardPage() {
             <CardDescription>{t('bankDetailsForPaymentVerification')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {isLoadingBankDetails ? (
+            {isLoading ? (
               <div className="flex justify-center items-center h-20">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>

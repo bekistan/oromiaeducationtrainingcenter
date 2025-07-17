@@ -92,26 +92,23 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4">
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
+          @page {
+            size: A4 landscape;
+            margin: 15mm; 
           }
-          .printable-agreement, .printable-agreement * {
-            visibility: visible;
+          body {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
           .printable-agreement {
-            position: absolute;
-            left: 0;
-            top: 0;
             width: 100%;
-            margin: 0;
-            padding: 20px; 
+            height: 100%;
+            page-break-after: avoid;
+            page-break-before: avoid;
+            font-size: 10pt; /* Make font smaller for print */
           }
           .no-print {
             display: none !important;
-          }
-          @page {
-            size: A4;
-            margin: 20mm; 
           }
         }
       `}</style>
@@ -123,7 +120,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
 
         <section className="mb-6">
           <h2 className="text-xl font-semibold text-gray-700 mb-2">{t('partiesInvolved')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-2 gap-6">
             <div>
               <h3 className="font-medium text-gray-700">{t('serviceProvider')}</h3>
               <p className="text-sm">{SITE_NAME}</p>
@@ -157,7 +154,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
 
         <section className="mt-16 pt-8 border-t border-gray-300">
           <h2 className="text-xl font-semibold text-gray-700 mb-8 text-center">{t('signatures')}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+          <div className="grid grid-cols-2 gap-16">
             <div className="text-center">
               <div className="relative h-24 mb-2 flex items-center justify-center">
                 {brandAssets?.signatureUrl && <Image src={brandAssets.signatureUrl} alt="Official Signature" layout="fill" objectFit="contain" />}

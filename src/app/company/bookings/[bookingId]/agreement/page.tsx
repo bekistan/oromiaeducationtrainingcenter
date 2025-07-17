@@ -15,6 +15,7 @@ import { Loader2, AlertTriangle, ArrowLeft, Printer, UploadCloud, Hourglass, Che
 import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
 export default function CompanyBookingAgreementViewPage() {
   const params = useParams();
@@ -29,6 +30,7 @@ export default function CompanyBookingAgreementViewPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBookingDetails = useCallback(async (id: string) => {
@@ -205,18 +207,17 @@ export default function CompanyBookingAgreementViewPage() {
                   <CardDescription className="text-green-600">{t('agreementSubmittedDesc')}</CardDescription>
               </CardHeader>
                <CardContent>
-                  <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
-                      <ExternalLink className="mr-2 h-4 w-4"/>
-                      {t('viewYourUploadedAgreement')}
-                    </Button>
-                  </a>
+                  <Button onClick={() => setIsPreviewOpen(true)} variant="outline" className="border-green-600 text-green-700 hover:bg-green-100">
+                    <ExternalLink className="mr-2 h-4 w-4"/>
+                    {t('viewYourUploadedAgreement')}
+                  </Button>
               </CardContent>
           </Card>
       );
   }
 
   return (
+    <>
     <PublicLayout>
         <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white">
             <div className="max-w-4xl mx-auto mb-4 no-print">
@@ -236,5 +237,14 @@ export default function CompanyBookingAgreementViewPage() {
             {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
         </div>
     </PublicLayout>
+    {booking?.signedAgreementUrl && (
+      <SignedAgreementPreviewDialog
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        fileUrl={booking.signedAgreementUrl}
+        fileName={booking.signedAgreementUrl.split('/').pop() || 'signed-agreement'}
+      />
+    )}
+    </>
   );
 }

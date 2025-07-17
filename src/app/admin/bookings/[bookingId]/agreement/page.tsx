@@ -12,6 +12,7 @@ import { AgreementTemplate } from '@/components/shared/agreement-template';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertTriangle, ArrowLeft, Save, Printer, ExternalLink } from 'lucide-react';
+import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
 const DEFAULT_TERMS_KEYS = [
   'termsPlaceholder1',
@@ -32,6 +33,7 @@ export default function AdminBookingAgreementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const defaultTermsText = useCallback(() => {
     return DEFAULT_TERMS_KEYS.map(key => t(key)).join('\n\n');
@@ -136,53 +138,61 @@ export default function AdminBookingAgreementPage() {
   }
   
   return (
-    <div className="bg-slate-100 min-h-screen py-8 px-2 print:bg-white">
-        <div className="max-w-4xl mx-auto mb-6 no-print">
-            <div className="flex justify-between items-center mb-4">
-                <Button onClick={() => router.back()} variant="outline" size="sm">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToBookings')}
-                </Button>
-                <div className="space-x-2">
-                    <Button onClick={handleSaveTerms} variant="default" size="sm" disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {t('saveTerms')}
-                    </Button>
-                    <Button onClick={() => window.print()} variant="outline" size="sm">
-                        <Printer className="mr-2 h-4 w-4" /> {t('printAgreement')}
-                    </Button>
-                </div>
-            </div>
+    <>
+      <div className="bg-slate-100 min-h-screen py-8 px-2 print:bg-white">
+          <div className="max-w-4xl mx-auto mb-6 no-print">
+              <div className="flex justify-between items-center mb-4">
+                  <Button onClick={() => router.back()} variant="outline" size="sm">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToBookings')}
+                  </Button>
+                  <div className="space-x-2">
+                      <Button onClick={handleSaveTerms} variant="default" size="sm" disabled={isSaving}>
+                          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                          {t('saveTerms')}
+                      </Button>
+                      <Button onClick={() => window.print()} variant="outline" size="sm">
+                          <Printer className="mr-2 h-4 w-4" /> {t('printAgreement')}
+                      </Button>
+                  </div>
+              </div>
 
-            {booking?.signedAgreementUrl && (
-                <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
-                    <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
-                    <p className="text-sm text-green-600 mb-3">
-                        {t('clientSignedAgreementUploadedDescAdmin')}
-                    </p>
-                    <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
+              {booking?.signedAgreementUrl && (
+                  <div className="mb-6 p-4 border border-green-500 rounded-md bg-green-50">
+                      <h3 className="text-md font-semibold text-green-700 mb-2">{t('clientSignedAgreementUploaded')}</h3>
+                      <p className="text-sm text-green-600 mb-3">
+                          {t('clientSignedAgreementUploadedDescAdmin')}
+                      </p>
+                      <Button onClick={() => setIsPreviewOpen(true)} variant="outline" size="sm" className="border-green-600 text-green-700 hover:bg-green-100">
                           <ExternalLink className="mr-2 h-4 w-4" /> {t('viewClientSignedAgreement')}
                       </Button>
-                    </a>
-                </div>
-            )}
+                  </div>
+              )}
 
-            <div className="space-y-2 mb-6 p-4 border rounded-md bg-background">
-                <label htmlFor="editableTerms" className="block text-sm font-medium text-foreground">
-                {t('editAgreementTerms')}:
-                </label>
-                <Textarea
-                    id="editableTerms"
-                    value={editableTerms}
-                    onChange={(e) => setEditableTerms(e.target.value)}
-                    rows={10}
-                    className="w-full text-xs"
-                    placeholder={t('enterCustomTermsHere')}
-                />
-                <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
-            </div>
-        </div>
-        {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
-    </div>
+              <div className="space-y-2 mb-6 p-4 border rounded-md bg-background">
+                  <label htmlFor="editableTerms" className="block text-sm font-medium text-foreground">
+                  {t('editAgreementTerms')}:
+                  </label>
+                  <Textarea
+                      id="editableTerms"
+                      value={editableTerms}
+                      onChange={(e) => setEditableTerms(e.target.value)}
+                      rows={10}
+                      className="w-full text-xs"
+                      placeholder={t('enterCustomTermsHere')}
+                  />
+                  <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
+              </div>
+          </div>
+          {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
+      </div>
+      {booking?.signedAgreementUrl && (
+        <SignedAgreementPreviewDialog
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          fileUrl={booking.signedAgreementUrl}
+          fileName={booking.signedAgreementUrl.split('/').pop() || 'signed-agreement'}
+        />
+      )}
+    </>
   );
 }
