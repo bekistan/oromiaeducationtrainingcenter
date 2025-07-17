@@ -19,6 +19,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { formatDate, toDateObject } from '@/lib/date-utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type BookingView = 'active' | 'due';
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
@@ -27,6 +30,7 @@ export default function CompanyDashboardPage() {
   const router = useRouter();
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+  const [bookingView, setBookingView] = useState<BookingView>('active');
 
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
@@ -34,9 +38,6 @@ export default function CompanyDashboardPage() {
       const q = query(collection(db, "bookings"), where("companyId", "==", companyId));
       const querySnapshot = await getDocs(q);
       
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); 
-
       const bookingsData = querySnapshot.docs
         .map(docSnap => {
             const data = docSnap.data();
@@ -49,12 +50,6 @@ export default function CompanyDashboardPage() {
             agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
             agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
             } as Booking;
-        })
-        .filter(booking => {
-            const bookingEndDate = toDateObject(booking.endDate);
-            if (!bookingEndDate) return false; 
-            bookingEndDate.setHours(23, 59, 59, 999);
-            return bookingEndDate >= today;
         })
         .sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime());
       
@@ -77,6 +72,19 @@ export default function CompanyDashboardPage() {
     }
   }, [user, authLoading, fetchBookings]);
 
+  const filteredBookings = React.useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return allBookings.filter(booking => {
+        const bookingEndDate = toDateObject(booking.endDate);
+        if (!bookingEndDate) return false;
+        bookingEndDate.setHours(23, 59, 59, 999);
+        
+        return bookingView === 'active' ? bookingEndDate >= today : bookingEndDate < today;
+    });
+  }, [allBookings, bookingView]);
+
   const {
     paginatedData: displayedBookings,
     setSearchTerm,
@@ -89,7 +97,7 @@ export default function CompanyDashboardPage() {
     canPreviousPage,
     totalItems,
   } = useSimpleTable<Booking>({
-      data: allBookings,
+      data: filteredBookings,
       rowsPerPage: 10,
       searchKeys: ['id'], 
   });
@@ -237,11 +245,14 @@ export default function CompanyDashboardPage() {
         
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
-                <CardTitle className="flex items-center">
-                <ShoppingBag className="mr-2 h-6 w-6 text-primary" />
-                {t('yourActiveBookingsTitle')}
-                </CardTitle>
+            <div className="flex justify-between items-center flex-wrap gap-4">
+                <div className="flex-1">
+                    <CardTitle className="flex items-center">
+                    <ShoppingBag className="mr-2 h-6 w-6 text-primary" />
+                    {t('yourBookingsTitle')}
+                    </CardTitle>
+                    <CardDescription>{bookingView === 'active' ? t('yourActiveBookingsDescription') : t('yourPastBookingsDescription')}</CardDescription>
+                </div>
                 <Input
                     placeholder={t('searchYourBookings')}
                     value={searchTerm}
@@ -249,18 +260,21 @@ export default function CompanyDashboardPage() {
                     className="max-w-xs text-sm"
                 />
             </div>
-            <CardDescription>{t('yourActiveBookingsDescription')}</CardDescription>
           </CardHeader>
           <CardContent>
+            <Tabs value={bookingView} onValueChange={(value) => setBookingView(value as BookingView)} className="mb-4">
+                <TabsList>
+                    <TabsTrigger value="active">{t('activeBookings')}</TabsTrigger>
+                    <TabsTrigger value="due">{t('dueBookings')}</TabsTrigger>
+                </TabsList>
+            </Tabs>
             {isLoadingBookings && !allBookings.length ? (
               <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : displayedBookings.length === 0 ? (
               <div className="text-center py-10">
                 <Building className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-lg text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noActiveBookingsFound')}</p>
-                <Link href="/halls" passHref>
-                    <Button className="mt-4">{t('makeYourFirstBooking')}</Button>
-                </Link>
+                <p className="text-lg text-muted-foreground">{searchTerm ? t('noBookingsMatchSearch') : t('noBookingsInView', { view: t(bookingView) })}</p>
+                {bookingView === 'active' && <Link href="/halls" passHref><Button className="mt-4">{t('makeYourFirstBooking')}</Button></Link>}
               </div>
             ) : (
               <>
@@ -287,8 +301,9 @@ export default function CompanyDashboardPage() {
                                 </Link>
                               </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground italic">{t('pendingAdminApproval')}</span>
+                            booking.approvalStatus === 'approved' && <span className="text-xs text-muted-foreground italic">{t('pendingAdminAction')}</span>
                           )}
+                          {booking.approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">{t('pendingAdminApproval')}</span>}
                         </TableCell>
                       </TableRow>
                     ))}

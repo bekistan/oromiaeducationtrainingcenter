@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, Timestamp, getDoc as getFirestoreDoc, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -40,6 +41,7 @@ import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
 type PaymentStatusFilter = "all" | Booking['paymentStatus'];
+type BookingView = 'active' | 'due';
 
 const BOOKINGS_QUERY_KEY = "bookings";
 
@@ -78,6 +80,7 @@ export default function AdminBookingsPage() {
 
   const [approvalFilter, setApprovalFilter] = useState<ApprovalStatusFilter>("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatusFilter>("all");
+  const [bookingView, setBookingView] = useState<BookingView>('active');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
 
@@ -103,7 +106,7 @@ export default function AdminBookingsPage() {
 
   const deleteBookingMutation = useMutation<void, Error, string>({
     mutationFn: async (bookingId) => {
-      if (!db) throw new Error("Database is not configured.");
+      if (!db) throw new Error("Database not configured.");
       await deleteDoc(doc(db, "bookings", bookingId));
     },
     onSuccess: () => {
@@ -130,11 +133,11 @@ export default function AdminBookingsPage() {
       if (!bookingEndDate) return false; 
       bookingEndDate.setHours(23, 59, 59, 999); 
 
-      const isActiveBooking = bookingEndDate >= today;
+      const viewMatch = bookingView === 'active' ? bookingEndDate >= today : bookingEndDate < today;
 
-      return approvalMatch && paymentMatch && isActiveBooking;
+      return approvalMatch && paymentMatch && viewMatch;
     });
-  }, [allBookings, approvalFilter, paymentFilter]);
+  }, [allBookings, approvalFilter, paymentFilter, bookingView]);
 
   const {
     paginatedData: displayedBookings,
@@ -334,12 +337,19 @@ export default function AdminBookingsPage() {
           </div>
         </div>
 
+        <Tabs value={bookingView} onValueChange={(value) => setBookingView(value as BookingView)}>
+            <TabsList>
+                <TabsTrigger value="active">{t('activeBookings')}</TabsTrigger>
+                <TabsTrigger value="due">{t('dueBookings')}</TabsTrigger>
+            </TabsList>
+        </Tabs>
+
         {isLoadingBookings && <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>}
 
         {!isLoadingBookings && displayedBookings.length === 0 && (
           <Card>
             <CardContent className="pt-6 text-center">
-              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noActiveBookingsFoundAdmin')}</p>
+              <p className="mb-4">{searchTerm || approvalFilter !== 'all' || paymentFilter !== 'all' ? t('noBookingsMatchFilters') : t('noBookingsInView', { view: t(bookingView) })}</p>
             </CardContent>
           </Card>
         )}
@@ -348,10 +358,10 @@ export default function AdminBookingsPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{t('activeBookingList')}</CardTitle>
+                <CardTitle>{bookingView === 'active' ? t('activeBookingList') : t('dueBookingList')}</CardTitle>
                  {(updateBookingMutation.isPending || deleteBookingMutation.isPending) && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
               </div>
-              <CardDescription>{t('viewAndManageActiveBookings')}</CardDescription>
+              <CardDescription>{bookingView === 'active' ? t('viewAndManageActiveBookings') : t('viewPastBookings')}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
