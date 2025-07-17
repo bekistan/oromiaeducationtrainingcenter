@@ -183,14 +183,14 @@ export default function AdminBookingAgreementPage() {
                                     <div className="text-center">
                                         <FileDown className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
                                         <p className="font-semibold">{t('previewNotAvailable')}</p>
-                                        <p className="text-sm text-muted-foreground">{t('downloadToViewFile')}</p>
+                                        <p className="text-sm text-muted-foreground">{t('clickToViewFile')}</p>
                                     </div>
                                 )}
                             </div>
                             <DialogFooter>
                                 <Button asChild variant="default">
-                                    <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer" download>
-                                        <Download className="mr-2 h-4 w-4" /> {t('downloadFile')}
+                                    <a href={booking.signedAgreementUrl} target="_blank" rel="noopener noreferrer">
+                                        <Download className="mr-2 h-4 w-4" /> {t('downloadOrViewFile')}
                                     </a>
                                 </Button>
                             </DialogFooter>
@@ -214,7 +214,7 @@ export default function AdminBookingAgreementPage() {
                 <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
             </div>
         </div>
-        <AgreementTemplate booking={booking} customTerms={editableTerms} />
+        {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
     </div>
   );
 }
