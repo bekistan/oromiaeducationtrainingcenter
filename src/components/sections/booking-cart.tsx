@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { eachDayOfInterval, format } from 'date-fns';
@@ -112,16 +112,17 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
 
   useEffect(() => {
     const { schedule, numberOfAttendees, services } = watchedFormValues;
-    if (!schedule || numberOfAttendees === undefined || !services) {
+    if (!schedule || numberOfAttendees === undefined || !services || !allFacilities.length) {
       return;
     }
 
     let rentalCost = 0;
-    let serviceDays = 0;
+    let serviceDaysWithBookings = new Set<string>();
     
     schedule.forEach(day => {
+      const dayStr = format(day.date, 'yyyy-MM-dd');
       if (day.itemIds.length > 0) {
-        serviceDays += 1;
+        serviceDaysWithBookings.add(dayStr);
       }
       day.itemIds.forEach(id => {
         const facility = allFacilities.find(f => f.id === id);
@@ -136,18 +137,27 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     let servicesCost = 0;
     const { lunch, refreshment } = services;
     const attendees = Number(numberOfAttendees) || 0;
+    const numServiceDays = serviceDaysWithBookings.size;
 
-    if (lunch !== 'none' && serviceDays > 0 && attendees > 0) {
+
+    if (lunch !== 'none' && numServiceDays > 0 && attendees > 0) {
         const lunchPrice = lunch === 'level1' ? pricingSettings.lunchServiceCostLevel1 : pricingSettings.lunchServiceCostLevel2;
-        servicesCost += lunchPrice * attendees * serviceDays;
+        servicesCost += lunchPrice * attendees * numServiceDays;
     }
-    if (refreshment !== 'none' && serviceDays > 0 && attendees > 0) {
+    if (refreshment !== 'none' && numServiceDays > 0 && attendees > 0) {
         const refreshmentPrice = refreshment === 'level1' ? pricingSettings.refreshmentServiceCostLevel1 : pricingSettings.refreshmentServiceCostLevel2;
-        servicesCost += refreshmentPrice * attendees * serviceDays;
+        servicesCost += refreshmentPrice * attendees * numServiceDays;
     }
 
     setTotalCost(rentalCost + servicesCost);
-  }, [watchedFormValues, allFacilities, pricingSettings]);
+  }, [
+      JSON.stringify(watchedFormValues.schedule), // Stringify to detect deep changes
+      watchedFormValues.numberOfAttendees,
+      watchedFormValues.services.lunch,
+      watchedFormValues.services.refreshment,
+      allFacilities, 
+      pricingSettings
+  ]);
   
   async function onSubmit(data: BookingCartValues) {
     if (!user || !user.companyId || !dateRange.from || !dateRange.to) {
