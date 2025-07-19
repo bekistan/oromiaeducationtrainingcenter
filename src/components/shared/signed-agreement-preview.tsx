@@ -18,11 +18,19 @@ interface SignedAgreementPreviewDialogProps {
 export function SignedAgreementPreviewDialog({ isOpen, onClose, fileUrl, fileName }: SignedAgreementPreviewDialogProps) {
   const { t } = useLanguage();
   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-  const isPdf = /\.pdf$/i.test(fileName);
 
   const handleDownload = () => {
-    // This approach works for same-origin or CORS-enabled URLs.
-    // For Cloudinary, ensure CORS settings allow your domain if you face issues.
+    // This creates a link and simulates a click to trigger download
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.target = '_blank'; // Open in new tab as a fallback
+    link.download = fileName || 'download'; // Suggest a filename
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  const handleOpenFile = () => {
     window.open(fileUrl, '_blank');
   };
 
@@ -43,31 +51,23 @@ export function SignedAgreementPreviewDialog({ isOpen, onClose, fileUrl, fileNam
                 alt={t('signedAgreementPreview')}
                 fill
                 className="object-contain"
+                sizes="(max-width: 768px) 80vw, 50vw"
               />
             </div>
-          ) : isPdf ? (
+          ) : (
              <div className="text-center flex flex-col items-center justify-center gap-4">
                <File className="h-16 w-16 text-primary" />
                <p className="text-lg font-medium">{t('previewNotAvailableForFileType')}</p>
                <p className="text-sm text-muted-foreground">{t('clickToDownloadOrOpenFile')}</p>
-               <Button onClick={handleDownload}>
-                <Download className="mr-2 h-4 w-4" />
-                {t('openOrDownloadFile')}
-              </Button>
-            </div>
-          ) : (
-             <div className="text-center flex flex-col items-center justify-center gap-4">
-              <File className="h-16 w-16 text-primary" />
-              <p className="text-lg font-medium">{t('previewNotAvailableForFileType')}</p>
-              <Button onClick={handleDownload}>
+               <Button onClick={handleOpenFile}>
                 <Download className="mr-2 h-4 w-4" />
                 {t('openOrDownloadFile')}
               </Button>
             </div>
           )}
         </div>
-        <DialogFooter className="mt-4 flex-row justify-between">
-           <Button onClick={handleDownload}>
+        <DialogFooter className="mt-4 flex-row justify-between sm:justify-between items-center w-full">
+           <Button onClick={handleDownload} variant="secondary">
                 <Download className="mr-2 h-4 w-4" />
                 {t('download')}
             </Button>
