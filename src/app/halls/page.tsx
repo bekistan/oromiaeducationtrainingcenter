@@ -22,6 +22,7 @@ import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ImageViewer } from '@/components/shared/image-viewer';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
+import { BookingCart } from '@/components/sections/booking-cart'; // New Component
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -156,56 +157,6 @@ export default function HallsAndSectionsPage() {
     updateAvailableFacilities().catch(console.error);
   }, [selectedDateRange, filteredFacilitiesByType, checkFacilityAvailabilityForRange]);
 
-  const handleBookSelectedItems = () => {
-    if (authLoading) return;
-    if (!user || user.role !== 'company_representative') {
-      toast({ variant: "destructive", title: t('loginRequired'), description: t('loginAsCompanyToBook') });
-      const currentPath = window.location.pathname;
-      let queryParams = `?redirect=${encodeURIComponent(currentPath)}`;
-       if (selectedItems.length > 0) {
-           const itemsQueryPart = selectedItems
-               .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
-               .join('&');
-            queryParams += `&${itemsQueryPart}`;
-       }
-      router.push(`/auth/login${queryParams}`);
-      return;
-    }
-     if (user.approvalStatus !== 'approved') {
-      toast({ variant: "destructive", title: t('accountPendingApprovalTitle'), description: t('accountPendingApprovalBookFacility') });
-      return;
-    }
-    if (selectedItems.length === 0) {
-      toast({ variant: "destructive", title: t('error'), description: t('pleaseSelectItemsToBook') });
-      return;
-    }
-    if (!selectedDateRange?.from || !selectedDateRange?.to) {
-      toast({ variant: "destructive", title: t('error'), description: t('selectDateRangeFirst')});
-      return;
-    }
-
-    const itemsQuery = selectedItems
-      .map(s => `item=${encodeURIComponent(s.id)}:${encodeURIComponent(s.name)}:${encodeURIComponent(s.itemType)}`)
-      .join('&');
-
-    const dateQuery = `startDate=${selectedDateRange.from.toISOString()}&endDate=${selectedDateRange.to.toISOString()}`;
-
-    router.push(`/halls/book-multiple?${itemsQuery}&${dateQuery}`);
-  };
-
-  const handleBookBySchedule = () => {
-    if (authLoading) return;
-    if (!user || user.role !== 'company_representative') {
-      toast({ variant: "destructive", title: t('loginRequired'), description: t('loginAsCompanyToBook') });
-      router.push(`/auth/login?redirect=/halls/book-by-schedule`);
-      return;
-    }
-    if (user.approvalStatus !== 'approved') {
-      toast({ variant: "destructive", title: t('accountPendingApprovalTitle'), description: t('accountPendingApprovalBookFacility') });
-      return;
-    }
-    router.push('/halls/book-by-schedule');
-  };
 
   const displayedFacilities = useMemo(() => {
     return selectedDateRange?.from && selectedDateRange?.to ? availableFacilitiesInRange : filteredFacilitiesByType;
@@ -332,48 +283,18 @@ export default function HallsAndSectionsPage() {
                     </Select>
                 </div>
             </ScrollAnimate>
-            
-            <ScrollAnimate>
-               <div className="text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row sm:justify-center sm:gap-4">
-                  {user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
-                    <>
-                      <Button
-                        onClick={handleBookSelectedItems}
-                        disabled={authLoading || selectedItems.length === 0 || isCheckingRangeAvailability || (!selectedDateRange?.from || !selectedDateRange?.to)}
-                        size="lg"
-                        title={(!selectedDateRange?.from || !selectedDateRange?.to) ? t('selectDateRangeFirstTooltip') : (selectedItems.length === 0 ? t('selectItemsFirstTooltip') : t('bookSelectedItemsTooltip'))}
-                      >
-                        <CalendarPlus className="mr-2 h-5 w-5" />
-                        {authLoading || isCheckingRangeAvailability ? t('loading') : `${t('bookSelectedItems')} (${selectedItems.length})`}
-                      </Button>
-                      <Button
-                        onClick={handleBookBySchedule}
-                        disabled={authLoading}
-                        size="lg"
-                        variant="secondary"
-                        title={t('bookByScheduleTooltip')}
-                      >
-                        <CalendarClock className="mr-2 h-5 w-5" />
-                        {t('bookBySchedule')}
-                      </Button>
-                    </>
-                  )}
-              </div>
-              {(!selectedDateRange?.from || !selectedDateRange?.to) && user?.role === 'company_representative' && user.approvalStatus === 'approved' && (
-                  <p className="text-xs text-muted-foreground mt-2 text-center">{t('pleaseSelectDateRangeToEnableBooking')}</p>
-              )}
-              {(!user || user.role !== 'company_representative' || user.approvalStatus !== 'approved') && allAdminEnabledFacilities.length > 0 && (
-                  <Alert variant="default" className="max-w-2xl mx-auto bg-blue-50 border-blue-200 text-blue-700">
-                      <AlertTitle className="flex items-center"><Building className="mr-2 h-5 w-5"/>{t('loginToBookMultipleTitle')}</AlertTitle>
-                      <AlertDescription>
-                      {t('loginToBookMultipleDesc')}
-                      <Button variant="link" className="p-0 h-auto ml-1 text-blue-700 hover:text-blue-800" onClick={() => router.push(`/auth/login?redirect=/halls`)}>{t('loginHere')}</Button>.
-                      </AlertDescription>
-                  </Alert>
-              )}
-            </ScrollAnimate>
 
             {renderContent()}
+
+             {user && user.role === 'company_representative' && user.approvalStatus === 'approved' && selectedDateRange?.from && selectedDateRange?.to && selectedItems.length > 0 && (
+                <ScrollAnimate>
+                    <BookingCart 
+                        selectedItems={selectedItems}
+                        dateRange={selectedDateRange}
+                        allFacilities={allAdminEnabledFacilities}
+                    />
+                </ScrollAnimate>
+             )}
         </div>
       </div>
       <ImageViewer 
