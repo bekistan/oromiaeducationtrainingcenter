@@ -26,7 +26,8 @@ import {
   DollarSign,
   Bell,
   ChevronDown,
-  BookMarked
+  BookMarked,
+  Store
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react"
@@ -58,6 +59,7 @@ const ICONS: Record<string, LucideIcon> = {
   agreementTemplate: FileText,
   registerAdmin: UserPlus,
   registerKeyholder: KeyRound,
+  registerStoreManager: Store,
 };
 
 export function AdminSidebarNav() {

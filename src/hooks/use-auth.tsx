@@ -50,6 +50,13 @@ interface KeyholderDetails {
   phone?: string;
 }
 
+interface StoreManagerDetails {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+}
+
 // Define the shape of the context state
 interface AuthState {
   user: AppUserType | null;
@@ -59,6 +66,7 @@ interface AuthState {
   signupCompany: (companyDetails: CompanyDetails) => Promise<AppUserType | null>;
   signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
   signupKeyholder: (keyholderDetails: KeyholderDetails) => Promise<AppUserType | null>;
+  signupStoreManager: (storeManagerDetails: StoreManagerDetails) => Promise<AppUserType | null>;
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -278,6 +286,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         createdAt: new Date().toISOString(),
     };
   }, []);
+
+  const signupStoreManager = useCallback(async (storeManagerDetails: StoreManagerDetails): Promise<AppUserType | null> => {
+    if (!isFirebaseConfigured || !auth || !db) {
+        throw new Error("Firebase is not configured. Cannot sign up store manager.");
+    }
+     const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
+     if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
+     const currentUserDocSnap = await getDoc(currentUserDocRef);
+     if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') {
+      throw new Error("Only superadmins can register new store managers.");
+    }
+
+    const userCredential = await createUserWithEmailAndPassword(auth, storeManagerDetails.email, storeManagerDetails.password);
+    const fbUserInstance = userCredential.user;
+    const newStoreManagerDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
+      email: storeManagerDetails.email,
+      name: storeManagerDetails.name,
+      phone: storeManagerDetails.phone || '',
+      role: 'store_manager' as const,
+      createdAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, "users", fbUserInstance.uid), newStoreManagerDocData);
+    return {
+        id: fbUserInstance.uid,
+        email: storeManagerDetails.email,
+        name: storeManagerDetails.name,
+        phone: storeManagerDetails.phone,
+        role: 'store_manager',
+        createdAt: new Date().toISOString(),
+    };
+  }, []);
   
   const logout = useCallback(async (): Promise<void> => {
     if (!isFirebaseConfigured || !auth) {
@@ -338,9 +377,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signupCompany,
     signupAdmin,
     signupKeyholder,
+    signupStoreManager,
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, signupStoreManager, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>

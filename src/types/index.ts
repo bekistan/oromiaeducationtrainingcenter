@@ -136,7 +136,7 @@ export type KeyStatus = 'not_issued' | 'issued' | 'returned';
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder';
+  role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder' | 'store_manager';
   name?: string;
   position?: string;
   companyId?: string;
@@ -225,4 +225,26 @@ export interface SiteContentSettings {
   privacyPolicy: { [key in Locale]?: string };
   termsOfService: { [key in Locale]?: string };
   lastUpdated?: import('firebase/firestore').Timestamp | Date | string;
+}
+
+// Store Management Types
+export interface StoreItem {
+  id: string;
+  name: string;
+  category: string;
+  quantity: number;
+  unit: string; // e.g., 'pcs', 'kg', 'liters'
+  lastUpdated: import('firebase/firestore').Timestamp;
+  notes?: string;
+}
+
+export interface StoreTransaction {
+  id: string;
+  itemId: string;
+  itemName: string;
+  type: 'in' | 'out'; // 'in' for restocking, 'out' for usage
+  quantityChange: number;
+  reason: string;
+  transactionDate: import('firebase/firestore').Timestamp;
+  recordedBy: string; // User ID of the store manager
 }

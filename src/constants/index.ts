@@ -73,6 +73,7 @@ export const ADMIN_NAVS: NavItem[] = [
       { labelKey: 'listAllUsers', href: '/admin/user-management' },
       { labelKey: 'registerAdmin', href: '/admin/register-admin' },
       { labelKey: 'registerKeyholder', href: '/admin/register-keyholder' },
+      { labelKey: 'registerStoreManager', href: '/admin/register-store-manager' },
     ]
   },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
@@ -83,6 +84,13 @@ export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'dailyReports', href: '/keyholder/daily-reports', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'reports', href: '/keyholder/reports', authRequired: true, roles: ['keyholder'] },
+];
+
+export const STORE_MANAGER_NAVS: NavItem[] = [
+    { labelKey: 'storeDashboard', href: '/store-manager/dashboard', authRequired: true, roles: ['store_manager'] },
+    { labelKey: 'manageStock', href: '/store-manager/stock', authRequired: true, roles: ['store_manager'] },
+    { labelKey: 'manageTransactions', href: '/store-manager/transactions', authRequired: true, roles: ['store_manager'] },
+    { labelKey: 'storeReports', href: '/store-manager/reports', authRequired: true, roles: ['store_manager'] },
 ];
 
 export const FOOTER_LINKS = [

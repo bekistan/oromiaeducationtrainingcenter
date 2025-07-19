@@ -37,7 +37,7 @@ import { useRouter } from 'next/navigation';
 const userEditSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   phone: z.string().optional().or(z.literal('')),
-  role: z.enum(['superadmin', 'admin', 'keyholder', 'company_representative', 'individual']),
+  role: z.enum(['superadmin', 'admin', 'keyholder', 'store_manager', 'company_representative', 'individual']),
   buildingAssignment: z.enum(['ifaboru', 'buuraboru', 'none']).optional(),
 }).refine(data => data.role === 'admin' ? data.buildingAssignment !== undefined : true, {
     message: "Building assignment is required for admins.",
@@ -178,6 +178,7 @@ export default function UserManagementPage() {
     superadmin: <Badge className="bg-red-200 text-red-800">{t('superadmin')}</Badge>,
     admin: <Badge className="bg-purple-200 text-purple-800">{t('admin')}</Badge>,
     keyholder: <Badge className="bg-blue-200 text-blue-800">{t('keyholder')}</Badge>,
+    store_manager: <Badge className="bg-orange-200 text-orange-800">{t('storeManager')}</Badge>,
     company_representative: <Badge className="bg-green-200 text-green-800">{t('companyRepresentative')}</Badge>,
     individual: <Badge className="bg-gray-200 text-gray-800">{t('individual')}</Badge>,
   };
