@@ -76,7 +76,7 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
         const availabilityForFacility = dailyAvailability.get(hall.id);
         const totalDays = availabilityForFacility ? availabilityForFacility.size : 0;
         const availableDays = availabilityForFacility ? Array.from(availabilityForFacility.values()).filter(v => v).length : 0;
-        const isPartiallyAvailable = totalDays > 0 && availableDays < totalDays;
+        const isPartiallyAvailable = totalDays > 0 && availableDays < totalDays && availableDays > 0;
 
         return (
           <ScrollAnimate key={hall.id} delay={index * 50}>

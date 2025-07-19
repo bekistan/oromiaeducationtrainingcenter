@@ -82,7 +82,6 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
 
   const watchedFormValues = form.watch();
 
-  // Fetch pricing settings on mount
   useEffect(() => {
     const fetchPricing = async () => {
         setIsLoading(true);
@@ -100,7 +99,6 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     fetchPricing();
   }, [t, toast]);
   
-  // Populate schedule based on date range
   useEffect(() => {
     if (dateRange?.from && dateRange?.to) {
       const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
@@ -112,20 +110,18 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     }
   }, [dateRange?.from?.toISOString(), dateRange?.to?.toISOString(), replace]);
 
-  // Recalculate total cost when anything in the form changes
   useEffect(() => {
-    let rentalCost = 0;
-    let serviceDays = 0;
-    
-    // Ensure all watched values are available before calculating
     const { schedule, numberOfAttendees, services } = watchedFormValues;
     if (!schedule || numberOfAttendees === undefined || !services) {
       return;
     }
 
+    let rentalCost = 0;
+    let serviceDays = 0;
+    
     schedule.forEach(day => {
       if (day.itemIds.length > 0) {
-        serviceDays += 1; // Count day for services if at least one facility is booked
+        serviceDays += 1;
       }
       day.itemIds.forEach(id => {
         const facility = allFacilities.find(f => f.id === id);
@@ -137,7 +133,6 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
       });
     });
 
-    // Calculate services cost
     let servicesCost = 0;
     const { lunch, refreshment } = services;
     const attendees = Number(numberOfAttendees) || 0;
