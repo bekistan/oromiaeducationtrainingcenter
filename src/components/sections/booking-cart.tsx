@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, DollarSign, ShoppingCart } from 'lucide-react';
+import { Loader2, DollarSign, ShoppingCart, Calendar, ChevronsUpDown } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import type { DateRange } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/date-utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type DailyAvailabilityMap = Map<string, Map<string, boolean>>;
 
@@ -79,9 +80,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     name: "schedule",
   });
 
-  const watchedSchedule = form.watch('schedule');
-  const watchedAttendees = form.watch('numberOfAttendees');
-  const watchedServices = form.watch('services');
+  const watchedFormValues = form.watch();
 
   // Fetch pricing settings on mount
   useEffect(() => {
@@ -113,13 +112,18 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     }
   }, [dateRange?.from?.toISOString(), dateRange?.to?.toISOString(), replace]);
 
-  // Recalculate total cost when schedule or services change
+  // Recalculate total cost when anything in the form changes
   useEffect(() => {
     let rentalCost = 0;
     let serviceDays = 0;
     
-    // Calculate rental cost based on assigned facilities for each day
-    watchedSchedule.forEach(day => {
+    // Ensure all watched values are available before calculating
+    const { schedule, numberOfAttendees, services } = watchedFormValues;
+    if (!schedule || numberOfAttendees === undefined || !services) {
+      return;
+    }
+
+    schedule.forEach(day => {
       if (day.itemIds.length > 0) {
         serviceDays += 1; // Count day for services if at least one facility is booked
       }
@@ -135,8 +139,8 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
 
     // Calculate services cost
     let servicesCost = 0;
-    const { lunch, refreshment } = watchedServices;
-    const attendees = Number(watchedAttendees) || 0;
+    const { lunch, refreshment } = services;
+    const attendees = Number(numberOfAttendees) || 0;
 
     if (lunch !== 'none' && serviceDays > 0 && attendees > 0) {
         const lunchPrice = lunch === 'level1' ? pricingSettings.lunchServiceCostLevel1 : pricingSettings.lunchServiceCostLevel2;
@@ -148,7 +152,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     }
 
     setTotalCost(rentalCost + servicesCost);
-  }, [watchedSchedule, watchedAttendees, watchedServices, allFacilities, pricingSettings]);
+  }, [watchedFormValues, allFacilities, pricingSettings]);
   
   async function onSubmit(data: BookingCartValues) {
     if (!user || !user.companyId || !dateRange.from || !dateRange.to) {
@@ -238,50 +242,58 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">{t('dailySchedule')}</h3>
-              {fields.map((field, index) => {
-                  const dayStr = formatDate(field.date, 'yyyy-MM-dd');
-                  
-                  return (
-                    <Card key={field.id} className="p-4 bg-muted/50">
-                      <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
-                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                          {selectedItems.map((facility) => {
-                              const isAvailableToday = dailyAvailability.get(facility.id)?.get(dayStr) ?? false;
-                              return (
-                                  <FormField
-                                      key={facility.id}
-                                      control={form.control}
-                                      name={`schedule.${index}.itemIds`}
-                                      render={({ field: checkboxField }) => (
-                                        <FormItem 
-                                          className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background data-[disabled=true]:bg-muted/50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-70"
-                                          data-disabled={!isAvailableToday}
-                                        >
-                                          <FormControl>
-                                            <Checkbox
-                                              checked={checkboxField.value?.includes(facility.id)}
-                                              onCheckedChange={(checked) => {
-                                                return checked
-                                                  ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
-                                                  : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
-                                              }}
-                                              disabled={!isAvailableToday}
-                                            />
-                                          </FormControl>
-                                          <Label className="text-sm font-normal cursor-pointer data-[disabled=true]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</Label>
-                                        </FormItem>
-                                      )}
-                                    />
-                                );
-                            })}
-                      </div>
-                      {selectedItems.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noFacilitiesSelectedInCart')}</p>}
-                    </Card>
-                  );
-              })}
-            </div>
+            <Collapsible>
+                <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {t('viewAndEditSchedule')}
+                        <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  <h3 className="font-semibold text-lg">{t('dailySchedule')}</h3>
+                  {fields.map((field, index) => {
+                      const dayStr = formatDate(field.date, 'yyyy-MM-dd');
+                      return (
+                        <Card key={field.id} className="p-4 bg-muted/50">
+                          <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
+                          <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                              {selectedItems.map((facility) => {
+                                  const isAvailableToday = dailyAvailability.get(facility.id)?.get(dayStr) ?? false;
+                                  return (
+                                      <FormField
+                                          key={facility.id}
+                                          control={form.control}
+                                          name={`schedule.${index}.itemIds`}
+                                          render={({ field: checkboxField }) => (
+                                            <FormItem 
+                                              className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background transition-opacity data-[disabled=true]:bg-muted/50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60"
+                                              data-disabled={!isAvailableToday}
+                                            >
+                                              <FormControl>
+                                                <Checkbox
+                                                  checked={checkboxField.value?.includes(facility.id)}
+                                                  onCheckedChange={(checked) => {
+                                                    return checked
+                                                      ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
+                                                      : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
+                                                  }}
+                                                  disabled={!isAvailableToday}
+                                                />
+                                              </FormControl>
+                                              <Label className="text-sm font-normal cursor-pointer data-[disabled=true]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</Label>
+                                            </FormItem>
+                                          )}
+                                        />
+                                    );
+                                })}
+                          </div>
+                          {selectedItems.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noFacilitiesSelectedInCart')}</p>}
+                        </Card>
+                      );
+                  })}
+                </CollapsibleContent>
+            </Collapsible>
             
             <h3 className="font-semibold text-lg pt-4 border-t">{t('additionalDetails')}</h3>
             <div className="grid md:grid-cols-2 gap-6">
@@ -311,7 +323,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
 
             <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>{t('notes')}</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
             
-            <Card className="bg-primary/10">
+            <Card className="bg-primary/10 transition-colors duration-300">
                 <CardHeader><CardTitle className="flex items-center gap-2 text-primary"><DollarSign />{t('estimatedTotalCost')}</CardTitle></CardHeader>
                 <CardContent><p className="text-3xl font-bold text-primary">{totalCost.toLocaleString()} {t('currencySymbol')}</p></CardContent>
             </Card>
