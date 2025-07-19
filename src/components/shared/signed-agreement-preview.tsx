@@ -21,13 +21,9 @@ export function SignedAgreementPreviewDialog({ isOpen, onClose, fileUrl, fileNam
   const isPdf = /\.pdf$/i.test(fileName);
 
   const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = fileUrl;
-    link.setAttribute('download', fileName);
-    link.setAttribute('target', '_blank'); // Open in new tab as fallback
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // This approach works for same-origin or CORS-enabled URLs.
+    // For Cloudinary, ensure CORS settings allow your domain if you face issues.
+    window.open(fileUrl, '_blank');
   };
 
   return (
@@ -49,21 +45,32 @@ export function SignedAgreementPreviewDialog({ isOpen, onClose, fileUrl, fileNam
                 className="object-contain"
               />
             </div>
+          ) : isPdf ? (
+             <div className="text-center flex flex-col items-center justify-center gap-4">
+               <File className="h-16 w-16 text-primary" />
+               <p className="text-lg font-medium">{t('previewNotAvailableForFileType')}</p>
+               <p className="text-sm text-muted-foreground">{t('clickToDownloadOrOpenFile')}</p>
+               <Button onClick={handleDownload}>
+                <Download className="mr-2 h-4 w-4" />
+                {t('openOrDownloadFile')}
+              </Button>
+            </div>
           ) : (
-            <div className="text-center flex flex-col items-center justify-center gap-4">
-              <div className="p-4 bg-primary/10 rounded-full">
-                {isPdf ? <File className="h-16 w-16 text-primary" /> : <ImageIcon className="h-16 w-16 text-primary" />}
-              </div>
+             <div className="text-center flex flex-col items-center justify-center gap-4">
+              <File className="h-16 w-16 text-primary" />
               <p className="text-lg font-medium">{t('previewNotAvailableForFileType')}</p>
-              <p className="text-sm text-muted-foreground">{t('clickToDownloadOrOpenFile')}</p>
-              <Button onClick={() => window.open(fileUrl, '_blank')}>
+              <Button onClick={handleDownload}>
                 <Download className="mr-2 h-4 w-4" />
                 {t('openOrDownloadFile')}
               </Button>
             </div>
           )}
         </div>
-        <DialogFooter className="mt-4">
+        <DialogFooter className="mt-4 flex-row justify-between">
+           <Button onClick={handleDownload}>
+                <Download className="mr-2 h-4 w-4" />
+                {t('download')}
+            </Button>
           <Button variant="outline" onClick={onClose}>
             <X className="mr-2 h-4 w-4" />
             {t('close')}

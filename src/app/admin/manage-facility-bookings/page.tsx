@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus, AgreementTemplateSettings } from "@/types";
-import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard, ShieldAlert, CalendarClock } from "lucide-react";
+import { Trash2, Filter, MoreHorizontal, Loader2, FileText, ChevronLeft, ChevronRight, Send, FileSignature, CheckCircle, AlertTriangle, ArrowUpDown, CreditCard, ShieldAlert, CalendarClock, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
@@ -41,6 +41,7 @@ import { useRouter } from 'next/navigation';
 import { formatDate, toDateObject } from '@/lib/date-utils';
 import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
+import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -91,6 +92,7 @@ export default function AdminManageFacilityBookingsPage() {
   const [bookingView, setBookingView] = useState<BookingView>('active');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
   const { data: allBookingsFromDb = [], isLoading: isLoadingBookings, error: bookingsError } = useQuery<Booking[], Error>({
     queryKey: [FACILITY_BOOKINGS_QUERY_KEY],
@@ -374,6 +376,12 @@ export default function AdminManageFacilityBookingsPage() {
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                       <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                       <TableCell className="text-right space-x-1">
+                        {booking.signedAgreementUrl && (
+                           <Button variant="outline" size="icon" title={t('viewClientSignedAgreement')} onClick={() => setPreviewFileUrl(booking.signedAgreementUrl!)}>
+                               <Eye className="h-4 w-4"/>
+                               <span className="sr-only">{t('viewClientSignedAgreement')}</span>
+                           </Button>
+                        )}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" title={t('moreActions')} disabled={updateBookingMutation.isPending || deleteBookingMutation.isPending}>
@@ -469,6 +477,15 @@ export default function AdminManageFacilityBookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {previewFileUrl && (
+        <SignedAgreementPreviewDialog 
+            isOpen={!!previewFileUrl}
+            onClose={() => setPreviewFileUrl(null)}
+            fileUrl={previewFileUrl}
+            fileName={previewFileUrl.split('/').pop() || 'signed-agreement'}
+        />
+      )}
     </>
   );
 }

@@ -183,6 +183,7 @@ export default function AdminBookingAgreementPage() {
                   <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
               </div>
           </div>
+          {/* Only show template if not signed */}
           {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
       </div>
       {booking?.signedAgreementUrl && (

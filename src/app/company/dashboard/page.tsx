@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
-import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud, ExternalLink } from 'lucide-react';
+import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud, ExternalLink, Eye } from 'lucide-react';
 import { db } from '@/lib/firebase'; 
 import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { formatDate, toDateObject } from '@/lib/date-utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
 type BookingView = 'active' | 'due';
 
@@ -31,6 +32,7 @@ export default function CompanyDashboardPage() {
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [bookingView, setBookingView] = useState<BookingView>('active');
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
@@ -222,6 +224,7 @@ export default function CompanyDashboardPage() {
   }
 
   return (
+    <>
     <PublicLayout>
       <div className="container mx-auto py-8 px-4 space-y-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -293,17 +296,20 @@ export default function CompanyDashboardPage() {
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
                         <TableCell className="text-right space-x-1">
-                          {booking.agreementStatus === 'sent_to_client' || booking.agreementStatus === 'signed_by_client' || booking.agreementStatus === 'completed' ? (
-                              <Button asChild size="sm" variant="outline">
+                          {booking.signedAgreementUrl && (
+                            <Button variant="outline" size="icon" title={t('viewClientSignedAgreement')} onClick={() => setPreviewFileUrl(booking.signedAgreementUrl!)}>
+                                <Eye className="h-4 w-4"/>
+                                <span className="sr-only">{t('viewClientSignedAgreement')}</span>
+                            </Button>
+                          )}
+                          {(booking.agreementStatus === 'sent_to_client' || (booking.agreementStatus === 'signed_by_client' && bookingView === 'active')) && (
+                              <Button asChild size="sm" variant="default">
                                 <Link href={`/company/bookings/${booking.id}/agreement`}>
                                   <FileText className="mr-2 h-4 w-4" />
-                                  {t('manageAgreement')}
+                                  {booking.agreementStatus === 'sent_to_client' ? t('signAgreement') : t('manageAgreement')}
                                 </Link>
                               </Button>
-                          ) : (
-                            booking.approvalStatus === 'approved' && <span className="text-xs text-muted-foreground italic">{t('pendingAdminAction')}</span>
                           )}
-                          {booking.approvalStatus === 'pending' && <span className="text-xs text-muted-foreground italic">{t('pendingAdminApproval')}</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -338,5 +344,14 @@ export default function CompanyDashboardPage() {
         </Card>
       </div>
     </PublicLayout>
+    {previewFileUrl && (
+        <SignedAgreementPreviewDialog 
+            isOpen={!!previewFileUrl}
+            onClose={() => setPreviewFileUrl(null)}
+            fileUrl={previewFileUrl}
+            fileName={previewFileUrl.split('/').pop() || 'signed-agreement'}
+        />
+    )}
+    </>
   );
 }
