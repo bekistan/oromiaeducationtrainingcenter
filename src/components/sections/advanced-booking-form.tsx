@@ -106,22 +106,18 @@ export function AdvancedBookingForm() {
   
   // Update schedule days when date range changes
   useEffect(() => {
+    const currentSchedule = form.getValues('schedule');
     if (watchedDateRange?.from && watchedDateRange?.to) {
       const days = eachDayOfInterval({ start: watchedDateRange.from, end: watchedDateRange.to });
-      // Filter out existing days that are no longer in range
-      const newSchedule = fields.filter(f => days.some(d => d.getTime() === f.date.getTime()));
-      // Add new days
-      days.forEach(day => {
-        if (!newSchedule.some(s => s.date.getTime() === day.getTime())) {
-          newSchedule.push({ id: day.toISOString(), date: day, itemIds: [] });
-        }
+      const newSchedule = days.map(day => {
+        const existingDay = currentSchedule.find(s => s.date.getTime() === day.getTime());
+        return existingDay || { id: day.toISOString(), date: day, itemIds: [] };
       });
-      newSchedule.sort((a,b) => a.date.getTime() - b.date.getTime());
-      form.setValue('schedule', newSchedule);
+      form.setValue('schedule', newSchedule, { shouldValidate: true });
     } else {
-        form.setValue('schedule', []);
+        form.setValue('schedule', [], { shouldValidate: true });
     }
-  }, [watchedDateRange, form, fields]);
+  }, [watchedDateRange, form]);
   
   // Calculate availability for each day in schedule
   useEffect(() => {
