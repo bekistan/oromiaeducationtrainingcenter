@@ -17,9 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, DollarSign, Trash2, Calendar, ShoppingCart } from 'lucide-react';
+import { Loader2, DollarSign, ShoppingCart } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 import { useRouter } from 'next/navigation';
@@ -138,13 +136,15 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
     // Calculate services cost
     let servicesCost = 0;
     const { lunch, refreshment } = watchedServices;
-    if (lunch !== 'none' && serviceDays > 0) {
+    const attendees = Number(watchedAttendees) || 0;
+
+    if (lunch !== 'none' && serviceDays > 0 && attendees > 0) {
         const lunchPrice = lunch === 'level1' ? pricingSettings.lunchServiceCostLevel1 : pricingSettings.lunchServiceCostLevel2;
-        servicesCost += lunchPrice * watchedAttendees * serviceDays;
+        servicesCost += lunchPrice * attendees * serviceDays;
     }
-    if (refreshment !== 'none' && serviceDays > 0) {
+    if (refreshment !== 'none' && serviceDays > 0 && attendees > 0) {
         const refreshmentPrice = refreshment === 'level1' ? pricingSettings.refreshmentServiceCostLevel1 : pricingSettings.refreshmentServiceCostLevel2;
-        servicesCost += refreshmentPrice * watchedAttendees * serviceDays;
+        servicesCost += refreshmentPrice * attendees * serviceDays;
     }
 
     setTotalCost(rentalCost + servicesCost);
@@ -255,7 +255,10 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
                                       control={form.control}
                                       name={`schedule.${index}.itemIds`}
                                       render={({ field: checkboxField }) => (
-                                        <FormItem className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background data-[disabled]:bg-muted/50 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-70" data-disabled={!isAvailableToday}>
+                                        <FormItem 
+                                          className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background data-[disabled=true]:bg-muted/50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-70"
+                                          data-disabled={!isAvailableToday}
+                                        >
                                           <FormControl>
                                             <Checkbox
                                               checked={checkboxField.value?.includes(facility.id)}
@@ -267,7 +270,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
                                               disabled={!isAvailableToday}
                                             />
                                           </FormControl>
-                                          <FormLabel className="text-sm font-normal cursor-pointer data-[disabled]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</FormLabel>
+                                          <Label className="text-sm font-normal cursor-pointer data-[disabled=true]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</Label>
                                         </FormItem>
                                       )}
                                     />
