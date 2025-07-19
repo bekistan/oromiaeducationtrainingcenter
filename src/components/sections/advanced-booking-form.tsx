@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { Booking, Hall, BookingItem, PricingSettings } from '@/types';
 import { db } from '@/lib/firebase';
-import { collection, doc, getDocs, getDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, addDoc, Timestamp, serverTimestamp, query, where } from 'firebase/firestore';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -117,7 +117,7 @@ export function AdvancedBookingForm() {
     } else {
         form.setValue('schedule', [], { shouldValidate: true });
     }
-  }, [watchedDateRange, form]);
+  }, [watchedDateRange?.from, watchedDateRange?.to, form]);
   
   // Calculate availability for each day in schedule
   useEffect(() => {
