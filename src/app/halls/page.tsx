@@ -17,14 +17,18 @@ import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { toDateObject } from '@/lib/date-utils';
+import { toDateObject, formatDate } from '@/lib/date-utils';
 import Image from 'next/image';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ImageViewer } from '@/components/shared/image-viewer';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
-import { BookingCart } from '@/components/sections/booking-cart'; // New Component
+import { BookingCart } from '@/components/sections/booking-cart';
+import { eachDayOfInterval } from 'date-fns';
 
 type ItemTypeFilter = "all" | "hall" | "section";
+
+// Type to store availability status for each facility on each day
+type DailyAvailabilityMap = Map<string, Map<string, boolean>>; // facilityId -> dateString -> isAvailable
 
 export default function HallsAndSectionsPage() {
   const { t } = useLanguage();
@@ -45,6 +49,8 @@ export default function HallsAndSectionsPage() {
   
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
+
+  const [dailyAvailability, setDailyAvailability] = useState<DailyAvailabilityMap>(new Map());
 
   const facilityImages = [
     { src: "/images/Hall.jpg", title: t('halls') },
@@ -93,69 +99,77 @@ export default function HallsAndSectionsPage() {
   }, [itemTypeFilter, allAdminEnabledFacilities]);
 
 
-  const checkFacilityAvailabilityForRange = useCallback(async (facility: Hall, range: DateRange): Promise<boolean> => {
-    if (!db) {
-        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
-        return false;
-    }
-    if (!range.from || !range.to) return true;
-
-    const fromTimestamp = Timestamp.fromDate(range.from);
-    const toTimestamp = Timestamp.fromDate(new Date(range.to.setHours(23, 59, 59, 999)));
-
-    const bookingsQuery = query(
-        collection(db, "bookings"),
-        where("bookingCategory", "==", "facility"),
-        where("approvalStatus", "in", ["approved", "pending"]),
-        where("startDate", "<=", toTimestamp)
-    );
-
-    try {
-        const querySnapshot = await getDocs(bookingsQuery);
-        const conflictingBookings = querySnapshot.docs.filter(docSnap => {
-            const booking = docSnap.data() as Booking;
-            const bookingEndDate = toDateObject(booking.endDate); // Use robust date conversion
-
-            if (!bookingEndDate) return false; // Skip if date is invalid
-
-            const overlapsDate = bookingEndDate >= range.from!;
-            if (!overlapsDate) return false;
-
-            return booking.items.some(bookedItem => bookedItem.id === facility.id);
-        });
-        return conflictingBookings.length === 0;
-    } catch (error) {
-        console.error(`Error checking availability for facility ${facility.id}:`, error);
-        toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
-        return false;
-    }
-  }, [t, toast]);
-
   useEffect(() => {
     if (!selectedDateRange?.from || !selectedDateRange?.to) {
       setAvailableFacilitiesInRange(filteredFacilitiesByType);
       setSelectedItems([]);
+      setDailyAvailability(new Map()); // Clear availability map when range is cleared
       return;
     }
 
-    const updateAvailableFacilities = async () => {
+    const checkAvailability = async () => {
       setIsCheckingRangeAvailability(true);
-      const available: Hall[] = [];
-      for (const facility of filteredFacilitiesByType) {
-        if (facility.isAvailable) {
-            const isTrulyAvailableInRange = await checkFacilityAvailabilityForRange(facility, selectedDateRange);
-            if (isTrulyAvailableInRange) {
-                available.push(facility);
-            }
-        }
+      if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        setIsCheckingRangeAvailability(false);
+        return;
       }
-      setAvailableFacilitiesInRange(available);
-      setSelectedItems(prevSelected => prevSelected.filter(selItem => available.some(availItem => availItem.id === selItem.id)));
-      setIsCheckingRangeAvailability(false);
+      
+      const fromTimestamp = Timestamp.fromDate(selectedDateRange.from!);
+      const toTimestamp = Timestamp.fromDate(new Date(selectedDateRange.to!.setHours(23, 59, 59, 999)));
+
+      const bookingsQuery = query(
+        collection(db, "bookings"),
+        where("bookingCategory", "==", "facility"),
+        where("approvalStatus", "in", ["approved", "pending"]),
+        where("startDate", "<=", toTimestamp)
+      );
+
+      try {
+        const snapshot = await getDocs(bookingsQuery);
+        const bookings = snapshot.docs
+          .map(d => d.data() as Booking)
+          .filter(b => {
+              const bookingEndDate = toDateObject(b.endDate);
+              return bookingEndDate && bookingEndDate >= selectedDateRange.from!;
+          });
+
+        const availabilityMap: DailyAvailabilityMap = new Map();
+        const daysInRange = eachDayOfInterval({ start: selectedDateRange.from!, end: selectedDateRange.to! });
+        
+        filteredFacilitiesByType.forEach(facility => {
+            const facilityDayMap = new Map<string, boolean>();
+            daysInRange.forEach(day => {
+                const isBooked = bookings.some(booking => {
+                    const bookingStart = toDateObject(booking.startDate);
+                    const bookingEnd = toDateObject(booking.endDate);
+                    const isForItem = booking.items.some(item => item.id === facility.id);
+                    return isForItem && day >= bookingStart! && day <= bookingEnd!;
+                });
+                facilityDayMap.set(formatDate(day, 'yyyy-MM-dd'), !isBooked);
+            });
+            availabilityMap.set(facility.id, facilityDayMap);
+        });
+
+        const availableFacilities = filteredFacilitiesByType.filter(facility => {
+            const dailyStatuses = availabilityMap.get(facility.id);
+            return dailyStatuses && Array.from(dailyStatuses.values()).some(isAvailable => isAvailable);
+        });
+        
+        setDailyAvailability(availabilityMap);
+        setAvailableFacilitiesInRange(availableFacilities);
+        setSelectedItems(prevSelected => prevSelected.filter(selItem => availableFacilities.some(availItem => availItem.id === selItem.id)));
+
+      } catch (error) {
+          console.error("Failed to check availability:", error);
+          toast({ variant: "destructive", title: t('error'), description: t('errorCheckingAvailability') });
+      } finally {
+        setIsCheckingRangeAvailability(false);
+      }
     };
 
-    updateAvailableFacilities().catch(console.error);
-  }, [selectedDateRange, filteredFacilitiesByType, checkFacilityAvailabilityForRange]);
+    checkAvailability();
+  }, [selectedDateRange, filteredFacilitiesByType, t, toast]);
 
 
   const displayedFacilities = useMemo(() => {
@@ -202,6 +216,7 @@ export default function HallsAndSectionsPage() {
         selectedItems={selectedItems}
         onSelectionChange={setSelectedItems}
         selectedDateRange={selectedDateRange}
+        dailyAvailability={dailyAvailability}
       />
     );
   };
@@ -292,6 +307,7 @@ export default function HallsAndSectionsPage() {
                         selectedItems={selectedItems}
                         dateRange={selectedDateRange}
                         allFacilities={allAdminEnabledFacilities}
+                        dailyAvailability={dailyAvailability}
                     />
                 </ScrollAnimate>
              )}

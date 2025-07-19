@@ -27,6 +27,9 @@ import { notifyAdminsOfNewBooking } from '@/actions/notification-actions';
 import type { DateRange } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { formatDate } from '@/lib/date-utils';
+
+type DailyAvailabilityMap = Map<string, Map<string, boolean>>;
 
 const scheduleItemSchema = z.object({
   date: z.date(),
@@ -49,9 +52,10 @@ interface BookingCartProps {
     selectedItems: Hall[];
     dateRange: DateRange;
     allFacilities: Hall[];
+    dailyAvailability: DailyAvailabilityMap;
 }
 
-export function BookingCart({ selectedItems, dateRange, allFacilities }: BookingCartProps) {
+export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvailability }: BookingCartProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -109,14 +113,13 @@ export function BookingCart({ selectedItems, dateRange, allFacilities }: Booking
       }));
       replace(newSchedule);
     }
-  }, [dateRange?.from, dateRange?.to, replace]);
+  }, [dateRange?.from?.toISOString(), dateRange?.to?.toISOString(), replace]);
 
   // Recalculate total cost when schedule or services change
   useEffect(() => {
     let cost = 0;
-    const numberOfDays = watchedSchedule.length;
     
-    // Calculate rental cost
+    // Calculate rental cost based on assigned facilities
     watchedSchedule.forEach(day => {
       day.itemIds.forEach(id => {
         const facility = allFacilities.find(f => f.id === id);
@@ -128,15 +131,18 @@ export function BookingCart({ selectedItems, dateRange, allFacilities }: Booking
       });
     });
 
-    // Calculate services cost
+    const numberOfDaysWithLunch = watchedSchedule.filter(day => day.itemIds.length > 0).length;
+    const numberOfDaysWithRefreshment = watchedSchedule.filter(day => day.itemIds.length > 0).length;
+    
+    // Calculate services cost only for days where at least one facility is booked
     const { lunch, refreshment } = watchedServices;
-    if (lunch !== 'none') {
+    if (lunch !== 'none' && numberOfDaysWithLunch > 0) {
         const lunchPrice = lunch === 'level1' ? pricingSettings.lunchServiceCostLevel1 : pricingSettings.lunchServiceCostLevel2;
-        cost += lunchPrice * watchedAttendees * numberOfDays;
+        cost += lunchPrice * watchedAttendees * numberOfDaysWithLunch;
     }
-    if (refreshment !== 'none') {
+    if (refreshment !== 'none' && numberOfDaysWithRefreshment > 0) {
         const refreshmentPrice = refreshment === 'level1' ? pricingSettings.refreshmentServiceCostLevel1 : pricingSettings.refreshmentServiceCostLevel2;
-        cost += refreshmentPrice * watchedAttendees * numberOfDays;
+        cost += refreshmentPrice * watchedAttendees * numberOfDaysWithRefreshment;
     }
 
     setTotalCost(cost);
@@ -232,36 +238,43 @@ export function BookingCart({ selectedItems, dateRange, allFacilities }: Booking
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">{t('dailySchedule')}</h3>
-              {fields.map((field, index) => (
-                <Card key={field.id} className="p-4 bg-muted/50">
-                  <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
-                  <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {selectedItems.map((facility) => (
-                       <FormField
-                          key={facility.id}
-                          control={form.control}
-                          name={`schedule.${index}.itemIds`}
-                          render={({ field: checkboxField }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background">
-                              <FormControl>
-                                <Checkbox
-                                  checked={checkboxField.value?.includes(facility.id)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
-                                      : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm font-normal">{facility.name}</FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                    ))}
-                  </div>
-                  {selectedItems.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noFacilitiesSelectedForDay')}</p>}
-                </Card>
-              ))}
+              {fields.map((field, index) => {
+                  const dayStr = formatDate(field.date, 'yyyy-MM-dd');
+                  const availableFacilitiesForDay = selectedItems.filter(item => 
+                      dailyAvailability.get(item.id)?.get(dayStr) ?? false
+                  );
+
+                  return (
+                    <Card key={field.id} className="p-4 bg-muted/50">
+                      <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
+                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {availableFacilitiesForDay.map((facility) => (
+                          <FormField
+                              key={facility.id}
+                              control={form.control}
+                              name={`schedule.${index}.itemIds`}
+                              render={({ field: checkboxField }) => (
+                                <FormItem className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background">
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={checkboxField.value?.includes(facility.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
+                                          : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="text-sm font-normal">{facility.name}</FormLabel>
+                                </FormItem>
+                              )}
+                            />
+                        ))}
+                      </div>
+                      {availableFacilitiesForDay.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noSelectedFacilitiesAvailableOnThisDay')}</p>}
+                    </Card>
+                  );
+              })}
             </div>
             
             <h3 className="font-semibold text-lg pt-4 border-t">{t('additionalDetails')}</h3>

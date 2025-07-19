@@ -6,13 +6,16 @@ import type { DateRange } from "react-day-picker";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { Users, DollarSign, CheckSquare, Square } from "lucide-react";
+import { Users, DollarSign, CheckSquare, Square, AlertCircle } from "lucide-react";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { PLACEHOLDER_THUMBNAIL_SIZE } from "@/constants";
 import React from "react";
 import { ScrollAnimate } from "@/components/shared/scroll-animate";
+import { Badge } from "../ui/badge";
+
+type DailyAvailabilityMap = Map<string, Map<string, boolean>>; // facilityId -> dateString -> isAvailable
 
 interface HallListProps {
   halls: Hall[];
@@ -20,9 +23,10 @@ interface HallListProps {
   selectedItems?: Hall[];
   onSelectionChange?: (selected: Hall[]) => void;
   selectedDateRange?: DateRange;
+  dailyAvailability: DailyAvailabilityMap;
 }
 
-export function HallList({ halls, selectable = false, selectedItems = [], onSelectionChange, selectedDateRange }: HallListProps) {
+export function HallList({ halls, selectable = false, selectedItems = [], onSelectionChange, selectedDateRange, dailyAvailability }: HallListProps) {
   const { t } = useLanguage();
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -69,6 +73,11 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       {halls.map((hall, index) => {
         const isSelected = selectable && selectedItems.some(item => item.id === hall.id);
+        const availabilityForFacility = dailyAvailability.get(hall.id);
+        const totalDays = availabilityForFacility ? availabilityForFacility.size : 0;
+        const availableDays = availabilityForFacility ? Array.from(availabilityForFacility.values()).filter(v => v).length : 0;
+        const isPartiallyAvailable = totalDays > 0 && availableDays < totalDays;
+
         return (
           <ScrollAnimate key={hall.id} delay={index * 50}>
             <Card 
@@ -89,6 +98,12 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                   <div className="absolute top-2 left-2 bg-background/70 p-1 rounded-md">
                     {isSelected ? <CheckSquare className="w-6 h-6 text-primary" /> : <Square className="w-6 h-6 text-muted-foreground" />}
                   </div>
+                )}
+                 {isPartiallyAvailable && (
+                    <Badge variant="destructive" className="absolute top-2 right-2 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {t('partialAvailability')}
+                    </Badge>
                 )}
               </div>
               <CardHeader className="p-4">
