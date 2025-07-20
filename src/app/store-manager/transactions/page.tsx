@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, Timestamp, runTransaction, query, orderBy, onSnapshot } from 'firebase/firestore';
@@ -294,5 +294,3 @@ export default function ManageTransactionsPage() {
     </>
   );
 }
-
-    
