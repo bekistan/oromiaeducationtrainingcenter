@@ -3,86 +3,96 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if a user is authenticated
-    function isSignedIn() {
+
+    function isAuth() {
       return request.auth != null;
     }
-    
-    // Helper function to get the user's role from the 'users' collection
-    function getUserRole(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+
+    function isAdmin() {
+      return isAuth() && (getResource('users', request.auth.uid).role == 'admin' || getResource('users', request.auth.uid).role == 'superadmin');
     }
     
-    // Helper function to check if the user has one of the specified roles
-    function hasRole(roles) {
-      return isSignedIn() && getUserRole(request.auth.uid) in roles;
+    function isSuperAdmin() {
+      return isAuth() && getResource('users', request.auth.uid).role == 'superadmin';
+    }
+
+    function isKeyholder() {
+      return isAuth() && getResource('users', request.auth.uid).role == 'keyholder';
     }
     
-    // Allow public read on blog posts that are published
-    match /blog/{postId} {
-        allow read: if resource.data.isPublished == true;
-        // Only admins and superadmins can create, update, or delete blog posts
-        allow write: if hasRole(['admin', 'superadmin']);
+    function isStoreManager() {
+        return isAuth() && getResource('users', request.auth.uid).role == 'store_manager';
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
     }
     
-    // Public can read dormitories and halls for booking purposes
+    function getResource(collection, resourceId) {
+      return get(/databases/$(database)/documents/$(collection)/$(resourceId)).data;
+    }
+
+    // Publicly readable collections
     match /dormitories/{dormId} {
-        allow read: if true;
-        // Only admins can manage dormitories
-        allow write: if hasRole(['admin', 'superadmin']);
+      allow read: if true;
+      allow write: if isAdmin();
     }
     
     match /halls/{hallId} {
-        allow read: if true;
-        // Only general admins can manage halls
-        allow write: if hasRole(['admin', 'superadmin']); 
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // Bookings can be created by anyone, but only specific roles can manage them
-    match /bookings/{bookingId} {
-      allow read: if isSignedIn(); // Logged-in users can read bookings (e.g., their own)
-      allow create: if true; // Anyone can submit a booking request
-      allow update, delete: if hasRole(['admin', 'superadmin']); // Admins can manage all bookings
+    match /blog/{postId} {
+        allow read: if resource.data.isPublished == true; // Anyone can read published posts
+        allow create, update, delete: if isAdmin();
+        allow read: if isAdmin(); // Admins can read drafts
     }
 
-    // User documents management
-    match /users/{userId} {
-      // Allow user to read and update their own document
-      allow read, update: if request.auth.uid == userId;
-      // Allow superadmins to read, create, update, delete any user document
-      allow write: if hasRole(['superadmin']);
-      // Allow general admins to read company reps
-      allow read: if hasRole(['admin']);
-    }
-    
-    // Notifications are only for admins
-    match /notifications/{notificationId} {
-        allow read, write: if hasRole(['admin', 'superadmin']);
-    }
-
-    // Site configuration documents
+    // Configuration collections (readable by all, writable only by admins)
     match /site_configuration/{docId} {
-        allow read: if true; // Public can read configs like pricing, site content
-        allow write: if hasRole(['admin', 'superadmin']); // Only admins can change settings
+        allow read: if true;
+        allow write: if isSuperAdmin() || (isAdmin() && getResource('users', request.auth.uid).buildingAssignment == null);
+    }
+
+    // User data rules
+    match /users/{userId} {
+      allow read: if isAuth(); // Logged-in users can read user data (e.g. for names)
+      allow create: if true; // Anyone can create a user account (signup)
+      allow update: if isOwner(userId) || isAdmin(); // Users can update their own profile, admins can update any
+      allow delete: if isSuperAdmin(); // Only superadmins can delete user documents
+    }
+
+    // Bookings collection
+    match /bookings/{bookingId} {
+      // Public users need to check for date overlaps for availability. `list` is more secure than `read`.
+      allow list: if true;
+      allow create: if true; // Anyone can create a booking request
+      allow get: if isAdmin() || isKeyholder() || (isAuth() && request.auth.uid == resource.data.userId); // Admins, keyholders, and the booking owner can read
+      allow update: if isAdmin() || isKeyholder(); // Admins and keyholders can update status
+      allow delete: if isAdmin();
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow create: if true; // Server-side actions create notifications
+      allow read: if isAdmin() || (isAuth() && request.auth.uid == resource.data.recipientId);
+      allow update: if isAdmin() || (isAuth() && request.auth.uid == resource.data.recipientId);
+      allow delete: if isAdmin();
     }
     
-    // Store Items and Transactions
+    // Store Management collections
     match /store_items/{itemId} {
-        allow read: if hasRole(['store_manager', 'admin', 'superadmin']);
-        allow write: if hasRole(['store_manager', 'admin', 'superadmin']);
+        allow read, write: if isStoreManager() || isAdmin();
     }
     
     match /store_transactions/{transactionId} {
-        allow read: if hasRole(['store_manager', 'admin', 'superadmin']);
-        allow create: if hasRole(['store_manager']);
-        allow update, delete: if hasRole(['admin', 'superadmin']);
+        allow read, write: if isStoreManager() || isAdmin();
     }
 
-    // Employees collection
     match /employees/{employeeId} {
-        allow read: if hasRole(['store_manager', 'admin', 'superadmin']);
-        allow write: if hasRole(['admin', 'superadmin']);
+        allow read: if isAuth(); // All authenticated staff can see employee list
+        allow write: if isAdmin();
     }
   }
 }
