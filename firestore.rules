@@ -1,111 +1,90 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper Functions
-    function isLoggedIn() {
+
+    // ========= Helper Functions =========
+    function isSignedIn() {
       return request.auth != null;
     }
-    
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
     function getUserData() {
-      // Note: This function can only be used in rules for authenticated users.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
-    
+
     function isSuperAdmin() {
-      return isLoggedIn() && getUserData().role == 'superadmin';
+      return isSignedIn() && getUserData().role == 'superadmin';
     }
     
     function isAdmin() {
-      return isLoggedIn() && getUserData().role == 'admin';
+      return isSignedIn() && (getUserData().role == 'admin' || getUserData().role == 'superadmin');
     }
-    
+
     function isKeyholder() {
-      return isLoggedIn() && getUserData().role == 'keyholder';
+      return isSignedIn() && getUserData().role == 'keyholder';
     }
     
+    function isStoreManager() {
+      return isSignedIn() && getUserData().role == 'store_manager';
+    }
+
     function isCompanyRep() {
-      return isLoggedIn() && getUserData().role == 'company_representative';
-    }
-
-    function isIndividual() {
-      // An "individual" user in this context is one who books a dorm for personal use.
-      // They may not have a specific 'individual' role, so we check against other roles.
-      // For this app, any authenticated user who is NOT an admin/keyholder/company_rep can be considered an individual booker.
-      // This function is for clarity in booking rules.
-      let userRole = getUserData().role;
-      return isLoggedIn() && userRole != 'admin' && userRole != 'superadmin' && userRole != 'keyholder' && userRole != 'company_representative';
-    }
-
-    // ==== COLLECTION: users ====
-    match /users/{userId} {
-      allow get: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin() || isAdmin());
-      allow list: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-      allow create: if request.auth.uid == userId; // A user can only create their own user document
-      allow update: if isLoggedIn() && (request.auth.uid == userId || isSuperAdmin());
-      allow delete: if isSuperAdmin();
+        return isSignedIn() && getUserData().role == 'company_representative';
     }
     
-    // ==== COLLECTION: bookings ====
-    match /bookings/{bookingId} {
-      // GET: A document can be read if...
-      allow get: if isLoggedIn() && (
-        // an admin/staff
-        isSuperAdmin() || isAdmin() || isKeyholder() ||
-        // the company rep who owns the booking
-        (isCompanyRep() && resource.data.companyId == getUserData().companyId) ||
-        // the individual user who owns the booking (matched by user ID)
-        (resource.data.userId == request.auth.uid)
-      );
-
-      // LIST: A query can be made if the user is logged in.
-      // The security is enforced by the client-side 'where' clause combined with the 'get' rule above.
-      // e.g., a company rep MUST query with where("companyId", "==", theirId).
-      // If they try a broad query, it will fail because the 'get' rule would fail on some documents.
-      allow list: if isLoggedIn();
-
-      // CREATE: Any authenticated user can create a booking request for themselves.
-      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
-
-      // UPDATE: Only Admins/Superadmins, or the company rep for their own booking.
-      allow update: if isLoggedIn() && (
-        isSuperAdmin() || isAdmin() ||
-        (isCompanyRep() && resource.data.companyId == getUserData().companyId)
-      );
-      
-      // DELETE: Only Admins and Superadmins can delete bookings.
-      allow delete: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-    }
-    
-    // ==== PUBLIC & ADMIN-ONLY COLLECTIONS ====
-    
+    // ========= Public Collections =========
     match /dormitories/{dormId} {
-      allow get, list: if true;
-      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /halls/{hallId} {
-      allow get, list: if true;
-      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+      allow read: if true;
+      allow write: if isAdmin();
     }
     
     match /blog/{postId} {
-      // Anyone can get a post if it's published.
-      allow get: if resource.data.isPublished == true;
-      // Anyone can list posts. The client-side query must filter for isPublished == true
-      // because the 'get' rule above will cause a broad query to fail if it includes unpublished posts.
-      allow list: if true; 
-      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
-    }
-    
-    match /notifications/{notificationId} {
-        allow read, write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+      allow read: if resource.data.isPublished == true;
+      allow create, update, delete: if isAdmin();
     }
     
     match /site_configuration/{docId} {
-      allow get: if true;
-      allow write: if isLoggedIn() && (isSuperAdmin() || isAdmin());
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    
+    // ========= User Data =========
+    match /users/{userId} {
+      allow read, update: if isUser(userId) || isSuperAdmin();
+      allow create: if true; // Allows signup
+      allow list, delete: if isSuperAdmin();
+    }
+
+    // ========= Bookings =========
+    match /bookings/{bookingId} {
+      allow read: if isUser(resource.data.userId) || isCompanyRep() && getUserData().companyId == resource.data.companyId || isAdmin() || isKeyholder();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isKeyholder(); // Keyholders can update keyStatus
+      allow delete: if isAdmin();
+    }
+    
+    // ========= Notifications =========
+    match /notifications/{notificationId} {
+        allow read, write: if isAdmin();
+    }
+    
+    // ========= Store Management =========
+    match /store_items/{itemId} {
+      allow read, write: if isStoreManager() || isAdmin();
+    }
+
+    match /store_transactions/{transactionId} {
+      allow read, write: if isStoreManager() || isAdmin();
     }
   }
 }
