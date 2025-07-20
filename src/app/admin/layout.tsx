@@ -56,9 +56,16 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
 
   useEffect(() => {
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return;
+    
+    const recipientRoles = ['admin', 'superadmin'];
+    if (user.role === 'superadmin') {
+      // Superadmins listen to their own notifications too if any are specifically targeted
+      recipientRoles.push('superadmin');
+    }
+    
     const q = query(
       collection(db, "notifications"),
-      where("recipientRole", "in", ["admin", "superadmin"]),
+      where("recipientRole", "in", recipientRoles),
       where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {

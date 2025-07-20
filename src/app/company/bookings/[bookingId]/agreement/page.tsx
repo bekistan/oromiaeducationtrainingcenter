@@ -16,6 +16,7 @@ import { PublicLayout } from '@/components/layout/public-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
+import { notifyAdminsOfSignedAgreement } from '@/actions/notification-actions';
 
 export default function CompanyBookingAgreementViewPage() {
   const params = useParams();
@@ -144,8 +145,12 @@ export default function CompanyBookingAgreementViewPage() {
         agreementSignedAt: serverTimestamp(),
       });
       
+      const updatedBookingForNotification = { ...booking, signedAgreementUrl: cloudinaryUrl, agreementStatus: 'signed_by_client' as const };
+      
+      notifyAdminsOfSignedAgreement(updatedBookingForNotification);
+
       toast({ title: t('success'), description: t('agreementUploadedSuccessfully') });
-      setBooking(prev => prev ? { ...prev, signedAgreementUrl: cloudinaryUrl, agreementStatus: 'signed_by_client' } : null);
+      setBooking(updatedBookingForNotification);
       setSelectedFile(null);
 
     } catch (err) {

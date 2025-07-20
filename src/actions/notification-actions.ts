@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { getAdminPhoneNumbers, getKeyholderPhoneNumbers, sendSms, getBuildingAdminPhoneNumbers } from '@/services/sms-service';
-import type { Booking, AdminNotification, Dormitory } from '@/types';
+import type { Booking, AdminNotification, Dormitory, User } from '@/types';
 import { toDateObject } from '@/lib/date-utils';
 
 // It's important to set this in your environment variables for production.
@@ -196,5 +196,69 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
     console.error("##################### END OF CRITICAL FAILURE ####################");
   } finally {
      console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
+  }
+}
+
+/**
+ * Notifies a company representative that their agreement is ready.
+ * @param booking - The approved facility booking.
+ */
+export async function notifyCompanyOfAgreement(booking: Booking): Promise<void> {
+  if (!db) {
+    console.error("[Notification Action] FAILED: DB not configured for notifyCompanyOfAgreement.");
+    return;
+  }
+  if (!booking.userId) {
+    console.log("[Notification Action] No userId on booking, cannot send targeted web notification to company.");
+    return;
+  }
+
+  const notification: Omit<AdminNotification, 'id' | 'createdAt'> & { createdAt: any } = {
+    message: `Your agreement for booking #${booking.id.substring(0, 6)} is ready to be signed.`,
+    type: 'agreement_ready_for_client',
+    relatedId: booking.id,
+    recipientRole: 'company_representative',
+    recipientId: booking.userId, // Target the specific user
+    isRead: false,
+    createdAt: serverTimestamp(),
+    link: `/company/bookings/${booking.id}/agreement`,
+  };
+
+  try {
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`[Notification Action] Successfully created web notification for company user ${booking.userId} about agreement.`);
+  } catch (error) {
+    console.error("[Notification Action] Failed to create company agreement notification:", error);
+  }
+}
+
+/**
+ * Notifies admins that a signed agreement has been uploaded.
+ * @param booking - The booking with the uploaded agreement.
+ */
+export async function notifyAdminsOfSignedAgreement(booking: Booking): Promise<void> {
+  if (!db) {
+    console.error("[Notification Action] FAILED: DB not configured for notifyAdminsOfSignedAgreement.");
+    return;
+  }
+  
+  const notificationLink = `/admin/manage-facility-bookings#${booking.id}`;
+  const message = `Agreement for booking #${booking.id.substring(0, 6)} has been signed and uploaded by ${booking.companyName}.`;
+  
+  const notification: Omit<AdminNotification, 'id' | 'createdAt'> & { createdAt: any } = {
+    message,
+    type: 'agreement_signed_by_client',
+    relatedId: booking.id,
+    recipientRole: 'admin',
+    isRead: false,
+    createdAt: serverTimestamp(),
+    link: notificationLink,
+  };
+
+  try {
+    await addDoc(collection(db, 'notifications'), notification);
+    console.log(`[Notification Action] Successfully created web notification for admins about signed agreement.`);
+  } catch (error) {
+    console.error("[Notification Action] Failed to create admin signed agreement notification:", error);
   }
 }

@@ -42,6 +42,7 @@ import { formatDate, toDateObject } from '@/lib/date-utils';
 import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
+import { notifyCompanyOfAgreement } from '@/actions/notification-actions';
 
 
 type ApprovalStatusFilter = "all" | Booking['approvalStatus'];
@@ -100,7 +101,7 @@ export default function AdminManageFacilityBookingsPage() {
     enabled: !authLoading && user != null && (user.role === 'superadmin' || (user.role === 'admin' && !user.buildingAssignment)),
   });
 
-  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string }>({
+  const updateBookingMutation = useMutation<void, Error, { bookingId: string; updateData: Partial<Booking>; successMessageKey: string, bookingToNotify?: Booking }>({
     mutationFn: async ({ bookingId, updateData }) => {
       if (!db) throw new Error("Database not configured.");
       const bookingRef = doc(db, "bookings", bookingId);
@@ -109,6 +110,11 @@ export default function AdminManageFacilityBookingsPage() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [FACILITY_BOOKINGS_QUERY_KEY] });
       toast({ title: t('success'), description: t(variables.successMessageKey) });
+      if (variables.bookingToNotify && variables.updateData.approvalStatus === 'approved') {
+        notifyCompanyOfAgreement(variables.bookingToNotify).catch(err => {
+            console.error("Web notification to company failed to dispatch:", err);
+        });
+      }
     },
     onError: (error) => {
       toast({ variant: "destructive", title: t('error'), description: error.message || t('errorUpdatingBookingStatus') });
@@ -178,15 +184,19 @@ export default function AdminManageFacilityBookingsPage() {
 
   const handleApprovalChange = async (bookingId: string, newStatus: 'approved' | 'rejected') => {
     const updateData: Partial<Booking> = { approvalStatus: newStatus };
-    if (newStatus === 'approved') {
+    const fullBookingDetails = allBookingsFromDb.find(b => b.id === bookingId);
+    let bookingToNotify: Booking | undefined = undefined;
+
+    if (newStatus === 'approved' && fullBookingDetails) {
       const defaultTerms = await fetchAgreementTemplate();
       updateData.agreementStatus = 'sent_to_client';
       updateData.agreementSentAt = Timestamp.now();
       updateData.customAgreementTerms = defaultTerms;
+      bookingToNotify = { ...fullBookingDetails, ...updateData };
     } else if (newStatus === 'rejected') {
       updateData.paymentStatus = 'failed';
     }
-    updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'bookingStatusUpdated' });
+    updateBookingMutation.mutate({ bookingId, updateData, successMessageKey: 'bookingStatusUpdated', bookingToNotify });
   };
   
   const handlePaymentStatusChange = (bookingId: string, newPaymentStatus: 'paid') => {

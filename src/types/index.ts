@@ -176,14 +176,21 @@ export interface NavItem {
   children?: NavItem[];
 }
 
-export type NotificationType = 'new_facility_booking' | 'new_dormitory_booking' | 'company_registration' | 'payment_verification_needed';
+export type NotificationType = 
+  | 'new_facility_booking' 
+  | 'new_dormitory_booking' 
+  | 'company_registration' 
+  | 'payment_verification_needed'
+  | 'agreement_ready_for_client'
+  | 'agreement_signed_by_client';
 
 export interface AdminNotification {
     id: string;
     message: string;
     type: NotificationType;
     relatedId?: string; 
-    recipientRole: 'admin' | 'superadmin'; 
+    recipientRole: 'admin' | 'superadmin' | 'company_representative'; 
+    recipientId?: string; // For company-specific notifications
     isRead: boolean;
     createdAt: any; 
     link?: string; 
