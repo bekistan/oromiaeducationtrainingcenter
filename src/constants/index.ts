@@ -138,6 +138,8 @@ export const SITE_CONTENT_DOC_PATH = "site_configuration/site_content";
 export const PRICING_SETTINGS_DOC_PATH = "site_configuration/pricing_settings";
 export const BRAND_ASSETS_DOC_PATH = "site_configuration/brand_assets";
 
+export const STORE_ITEM_CATEGORIES = ["Stationery", "Cleaning Supplies", "Electronics", "Kitchen Supplies", "Maintenance", "Other"] as const;
+
 export const DEFAULT_SITE_SETTINGS = {
   siteAnnouncementMessage: "",
   isAnnouncementVisible: false,

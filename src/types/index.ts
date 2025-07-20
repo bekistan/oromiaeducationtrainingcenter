@@ -1,4 +1,6 @@
 
+import { STORE_ITEM_CATEGORIES } from '@/constants';
+
 export type Locale = 'en' | 'om' | 'am';
 
 export type Translations = {
@@ -228,10 +230,12 @@ export interface SiteContentSettings {
 }
 
 // Store Management Types
+export type StoreItemCategory = typeof STORE_ITEM_CATEGORIES[number];
+
 export interface StoreItem {
   id: string;
   name: string;
-  category: string;
+  category: StoreItemCategory;
   quantity: number;
   unit: string; // e.g., 'pcs', 'kg', 'liters'
   lastUpdated: import('firebase/firestore').Timestamp;

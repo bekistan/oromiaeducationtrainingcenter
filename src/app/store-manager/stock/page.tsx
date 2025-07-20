@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -15,19 +16,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from 'react-hook-form';
 import * as z from "zod";
 import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/date-utils';
+import { STORE_ITEM_CATEGORIES } from '@/constants';
 
 const STORE_ITEMS_QUERY_KEY = "storeItems";
 const LOW_STOCK_THRESHOLD = 10;
 
 const itemSchema = z.object({
   name: z.string().min(2, { message: "Item name must be at least 2 characters." }),
-  category: z.string().min(2, { message: "Category is required." }),
+  category: z.enum(STORE_ITEM_CATEGORIES, { required_error: "Please select a category." }),
   quantity: z.coerce.number().min(0, { message: "Quantity must be a non-negative number." }),
   unit: z.string().min(1, { message: "Unit (e.g., pcs, kg) is required." }),
   notes: z.string().optional(),
@@ -61,7 +64,7 @@ export default function ManageStockPage() {
 
   const form = useForm<ItemFormValues>({
     resolver: zodResolver(itemSchema),
-    defaultValues: { name: "", category: "", quantity: 0, unit: "pcs", notes: "" },
+    defaultValues: { name: "", category: undefined, quantity: 0, unit: "pcs", notes: "" },
   });
 
   const mutation = useMutation<void, Error, { values: ItemFormValues; id?: string }>({
@@ -129,7 +132,7 @@ export default function ManageStockPage() {
 
   const openFormForNew = () => {
     setItemToEdit(null);
-    form.reset({ name: "", category: "", quantity: 0, unit: "pcs", notes: "" });
+    form.reset({ name: "", category: undefined, quantity: 0, unit: "pcs", notes: "" });
     setIsFormOpen(true);
   };
 
@@ -191,7 +194,7 @@ export default function ManageStockPage() {
                   {paginatedData.length > 0 ? paginatedData.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
+                      <TableCell>{t(item.category) || item.category}</TableCell>
                       <TableCell>
                         {item.quantity < LOW_STOCK_THRESHOLD ? (
                           <Badge variant="destructive" className="flex items-center gap-1 w-fit">
@@ -235,7 +238,30 @@ export default function ManageStockPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>{t('itemName')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>{t('category')}</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('category')}</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('selectCategoryPlaceholder')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {STORE_ITEM_CATEGORIES.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {t(category) || category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>{t('initialQuantity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="unit" render={({ field }) => (<FormItem><FormLabel>{t('unitOfMeasurement')}</FormLabel><FormControl><Input placeholder="e.g., pcs, kg, liters" {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="notes" render={({ field }) => (<FormItem><FormLabel>{t('notes')} ({t('optional')})</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
