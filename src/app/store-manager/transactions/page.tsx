@@ -253,7 +253,7 @@ export default function ManageTransactionsPage() {
                       <SelectContent>
                         {storeItems.map((item) => (
                           <SelectItem key={item.id} value={item.id}>
-                            {item.name} ({t('currentStock')}: {item.quantity})
+                            {item.name} ({t('currentStock')}: {item.quantity} {item.unit})
                           </SelectItem>
                         ))}
                       </SelectContent>
