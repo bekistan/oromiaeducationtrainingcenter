@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useLanguage } from "@/hooks/use-language";
 import type { StoreItem, StoreTransaction } from "@/types";
-import { Package, PackageWarning, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Package, AlertTriangle, ArrowRightLeft, Loader2 } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { collection, query, where, Timestamp, orderBy, onSnapshot, getCountFromServer } from 'firebase/firestore';
 import { formatDate } from '@/lib/date-utils';
@@ -90,7 +90,7 @@ export default function StoreManagerDashboardPage() {
 
   const statCards = [
       { titleKey: "totalStockItems", value: stats?.totalItemTypes, icon: <Package className="h-6 w-6 text-primary" />, detailsKey: "distinctItemTypesInStore" },
-      { titleKey: "itemsLowOnStock", value: stats?.itemsLowInStock, icon: <PackageWarning className="h-6 w-6 text-amber-600" />, detailsKey: "itemsBelowThreshold", threshold: LOW_STOCK_THRESHOLD },
+      { titleKey: "itemsLowOnStock", value: stats?.itemsLowInStock, icon: <AlertTriangle className="h-6 w-6 text-amber-600" />, detailsKey: "itemsBelowThreshold", threshold: LOW_STOCK_THRESHOLD },
       { titleKey: "transactionsToday", value: stats?.transactionsToday, icon: <ArrowRightLeft className="h-6 w-6 text-green-600" />, detailsKey: "stockMovementsRecordedToday" },
   ];
 
