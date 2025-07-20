@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, Timestamp, runTransaction, query, orderBy, onSnapshot } from 'firebase/firestore';
-import type { StoreItem, StoreTransaction } from '@/types';
+import type { StoreItem, StoreTransaction, Employee } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
@@ -25,12 +25,17 @@ import { formatDate } from '@/lib/date-utils';
 
 const STORE_ITEMS_QUERY_KEY = "storeItemsForTransaction";
 const STORE_TRANSACTIONS_QUERY_KEY = "storeTransactions";
+const EMPLOYEES_QUERY_KEY_FOR_TRANSACTION = "employeesForTransaction";
 
 const transactionSchema = z.object({
   itemId: z.string().min(1, { message: "Please select an item." }),
   type: z.enum(['in', 'out'], { required_error: "Please select a transaction type." }),
   quantityChange: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
   reason: z.string().min(2, { message: "A reason is required." }).max(100, { message: "Reason cannot exceed 100 characters." }),
+  responsibleEmployeeId: z.string().optional(),
+}).refine(data => data.type === 'out' ? !!data.responsibleEmployeeId : true, {
+    message: "An employee must be selected when stock is taken out.",
+    path: ["responsibleEmployeeId"],
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -39,6 +44,12 @@ const fetchStoreItems = async (): Promise<StoreItem[]> => {
   const querySnapshot = await getDocs(collection(db, "store_items"));
   return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as StoreItem));
 };
+
+const fetchEmployees = async (): Promise<Employee[]> => {
+    const q = query(collection(db, "employees"), orderBy("name"));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Employee));
+}
 
 export default function ManageTransactionsPage() {
   const { t } = useLanguage();
@@ -50,13 +61,16 @@ export default function ManageTransactionsPage() {
   const [transactions, setTransactions] = useState<StoreTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
 
-  // Fetch store items for the dropdown
   const { data: storeItems = [], isLoading: isLoadingItems, error: itemsError } = useQuery<StoreItem[], Error>({
     queryKey: [STORE_ITEMS_QUERY_KEY],
     queryFn: fetchStoreItems,
   });
 
-  // Real-time listener for transactions
+  const { data: employees = [], isLoading: isLoadingEmployees, error: employeesError } = useQuery<Employee[], Error>({
+    queryKey: [EMPLOYEES_QUERY_KEY_FOR_TRANSACTION],
+    queryFn: fetchEmployees,
+  });
+
   useEffect(() => {
     const q = query(collection(db, "store_transactions"), orderBy("transactionDate", "desc"));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -76,11 +90,12 @@ export default function ManageTransactionsPage() {
     return () => unsubscribe();
   }, [t, toast]);
 
-
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: { itemId: "", type: "out", quantityChange: 1, reason: "" },
+    defaultValues: { itemId: "", type: "out", quantityChange: 1, reason: "", responsibleEmployeeId: undefined },
   });
+  
+  const watchedTransactionType = form.watch("type");
 
   const transactionMutation = useMutation<void, Error, TransactionFormValues>({
     mutationFn: async (values) => {
@@ -109,13 +124,17 @@ export default function ManageTransactionsPage() {
           newQuantity = currentQuantity - change;
         }
 
-        // 1. Update the item's quantity
         transaction.update(itemRef, {
           quantity: newQuantity,
           lastUpdated: serverTimestamp(),
         });
+        
+        let responsibleEmployeeName: string | undefined = undefined;
+        if(values.type === 'out' && values.responsibleEmployeeId) {
+            const employee = employees.find(e => e.id === values.responsibleEmployeeId);
+            responsibleEmployeeName = employee?.name;
+        }
 
-        // 2. Create a new transaction record
         transaction.set(transactionRef, {
           itemId: values.itemId,
           itemName: currentItemData.name,
@@ -124,12 +143,13 @@ export default function ManageTransactionsPage() {
           reason: values.reason,
           recordedBy: user.id,
           transactionDate: serverTimestamp(),
+          responsibleEmployeeId: values.responsibleEmployeeId || null,
+          responsibleEmployeeName: responsibleEmployeeName || null,
         });
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORE_ITEMS_QUERY_KEY] });
-      // No need to invalidate transactions query due to real-time listener
       toast({ title: t('success'), description: t('transactionRecordedSuccessfully') });
       setIsFormOpen(false);
     },
@@ -142,24 +162,17 @@ export default function ManageTransactionsPage() {
     paginatedData,
     setSearchTerm,
     searchTerm,
-    currentPage,
-    pageCount,
-    nextPage,
-    previousPage,
-    canNextPage,
-    canPreviousPage,
-    totalItems,
   } = useSimpleTable({
     data: transactions,
     rowsPerPage: 10,
-    searchKeys: ['itemName', 'reason', 'type'],
+    searchKeys: ['itemName', 'reason', 'type', 'responsibleEmployeeName'],
   });
 
   const onSubmit = (values: TransactionFormValues) => {
     transactionMutation.mutate(values);
   };
   
-  const isLoading = isLoadingItems || isLoadingTransactions;
+  const isLoading = isLoadingItems || isLoadingTransactions || isLoadingEmployees;
 
   return (
     <>
@@ -196,6 +209,7 @@ export default function ManageTransactionsPage() {
                     <TableHead>{t('type')}</TableHead>
                     <TableHead>{t('quantity')}</TableHead>
                     <TableHead>{t('reason')}</TableHead>
+                    <TableHead>{t('responsibleEmployee')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -210,21 +224,13 @@ export default function ManageTransactionsPage() {
                       </TableCell>
                       <TableCell>{tx.type === 'in' ? '+' : '-'}{tx.quantityChange}</TableCell>
                       <TableCell>{tx.reason}</TableCell>
+                      <TableCell>{tx.responsibleEmployeeName || 'N/A'}</TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell colSpan={5} className="h-24 text-center">{t('noTransactionsFound')}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="h-24 text-center">{t('noTransactionsFound')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
-              {pageCount > 1 && (
-                <div className="flex items-center justify-between py-4">
-                  <span className="text-sm text-muted-foreground">{t('page')} {currentPage + 1} {t('of')} {pageCount}</span>
-                  <div className="space-x-2">
-                    <Button variant="outline" size="sm" onClick={previousPage} disabled={!canPreviousPage}><ChevronLeft className="h-4 w-4 mr-1"/>{t('previous')}</Button>
-                    <Button variant="outline" size="sm" onClick={nextPage} disabled={!canNextPage}>{t('next')}<ChevronRight className="h-4 w-4 ml-1"/></Button>
-                  </div>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
@@ -282,6 +288,32 @@ export default function ManageTransactionsPage() {
                 )}
               />
               <FormField control={form.control} name="quantityChange" render={({ field }) => (<FormItem><FormLabel>{t('quantity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              {watchedTransactionType === 'out' && (
+                <FormField
+                  control={form.control}
+                  name="responsibleEmployeeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('responsibleEmployee')}</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingEmployees}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={isLoadingEmployees ? t('loadingEmployees') : t('selectEmployeePlaceholder')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {employees.map((employee) => (
+                            <SelectItem key={employee.id} value={employee.id}>
+                              {employee.name} ({employee.position})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField control={form.control} name="reason" render={({ field }) => (<FormItem><FormLabel>{t('reason')}</FormLabel><FormControl><Input placeholder={t('reasonPlaceholder')} {...field} /></FormControl><FormMessage /></FormItem>)} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>{t('cancel')}</Button>

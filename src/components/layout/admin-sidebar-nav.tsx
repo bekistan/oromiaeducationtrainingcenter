@@ -27,7 +27,8 @@ import {
   Bell,
   ChevronDown,
   BookMarked,
-  Store
+  Store,
+  Contact
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react"
@@ -48,6 +49,7 @@ const ICONS: Record<string, LucideIcon> = {
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks, 
   manageCompanies: Users,
+  manageEmployees: Contact,
   manageBlog: BookMarked,
   reports: FileText, 
   userManagement: UserPlus, 

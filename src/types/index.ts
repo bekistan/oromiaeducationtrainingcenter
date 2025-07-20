@@ -149,6 +149,14 @@ export interface User {
   buildingAssignment?: 'ifaboru' | 'buuraboru' | null; 
 }
 
+export interface Employee {
+  id: string;
+  name: string;
+  phone: string;
+  position: string;
+  createdAt: import('firebase/firestore').Timestamp;
+}
+
 export interface CompanyProfile {
   id: string;
   name: string;
@@ -251,4 +259,6 @@ export interface StoreTransaction {
   reason: string;
   transactionDate: import('firebase/firestore').Timestamp;
   recordedBy: string; // User ID of the store manager
+  responsibleEmployeeId?: string;
+  responsibleEmployeeName?: string;
 }
