@@ -42,6 +42,8 @@ export default function LoginPageContent() {
           router.push('/company/dashboard');
         } else if (loggedInUser.role === 'keyholder') {
           router.push('/keyholder/dashboard');
+        } else if (loggedInUser.role === 'store_manager') {
+          router.push('/store-manager/dashboard');
         } else {
           router.push('/'); // Default redirect for individual users or other roles
         }
@@ -91,6 +93,8 @@ export default function LoginPageContent() {
                 router.push('/company/dashboard');
             } else if (user.role === 'keyholder') {
                 router.push('/keyholder/dashboard');
+            } else if (user.role === 'store_manager') {
+                router.push('/store-manager/dashboard');
             } else {
                 router.push('/'); 
             }

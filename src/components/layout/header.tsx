@@ -55,6 +55,7 @@ export function Header() {
     if (user.role === 'admin' || user.role === 'superadmin') return '/admin/dashboard';
     if (user.role === 'company_representative' && user.approvalStatus === 'approved') return '/company/dashboard';
     if (user.role === 'keyholder') return '/keyholder/dashboard';
+    if (user.role === 'store_manager') return '/store-manager/dashboard';
     return null;
   };
 
@@ -190,7 +191,7 @@ export function Header() {
                    <nav className="flex flex-col gap-1 text-lg">
                     {user && dashboardPath && (
                       <SheetClose asChild>
-                        <Link href={dashboardPath} className={cn("rounded-md p-2 transition-colors hover:bg-muted font-semibold text-primary flex items-center gap-2", pathname.includes('/admin') || pathname.includes('/company') || pathname.includes('/keyholder') ? "bg-muted" : "")}>
+                        <Link href={dashboardPath} className={cn("rounded-md p-2 transition-colors hover:bg-muted font-semibold text-primary flex items-center gap-2", pathname.includes('/admin') || pathname.includes('/company') || pathname.includes('/keyholder') || pathname.includes('/store-manager') ? "bg-muted" : "")}>
                           <LayoutDashboard className="h-5 w-5" />{t('dashboard')}
                         </Link>
                       </SheetClose>
