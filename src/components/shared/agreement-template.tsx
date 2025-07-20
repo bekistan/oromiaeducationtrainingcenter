@@ -32,6 +32,35 @@ const fetchBrandAssets = async (): Promise<BrandAssets | null> => {
   return null;
 };
 
+// Default terms in Afan Oromo
+const afanOromoDefaultTerms = `
+Kutaa 1: Ibsa Waliigalaa
+Waliigalteen kun haalawwan kireeffama mooraa fi tajaajila MBLQBO (Mana Barumsaa, Leenjii fi Qorannoo Biiroo Oromiyaa) bulchuuf kan gargaarudha.
+
+Kutaa 2: Tajaajila Kennamu
+MBLQBO tajaajiloota armaan gadii ni kenna:
+- Kireeffama galmawwanii fi kutaalee addaa walgahiiwwaniif.
+- Tajaajila nyaataa fi dhugaatii akka barbaachisummaa isaatti.
+- Iddoo jireenyaa yeroo gabaabaaf (dormitories).
+
+Kutaa 3: Dirqama Kireeffataa (Client)
+- Kireeffataan qabeenya kiraan fudhateef kunuunsa gochuu qaba.
+- Kaffaltii waliigalame yeroon kaffaluu.
+- Seeraa fi qajeelfama giddugalichaa kabajuu.
+
+Kutaa 4: Dirqama MBLQBO
+- Iddoo qulqulluu fi mijaa'aa ta'e kireeffataadhaaf qopheessuu.
+- Nageenya naannoo mooraa eeguu.
+- Tajaajila waliigalame akkuma karoorfame kennuu.
+
+Kutaa 5: Kaffaltii
+Kaffaltiin tajaajila argame hunda dura yookaan akkuma waliigaltetti raawwatama. Kaffaltiin yeroon hin kaffalamne yoo jiraate, MBLQBO waliigaltee kana addaan kutuu ni danda'a.
+
+Kutaa 6: Addaan Kutuu Waliigaltee
+Gartuun kamiyyuu haalawwan waliigaltee kana keessatti ibsaman yoo cabse, gartuun kaan beeksisa barreeffamaa guyyaa 15 dura kennuun waliigaltee kana addaan kutuu ni danda'a.
+`;
+
+
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
   const { t } = useLanguage();
 
@@ -42,11 +71,11 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
   });
 
   if (!booking) {
-    return <p>{t('loadingAgreementDetails')}</p>; 
+    return <p>Waliigaltee fe'aa jira...</p>; 
   }
 
   if (booking.bookingCategory !== 'facility') {
-    return <p>{t('agreementNotApplicable')}</p>; 
+    return <p>Waliigalteen kun tajaajila kanaaf hin hojjetu.</p>; 
   }
   
   const agreementDate = formatDate(new Date(), 'MMMM dd, yyyy');
@@ -62,22 +91,22 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
 
   const totalBookingCostFromRecord = booking.totalCost; 
 
-  const termsToRender = customTerms || t('defaultAgreementTermsNotSet');
+  const termsToRender = customTerms || afanOromoDefaultTerms;
   const facilitiesBookedString = booking.items.map(item => `${item.name} (${t(item.itemType)})`).join(', ');
 
   const replacePlaceholders = (template: string) => {
     let replaced = template;
     const replacements: Record<string, string | number> = {
-      '{{{clientName}}}': booking.companyName || t('notAvailable'),
-      '{{{clientContactPerson}}}': booking.contactPerson || t('notAvailable'),
-      '{{{clientEmail}}}': booking.email || t('notAvailable'),
-      '{{{clientPhone}}}': booking.phone || t('notAvailable'),
+      '{{{clientName}}}': booking.companyName || 'Maamila',
+      '{{{clientContactPerson}}}': booking.contactPerson || 'Nama Qunnamtii',
+      '{{{clientEmail}}}': booking.email || 'Email hin jiru',
+      '{{{clientPhone}}}': booking.phone || 'Lakkoofsa bilbilaa hin jiru',
       '{{{facilitiesBooked}}}': facilitiesBookedString,
       '{{{startDate}}}': startDateFormatted,
       '{{{endDate}}}': endDateFormatted,
       '{{{numberOfDays}}}': numberOfDays,
       '{{{numberOfAttendees}}}': numberOfAttendees,
-      '{{{totalCost}}}': `${totalBookingCostFromRecord.toFixed(2)} ${t('currencySymbol')}`,
+      '{{{totalCost}}}': `${totalBookingCostFromRecord.toFixed(2)} ETB`,
       '{{{agreementDate}}}': agreementDate,
       '{{{providerName}}}': SITE_NAME,
     };
@@ -114,68 +143,68 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
       `}</style>
       <div className="printable-agreement">
         <header className="text-center mb-8 border-b pb-4">
-          <h1 className="text-3xl font-bold text-gray-800">{t('facilityRentalAgreement')}</h1>
-          <p className="text-sm text-gray-500">{t('agreementDate')}: {agreementDate}</p>
+          <h1 className="text-3xl font-bold text-gray-800">Waliigaltee Kiraa Mooraa</h1>
+          <p className="text-sm text-gray-500">Guyyaa Waliigaltee: {agreementDate}</p>
         </header>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-700 mb-2">{t('partiesInvolved')}</h2>
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">Gartuuwwan Waliigalan</h2>
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <h3 className="font-medium text-gray-700">{t('serviceProvider')}</h3>
+              <h3 className="font-medium text-gray-700">Tajaajila Kan Kennu</h3>
               <p className="text-sm">{SITE_NAME}</p>
-              <p className="text-sm">{t('providerAddressPlaceholder')}</p>
-              <p className="text-sm">{t('providerContactPlaceholder')}</p>
+              <p className="text-sm">Teessoo: Finfinnee, Oromiyaa</p>
+              <p className="text-sm">Bilbila: +251-XXX-XXXXXX</p>
             </div>
             <div>
-              <h3 className="font-medium text-gray-700">{t('clientBidTaker')}</h3>
-              <p className="text-sm">{booking.companyName || t('notAvailable')}</p>
-              <p className="text-sm">{t('clientAddressPlaceholder', { companyName: booking.companyName || t('unknownCompany') })}</p>
-              <p className="text-sm">{t('clientContactPlaceholder', { contactPerson: booking.contactPerson || t('notAvailable') })}</p>
+              <h3 className="font-medium text-gray-700">Kireeffataa (Maamila)</h3>
+              <p className="text-sm">{booking.companyName || 'Maamila hin beekamne'}</p>
+              <p className="text-sm">Teessoo: {booking.companyName || 'Teessoo hin beekamne'}</p>
+              <p className="text-sm">Nama Qunnamtii: {booking.contactPerson || 'Hin jiru'}</p>
             </div>
           </div>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('serviceDetails')}</h2>
+          <h2 className="text-xl font-semibold text-gray-700 mb-3">Ibsa Tajaajilaa</h2>
           <div className="space-y-1 bg-slate-50 p-4 rounded-md border border-slate-200">
-            <p className="text-sm"><strong>{t('facilityBooked')}:</strong> {facilitiesBookedString}</p>
-            <p className="text-sm"><strong>{t('bookingPeriod')}:</strong> {startDateFormatted} {t('to')} {endDateFormatted} ({numberOfDays} {numberOfDays === 1 ? t('day') : t('days')})</p> 
-            <p className="text-sm"><strong>{t('numberOfAttendees')}:</strong> {booking.numberOfAttendees || t('notSpecified')}</p>
+            <p className="text-sm"><strong>Mooraa Qabame:</strong> {facilitiesBookedString}</p>
+            <p className="text-sm"><strong>Bara Tajaajilaa:</strong> {startDateFormatted} hanga {endDateFormatted} ({numberOfDays} {numberOfDays === 1 ? 'guyyaa' : 'guyyoota'})</p> 
+            <p className="text-sm"><strong>Baay'ina Hirmaattotaa:</strong> {booking.numberOfAttendees || 'Hin ibsamne'}</p>
           </div>
         </section>
         
         <section className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-700 mb-3">{t('termsAndConditions')}</h2>
+            <h2 className="text-xl font-semibold text-gray-700 mb-3">Haalawwanii fi Seerota</h2>
             <div className="prose prose-sm max-w-none text-gray-700 space-y-2 text-xs border border-gray-300 p-4 rounded-md bg-slate-50 whitespace-pre-wrap">
                 {replacePlaceholders(termsToRender)}
             </div>
         </section>
 
         <section className="mt-16 pt-8 border-t border-gray-300">
-          <h2 className="text-xl font-semibold text-gray-700 mb-8 text-center">{t('signatures')}</h2>
+          <h2 className="text-xl font-semibold text-gray-700 mb-8 text-center">Mallattoo</h2>
           <div className="grid grid-cols-2 gap-16">
             <div className="text-center">
               <div className="relative h-24 mb-2 flex items-center justify-center">
-                {brandAssets?.signatureUrl && <Image src={brandAssets.signatureUrl} alt="Official Signature" layout="fill" objectFit="contain" />}
-                {brandAssets?.stampUrl && <Image src={brandAssets.stampUrl} alt="Official Stamp" layout="fill" objectFit="contain" className="opacity-50" />}
+                {brandAssets?.signatureUrl && <Image src={brandAssets.signatureUrl} alt="Mallattoo" layout="fill" objectFit="contain" />}
+                {brandAssets?.stampUrl && <Image src={brandAssets.stampUrl} alt="Chaappaa" layout="fill" objectFit="contain" className="opacity-50" />}
               </div>
               <div className="h-1 border-b-2 border-gray-400"></div>
-              <p className="text-sm text-gray-600 mt-2">{t('signatureOfBidGiver')}</p>
+              <p className="text-sm text-gray-600 mt-2">Mallattoo Bakka Bu'aa Kennu</p>
               <p className="text-sm font-medium text-gray-800">{SITE_NAME}</p>
             </div>
             <div className="text-center">
               <div className="h-24 border-b-2 border-gray-400 mb-2 flex items-center justify-center">
-                <span className="text-gray-400 text-xs italic">{t('clientSignatureGoesHere')}</span>
+                <span className="text-gray-400 text-xs italic">Iddoo mallattoo maamilaa</span>
               </div>
-              <p className="text-sm text-gray-600 mt-2">{t('signatureOfBidTaker')}</p>
-              <p className="text-sm font-medium text-gray-800">{booking.companyName || t('clientCompanyNamePlaceholder')}</p>
+              <p className="text-sm text-gray-600 mt-2">Mallattoo Bakka Bu'aa Kireeffataa</p>
+              <p className="text-sm font-medium text-gray-800">{booking.companyName || 'Maqaa Dhaabbataa'}</p>
             </div>
           </div>
         </section>
 
         <footer className="mt-16 text-center text-xs text-gray-500 no-print">
-          <p>{t('thankYouForBusiness')}</p>
+          <p>Wajjin hojjechuu keenyaaf isin galateeffanna!</p>
         </footer>
       </div>
     </div>
