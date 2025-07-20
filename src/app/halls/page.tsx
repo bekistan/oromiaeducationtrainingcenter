@@ -125,14 +125,9 @@ export default function HallsAndSectionsPage() {
         return;
       }
       
-      const fromTimestamp = Timestamp.fromDate(selectedDateRange.from!);
-      const toTimestamp = Timestamp.fromDate(new Date(selectedDateRange.to!.setHours(23, 59, 59, 999)));
-
       const bookingsQuery = query(
         collection(db, "bookings"),
-        where("bookingCategory", "==", "facility"),
-        where("approvalStatus", "in", ["approved", "pending"]),
-        where("startDate", "<=", toTimestamp)
+        where("bookingCategory", "==", "facility")
       );
 
       try {
@@ -140,8 +135,14 @@ export default function HallsAndSectionsPage() {
         const bookings = snapshot.docs
           .map(d => d.data() as Booking)
           .filter(b => {
-              const bookingEndDate = toDateObject(b.endDate);
-              return bookingEndDate && bookingEndDate >= selectedDateRange.from!;
+              const bookingStart = toDateObject(b.startDate);
+              const bookingEnd = toDateObject(b.endDate);
+              const isApprovedOrPending = b.approvalStatus === 'approved' || b.approvalStatus === 'pending';
+              
+              if (!bookingStart || !bookingEnd || !isApprovedOrPending) return false;
+
+              // Check for overlap: booking starts before range ends AND booking ends after range starts
+              return bookingStart <= selectedDateRange.to! && bookingEnd >= selectedDateRange.from!;
           });
 
         const availabilityMap: DailyAvailabilityMap = new Map();
