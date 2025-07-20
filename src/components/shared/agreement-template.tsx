@@ -124,30 +124,36 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
 
 
   return (
-    <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4">
+    <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-md print:shadow-none print:p-4 printable-agreement">
       <style jsx global>{`
         @media print {
-          @page {
-            size: A4 landscape;
-            margin: 15mm; 
+          body > *:not(.printable-agreement-wrapper),
+          .no-print {
+            display: none !important;
           }
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+          .printable-agreement-wrapper {
+            display: block !important;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
           }
           .printable-agreement {
+            box-shadow: none;
+            border: none;
             width: 100%;
             height: 100%;
             page-break-after: avoid;
             page-break-before: avoid;
-            font-size: 10pt; /* Make font smaller for print */
+            font-size: 10pt;
           }
-          .no-print {
-            display: none !important;
+          @page {
+            size: A4 landscape;
+            margin: 15mm; 
           }
         }
       `}</style>
-      <div className="printable-agreement">
+      <div className="printable-agreement-content">
         <header className="text-center mb-8 border-b pb-4">
           <h1 className="text-3xl font-bold text-gray-800">Waliigaltee Kiraa Mooraa</h1>
           <p className="text-sm text-gray-500">Guyyaa Waliigaltee: {agreementDate}</p>

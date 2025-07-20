@@ -139,7 +139,7 @@ export default function AdminBookingAgreementPage() {
   
   return (
     <>
-      <div className="bg-slate-100 min-h-screen py-8 px-2 print:bg-white">
+      <div className="bg-slate-100 min-h-screen py-8 px-2 print:bg-white print:p-0">
           <div className="max-w-4xl mx-auto mb-6 no-print">
               <div className="flex justify-between items-center mb-4">
                   <Button onClick={() => router.back()} variant="outline" size="sm">
@@ -183,8 +183,7 @@ export default function AdminBookingAgreementPage() {
                   <p className="text-xs text-muted-foreground">{t('editTermsNote')}</p>
               </div>
           </div>
-          {/* Only show template if not signed */}
-          {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
+          {booking && <AgreementTemplate booking={booking} customTerms={editableTerms} />}
       </div>
       {booking?.signedAgreementUrl && (
         <SignedAgreementPreviewDialog

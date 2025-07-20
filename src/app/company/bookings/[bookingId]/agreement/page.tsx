@@ -223,8 +223,8 @@ export default function CompanyBookingAgreementViewPage() {
 
   return (
     <>
-    <PublicLayout>
-        <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white">
+    <PublicLayout usePrintLayout={true}>
+        <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white print:p-0">
             <div className="max-w-4xl mx-auto mb-4 no-print">
                 <div className="flex justify-between items-center mb-4">
                     <Button onClick={() => router.push('/company/dashboard')} variant="outline" size="sm">
@@ -238,8 +238,7 @@ export default function CompanyBookingAgreementViewPage() {
                 </div>
                 {booking?.signedAgreementUrl ? renderViewSignedCard() : renderUploadCard()}
             </div>
-            {/* Only show the default agreement template if it has NOT been signed and uploaded yet */}
-            {!booking?.signedAgreementUrl && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
+            {booking && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
         </div>
     </PublicLayout>
     {booking?.signedAgreementUrl && (
