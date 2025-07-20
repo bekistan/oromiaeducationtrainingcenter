@@ -13,11 +13,11 @@ import type { Booking, Hall, BookingItem, PricingSettings, BookingServiceDetails
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, DollarSign, ShoppingCart, Calendar, ChevronsUpDown } from 'lucide-react';
+import { Loader2, DollarSign, Calendar } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PRICING_SETTINGS_DOC_PATH, DEFAULT_PRICING_SETTINGS } from '@/constants';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,6 @@ import type { DateRange } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/date-utils';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type DailyAvailabilityMap = Map<string, Map<string, boolean>>;
 
@@ -52,9 +51,10 @@ interface BookingCartProps {
     dateRange: DateRange;
     allFacilities: Hall[];
     dailyAvailability: DailyAvailabilityMap;
+    onBookingComplete: () => void;
 }
 
-export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvailability }: BookingCartProps) {
+export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvailability, onBookingComplete }: BookingCartProps) {
   const { t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -113,6 +113,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
   useEffect(() => {
     const { schedule, numberOfAttendees, services } = watchedFormValues;
     if (!schedule || numberOfAttendees === undefined || !services || !allFacilities.length) {
+      setTotalCost(0);
       return;
     }
 
@@ -151,7 +152,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
 
     setTotalCost(rentalCost + servicesCost);
   }, [
-      JSON.stringify(watchedFormValues.schedule), // Stringify to detect deep changes
+      JSON.stringify(watchedFormValues.schedule),
       watchedFormValues.numberOfAttendees,
       watchedFormValues.services.lunch,
       watchedFormValues.services.refreshment,
@@ -227,6 +228,7 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
         notifyAdminsOfNewBooking(createdBookingForNotification);
 
         toast({ title: t('bookingRequestSubmitted'), description: t('facilityBookingPendingApproval') });
+        onBookingComplete();
         router.push(`/booking-confirmation?status=booking_pending_approval&bookingId=${docRef.id}&itemName=${t('multipleFacilities')}&amount=${totalCost}&category=facility`);
     } catch(err) {
         console.error(err);
@@ -239,66 +241,52 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
   if(isLoading) return <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
-    <Card className="max-w-4xl mx-auto mt-8 shadow-2xl border-primary">
-      <CardHeader>
-        <CardTitle className="text-2xl flex items-center gap-2"><ShoppingCart />{t('finalizeSchedule')}</CardTitle>
-        <CardDescription>{t('finalizeScheduleDesc')}</CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="w-full">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Collapsible>
-                <CollapsibleTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {t('viewAndEditSchedule')}
-                        <ChevronsUpDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-4 pt-4">
-                  <h3 className="font-semibold text-lg">{t('dailySchedule')}</h3>
-                  {fields.map((field, index) => {
-                      const dayStr = formatDate(field.date, 'yyyy-MM-dd');
-                      return (
-                        <Card key={field.id} className="p-4 bg-muted/50">
-                          <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
-                          <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                              {selectedItems.map((facility) => {
-                                  const isAvailableToday = dailyAvailability.get(facility.id)?.get(dayStr) ?? false;
-                                  return (
-                                      <FormField
-                                          key={facility.id}
-                                          control={form.control}
-                                          name={`schedule.${index}.itemIds`}
-                                          render={({ field: checkboxField }) => (
-                                            <FormItem 
-                                              className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background transition-opacity data-[disabled=true]:bg-muted/50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60"
-                                              data-disabled={!isAvailableToday}
-                                            >
-                                              <FormControl>
-                                                <Checkbox
-                                                  checked={checkboxField.value?.includes(facility.id)}
-                                                  onCheckedChange={(checked) => {
-                                                    return checked
-                                                      ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
-                                                      : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
-                                                  }}
-                                                  disabled={!isAvailableToday}
-                                                />
-                                              </FormControl>
-                                              <Label className="text-sm font-normal cursor-pointer data-[disabled=true]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</Label>
-                                            </FormItem>
-                                          )}
-                                        />
-                                    );
-                                })}
-                          </div>
-                          {selectedItems.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noFacilitiesSelectedInCart')}</p>}
-                        </Card>
-                      );
-                  })}
-                </CollapsibleContent>
-            </Collapsible>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">{t('dailySchedule')}</h3>
+              {fields.map((field, index) => {
+                  const dayStr = formatDate(field.date, 'yyyy-MM-dd');
+                  return (
+                    <Card key={field.id} className="p-4 bg-muted/50">
+                      <FormLabel className="font-semibold">{format(field.date, 'EEEE, MMM d')}</FormLabel>
+                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {selectedItems.map((facility) => {
+                              const isAvailableToday = dailyAvailability.get(facility.id)?.get(dayStr) ?? false;
+                              return (
+                                  <FormField
+                                      key={facility.id}
+                                      control={form.control}
+                                      name={`schedule.${index}.itemIds`}
+                                      render={({ field: checkboxField }) => (
+                                        <FormItem 
+                                          className="flex flex-row items-center space-x-2 space-y-0 p-2 border rounded-md bg-background transition-opacity data-[disabled=true]:bg-muted/50 data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-60"
+                                          data-disabled={!isAvailableToday}
+                                        >
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={checkboxField.value?.includes(facility.id)}
+                                              onCheckedChange={(checked) => {
+                                                return checked
+                                                  ? checkboxField.onChange([...(checkboxField.value || []), facility.id])
+                                                  : checkboxField.onChange(checkboxField.value?.filter((value) => value !== facility.id));
+                                              }}
+                                              disabled={!isAvailableToday}
+                                            />
+                                          </FormControl>
+                                          <Label className="text-sm font-normal cursor-pointer data-[disabled=true]:cursor-not-allowed" data-disabled={!isAvailableToday}>{facility.name}</Label>
+                                        </FormItem>
+                                      )}
+                                    />
+                                );
+                            })}
+                      </div>
+                      {selectedItems.length === 0 && <p className="text-xs text-muted-foreground mt-2">{t('noFacilitiesSelectedInCart')}</p>}
+                    </Card>
+                  );
+              })}
+            </div>
             
             <h3 className="font-semibold text-lg pt-4 border-t">{t('additionalDetails')}</h3>
             <div className="grid md:grid-cols-2 gap-6">
@@ -339,7 +327,6 @@ export function BookingCart({ selectedItems, dateRange, allFacilities, dailyAvai
             </Button>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

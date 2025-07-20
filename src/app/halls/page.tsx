@@ -8,7 +8,7 @@ import type { Hall, Booking } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle, ArrowDown, CalendarClock } from "lucide-react";
+import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle, ArrowDown, CalendarClock, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -24,6 +24,15 @@ import { ImageViewer } from '@/components/shared/image-viewer';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 import { BookingCart } from '@/components/sections/booking-cart';
 import { eachDayOfInterval } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 
 type ItemTypeFilter = "all" | "hall" | "section";
 
@@ -51,6 +60,7 @@ export default function HallsAndSectionsPage() {
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
 
   const [dailyAvailability, setDailyAvailability] = useState<DailyAvailabilityMap>(new Map());
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   const facilityImages = [
     { src: "/images/Hall.jpg", title: t('halls') },
@@ -301,15 +311,32 @@ export default function HallsAndSectionsPage() {
 
             {renderContent()}
 
-             {user && user.role === 'company_representative' && user.approvalStatus === 'approved' && selectedDateRange?.from && selectedDateRange?.to && selectedItems.length > 0 && (
-                <ScrollAnimate>
-                    <BookingCart 
-                        selectedItems={selectedItems}
-                        dateRange={selectedDateRange}
-                        allFacilities={allAdminEnabledFacilities}
-                        dailyAvailability={dailyAvailability}
-                    />
-                </ScrollAnimate>
+            {user && user.role === 'company_representative' && user.approvalStatus === 'approved' && selectedDateRange?.from && selectedDateRange?.to && selectedItems.length > 0 && (
+                <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
+                    <DialogTrigger asChild>
+                         <div className="fixed bottom-6 right-6 z-40">
+                             <Button size="lg" className="rounded-full shadow-2xl animate-bounce">
+                                <ShoppingCart className="mr-2 h-6 w-6"/>
+                                {t('finalizeSchedule')} ({selectedItems.length})
+                             </Button>
+                         </div>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[90vh]">
+                         <DialogHeader>
+                            <DialogTitle className="text-2xl flex items-center gap-2"><ShoppingCart />{t('finalizeSchedule')}</DialogTitle>
+                            <DialogDescription>{t('finalizeScheduleDesc')}</DialogDescription>
+                         </DialogHeader>
+                         <div className="overflow-y-auto pr-6">
+                            <BookingCart 
+                                selectedItems={selectedItems}
+                                dateRange={selectedDateRange}
+                                allFacilities={allAdminEnabledFacilities}
+                                dailyAvailability={dailyAvailability}
+                                onBookingComplete={() => setIsCartOpen(false)}
+                            />
+                         </div>
+                    </DialogContent>
+                </Dialog>
              )}
         </div>
       </div>
