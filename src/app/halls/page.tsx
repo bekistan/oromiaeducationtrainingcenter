@@ -316,7 +316,7 @@ export default function HallsAndSectionsPage() {
                 <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
                     <DialogTrigger asChild>
                          <div className="fixed bottom-6 right-6 z-40">
-                             <Button size="lg" className="rounded-full shadow-2xl animate-bounce">
+                             <Button size="lg" className="rounded-full shadow-2xl bg-green-600 hover:bg-green-700">
                                 <ShoppingCart className="mr-2 h-6 w-6"/>
                                 {t('finalizeSchedule')} ({selectedItems.length})
                              </Button>
