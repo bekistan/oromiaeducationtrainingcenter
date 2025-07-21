@@ -146,7 +146,7 @@ export default function CompanyReportsPage() {
                 <CardDescription>{t('selectDateRangeForReports')}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
+                <DatePickerWithRange date={dateRange} onDateChange={setDateRange} disableFuture />
                 </CardContent>
             </Card>
 

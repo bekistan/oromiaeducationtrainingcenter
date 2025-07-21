@@ -20,13 +20,17 @@ interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> 
   date?: DateRange;
   onDateChange?: (date: DateRange | undefined) => void;
   disabled?: boolean;
+  disableFuture?: boolean;
+  disablePast?: boolean;
 }
 
 export function DatePickerWithRange({
   className,
   date: initialDate,
   onDateChange,
-  disabled: propDisabled
+  disabled: propDisabled,
+  disableFuture = false,
+  disablePast = false,
 }: DatePickerWithRangeProps) {
   const { t } = useLanguage();
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
@@ -51,7 +55,11 @@ export function DatePickerWithRange({
   const displayFormat = 'LLL dd, y';
   const today = new Date();
   today.setHours(0,0,0,0);
-
+  
+  const calendarDisabledDays = {
+    ...(disableFuture && { after: today }),
+    ...(disablePast && { before: today }),
+  };
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -89,7 +97,7 @@ export function DatePickerWithRange({
             selected={date}
             onSelect={handleSelect}
             numberOfMonths={2}
-            disabled={{ before: today }}
+            disabled={calendarDisabledDays}
           />
         </PopoverContent>
       </Popover>
