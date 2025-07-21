@@ -29,7 +29,13 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     const customerName = booking.guestName || booking.companyName || 'Unknown';
     const bookingCategoryCapitalized = booking.bookingCategory.charAt(0).toUpperCase() + booking.bookingCategory.slice(1);
     
-    const notificationLink = `/admin/manage-${booking.bookingCategory}-bookings#${booking.id}`;
+    let notificationLink = `/admin/notifications`;
+    if(booking.bookingCategory === 'facility') {
+        notificationLink = `/admin/manage-facility-bookings#${booking.id}`;
+    } else if (booking.bookingCategory === 'dormitory') {
+        notificationLink = `/admin/manage-dormitory-bookings#${booking.id}`;
+    }
+    
     const fullLink = `${BASE_URL}${notificationLink}`;
 
     console.log(`[Notification Action] Generated Link: ${fullLink}`);
@@ -124,7 +130,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
 
 
 /**
- * Notifies keyholders via SMS when a dormitory booking is approved.
+ * Notifies keyholders via SMS and web notification when a dormitory booking is approved.
  * @param booking - The approved booking object.
  */
 export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<void> {
@@ -135,64 +141,63 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
   console.log('--- [Notification Action] START: notifyKeyholdersOfDormApproval ---');
   console.log('[Notification Action] Received booking object for keyholder notification:', JSON.stringify(booking, null, 2));
 
-  if (booking.bookingCategory !== 'dormitory') {
-    console.log('[Notification Action] Not a dormitory booking. Skipping keyholder notification.');
+  if (booking.bookingCategory !== 'dormitory' || booking.approvalStatus !== 'approved') {
+    console.log('[Notification Action] Not an approved dormitory booking. Skipping keyholder notification.');
     console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
     return;
   }
   
-  if (booking.approvalStatus !== 'approved') {
-    console.log(`[Notification Action] Booking status is "${booking.approvalStatus}", not "approved". Skipping keyholder notification.`);
-    console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
-    return;
-  }
+  const guestName = booking.guestName || 'Unknown Guest';
+  const roomName = booking.items.map(i => i.name).join(', ');
+  const startDate = toDateObject(booking.startDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'N/A';
+  const keyholderLink = `/keyholder/assign-keys`;
 
   try {
+    // --- SMS Notification Logic ---
     console.log('[Notification Action] Getting keyholder phone numbers...');
     const keyholderPhoneNumbers = await getKeyholderPhoneNumbers();
-    if (keyholderPhoneNumbers.length === 0) {
-      console.log('[Notification Action] No keyholder phone numbers found. SMS notification for dorm approval will not be sent.');
-      console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
-      return;
-    }
-    console.log(`[Notification Action] Found ${keyholderPhoneNumbers.length} keyholder phone numbers:`, keyholderPhoneNumbers.join(', '));
-
-    const guestName = booking.guestName || 'Unknown Guest';
-    const roomName = booking.items.map(i => i.name).join(', ');
-    const startDate = toDateObject(booking.startDate)?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) || 'N/A';
-    const message = `Booking Approved!\nGuest: ${guestName}\nRoom: ${roomName}\nCheck-in: ${startDate}\nPlease prepare for key handover.`;
-
-    console.log(`[Notification Action] Preparing to send approved booking SMS to keyholders. Message: "${message}"`);
-    console.log('[Notification Action] Starting keyholder SMS loop...');
-
-    for (const phone of keyholderPhoneNumbers) {
-      try {
-        console.log(`[Notification Action] Attempting to send SMS to keyholder ${phone}...`);
-        await sendSms(phone, message);
-        console.log(`[Notification Action] SMS submission to provider for keyholder ${phone} was successful.`);
-      } catch (smsError: any) {
-        console.error(`################################################################`);
-        console.error(`##### [Notification Action] FAILED TO SEND SMS TO KEYHOLDER: ${phone} #####`);
-        console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
-        console.error("The caught error object is below:");
-        console.error(smsError);
-        if (smsError.stack) {
-            console.error("Stack trace:", smsError.stack);
+    if (keyholderPhoneNumbers.length > 0) {
+        console.log(`[Notification Action] Found ${keyholderPhoneNumbers.length} keyholder phone numbers:`, keyholderPhoneNumbers.join(', '));
+        const message = `Booking Approved!\nGuest: ${guestName}\nRoom: ${roomName}\nCheck-in: ${startDate}\nPlease prepare for key handover.`;
+        console.log(`[Notification Action] Preparing to send approved booking SMS to keyholders. Message: "${message}"`);
+        
+        for (const phone of keyholderPhoneNumbers) {
+            try {
+                await sendSms(phone, message);
+                console.log(`[Notification Action] SMS submission to provider for keyholder ${phone} was successful.`);
+            } catch (smsError: any) {
+                console.error(`################################################################`);
+                console.error(`##### [Notification Action] FAILED TO SEND SMS TO KEYHOLDER: ${phone} #####`);
+                console.error(smsError);
+                if (smsError.stack) console.error("Stack trace:", smsError.stack);
+                console.error("####################### END OF SMS FAILURE #######################");
+            }
         }
-        console.error("####################### END OF SMS FAILURE #######################");
-      }
+    } else {
+        console.log('[Notification Action] No keyholder phone numbers found for SMS.');
     }
-    console.log('[Notification Action] Finished keyholder SMS loop.');
-    
+
+    // --- Web Notification Logic ---
+    console.log('[Notification Action] Creating web notification for keyholders...');
+    const webMessage = `Key assignment needed for ${guestName} in room ${roomName}. Check-in: ${startDate}.`;
+    const webNotification: Omit<AdminNotification, 'id' | 'createdAt'> & { createdAt: any } = {
+      message: webMessage,
+      type: 'key_assignment_pending',
+      relatedId: booking.id,
+      recipientRole: 'keyholder',
+      isRead: false,
+      createdAt: serverTimestamp(),
+      link: keyholderLink,
+    };
+    await addDoc(collection(db, "notifications"), webNotification);
+    console.log('[Notification Action] Keyholder web notification created successfully.');
+
   } catch (error: any) {
     console.error("################################################################");
     console.error("##### [Notification Action] CRITICAL UNHANDLED FAILURE IN KEYHOLDER NOTIFICATION! #####");
-    console.error("################################################################");
     console.error("Error for booking ID:", booking.id);
     console.error(error);
-    if (error.stack) {
-      console.error("Stack trace:", error.stack);
-    }
+    if (error.stack) console.error("Stack trace:", error.stack);
     console.error("##################### END OF CRITICAL FAILURE ####################");
   } finally {
      console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');

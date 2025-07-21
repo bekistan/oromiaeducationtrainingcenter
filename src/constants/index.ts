@@ -43,14 +43,28 @@ export const PUBLIC_NAVS: NavItem[] = [
 
 export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'dashboard', href: '/admin/dashboard', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
-  { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
-  { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
-  { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
-  { labelKey: 'manageEmployees', href: '/admin/employees', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
-  { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+  { labelKey: 'notifications', href: '/admin/notifications', authRequired: true, roles: ['admin', 'superadmin'], notificationType: ['new_dormitory_booking', 'new_facility_booking', 'company_registration', 'agreement_signed_by_client'] },
+  { 
+    labelKey: 'manageBookings',
+    authRequired: true,
+    roles: ['admin', 'superadmin'],
+    children: [
+      { labelKey: 'manageDormitoryBookings', href: '/admin/manage-dormitory-bookings', authRequired: true, roles: ['admin', 'superadmin'], notificationType: 'new_dormitory_booking' },
+      { labelKey: 'manageFacilityBookings', href: '/admin/manage-facility-bookings', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true, notificationType: ['new_facility_booking', 'agreement_signed_by_client'] },
+    ]
+  },
+  {
+    labelKey: 'siteManagement',
+    authRequired: true,
+    roles: ['admin', 'superadmin'],
+    children: [
+      { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
+      { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+      { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true, notificationType: 'company_registration' },
+      { labelKey: 'manageEmployees', href: '/admin/employees', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+      { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+    ]
+  },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { 
     labelKey: 'manageSettings', 
@@ -80,16 +94,17 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
 ];
 
+
 export const KEYHOLDER_NAVS: NavItem[] = [
   { labelKey: 'keyholderDashboard', href: '/keyholder/dashboard', authRequired: true, roles: ['keyholder'] },
-  { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'] },
+  { labelKey: 'assignKeys', href: '/keyholder/assign-keys', authRequired: true, roles: ['keyholder'], notificationType: 'key_assignment_pending' },
   { labelKey: 'dailyReports', href: '/keyholder/daily-reports', authRequired: true, roles: ['keyholder'] },
   { labelKey: 'reports', href: '/keyholder/reports', authRequired: true, roles: ['keyholder'] },
 ];
 
 export const STORE_MANAGER_NAVS: NavItem[] = [
     { labelKey: 'storeDashboard', href: '/store-manager/dashboard', authRequired: true, roles: ['store_manager'] },
-    { labelKey: 'manageStock', href: '/store-manager/stock', authRequired: true, roles: ['store_manager'] },
+    { labelKey: 'manageStock', href: '/store-manager/stock', authRequired: true, roles: ['store_manager'], notificationType: 'low_stock_warning' },
     { labelKey: 'manageTransactions', href: '/store-manager/transactions', authRequired: true, roles: ['store_manager'] },
     { labelKey: 'storeReports', href: '/store-manager/reports', authRequired: true, roles: ['store_manager'] },
 ];

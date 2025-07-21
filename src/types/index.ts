@@ -174,6 +174,7 @@ export interface NavItem {
   roles?: User['role'][];
   generalAdminOnly?: boolean;
   children?: NavItem[];
+  notificationType?: NotificationType | NotificationType[];
 }
 
 export type NotificationType = 
@@ -182,14 +183,16 @@ export type NotificationType =
   | 'company_registration' 
   | 'payment_verification_needed'
   | 'agreement_ready_for_client'
-  | 'agreement_signed_by_client';
+  | 'agreement_signed_by_client'
+  | 'key_assignment_pending' // For keyholders
+  | 'low_stock_warning'; // For store managers
 
 export interface AdminNotification {
     id: string;
     message: string;
     type: NotificationType;
     relatedId?: string; 
-    recipientRole: 'admin' | 'superadmin' | 'company_representative'; 
+    recipientRole: 'admin' | 'superadmin' | 'company_representative' | 'keyholder' | 'store_manager';
     recipientId?: string; // For company-specific notifications
     isRead: boolean;
     createdAt: any; 
