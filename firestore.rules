@@ -1,102 +1,98 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSuperAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
-    }
-
+    // Helper function to check if a user is an admin or superadmin
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
     }
 
+    // Helper function to check if a user is a keyholder
     function isKeyholder() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
+      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
 
+    // Helper function to check if a user is a store manager
     function isStoreManager() {
-        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'store_manager';
+      return request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'store_manager';
     }
 
-    function isCompanyRep() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
-    }
-    
+    // Helper function to check if the user is the owner of the document
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
-    function isUploadingPaymentProof() {
-        // Allow update if only paymentScreenshotUrl and paymentStatus are being changed.
-        let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-        // Allow changing only these two fields.
-        let allowedKeys = ['paymentScreenshotUrl', 'paymentStatus'];
-        // Check if the user is only changing the allowed keys.
-        return changedKeys.hasAll(allowedKeys) && changedKeys.size() == 2 &&
-               request.resource.data.paymentStatus == 'awaiting_verification';
+      return request.auth.uid == userId;
     }
 
-
-    // Bookings
-    match /bookings/{bookingId} {
-      allow read: if isAdmin() || isKeyholder() || (isCompanyRep() && resource.data.userId == request.auth.uid);
-      allow create: if true; // Anyone can create a booking request
-      // Allow updates by admins, owners, or anyone submitting a payment proof.
-      allow update: if isAdmin() || 
-                       (isCompanyRep() && resource.data.userId == request.auth.uid) ||
-                       isUploadingPaymentProof();
-      allow delete: if isAdmin();
-      allow list: if true;
-    }
-
-    // Users
+    // Users collection rules
     match /users/{userId} {
-      allow read: if isAdmin() || isOwner(userId);
-      allow create: if request.resource.data.role == 'company_representative'; // Public company registration
-      allow update: if isSuperAdmin() || isOwner(userId);
-      allow delete: if isSuperAdmin();
-    }
-    
-    // Site configuration documents
-    match /site_configuration/{docId} {
-        allow read: if true; // Publicly readable
-        allow write: if isAdmin(); // Only admins can change settings
+      allow read: if request.auth.uid != null; // Logged-in users can read user data
+      allow create: if request.auth.uid == userId; // Users can create their own document
+      allow update: if isAdmin() || isOwner(userId); // Admins or the user themselves can update
+      allow delete: if isAdmin(); // Only admins can delete users
     }
 
-    // Blog posts
-    match /blog/{postId} {
-        // Public can read published posts
-        allow read: if resource.data.isPublished == true;
-        // Admins can read, write, create, delete all posts
-        allow write, create, delete: if isAdmin();
-        // Admins can also read unpublished posts
-        allow get: if isAdmin();
+    // Dormitories collection rules
+    match /dormitories/{dormId} {
+      allow read: if true; // Public can read dormitory listings
+      allow list: if true; // Allow public to query the dormitory list
+      allow create, update, delete: if isAdmin(); // Only admins can manage dormitories
+    }
+
+    // Halls collection rules
+    match /halls/{hallId} {
+      allow read: if true; // Public can read hall listings
+      allow list: if true; // Allow public to query the hall list to check availability
+      allow create, update, delete: if isAdmin(); // Only admins can manage halls
+    }
+
+    // Bookings collection rules
+    match /bookings/{bookingId} {
+      allow read: if isAdmin() || isOwner(get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId);
+      allow create: if request.auth.uid != null; // Logged-in users can create bookings
+      allow list: if true; // Allow public listing for availability checks
+      allow update: if isAdmin() || 
+                      // Allow anyone to submit a payment proof if not already paid/failed
+                      (request.resource.data.paymentScreenshotUrl != resource.data.paymentScreenshotUrl && 
+                       request.resource.data.paymentStatus == 'awaiting_verification' &&
+                       resource.data.paymentStatus != 'paid' &&
+                       resource.data.paymentStatus != 'failed');
+      allow delete: if isAdmin();
     }
     
-    // Notifications
+    // Notifications collection rules
     match /notifications/{notificationId} {
-        allow read, write: if isAdmin() || isKeyholder() || isStoreManager();
-        allow create: if true; // Allow server-side actions to create notifications
-    }
-
-    // Employees
-    match /employees/{employeeId} {
-        allow read: if isAdmin() || isStoreManager();
-        allow write, create, delete: if isAdmin();
+      allow read, update: if request.auth.uid != null; // Any authenticated user can read/update their notifications
+      allow create: if true; // Allow server-side actions to create notifications
     }
     
-    // Store Items & Transactions
+    // Site Configuration rules
+    match /site_configuration/{docId} {
+        allow read: if true; // Allow public read for settings like bank details, site content, etc.
+        allow write: if isAdmin(); // Only admins can change site-wide settings
+    }
+    
+    // Blog collection rules
+    match /blog/{postId} {
+        allow read: if true; // Public can read blog posts
+        allow list: if true; // Public can list blog posts
+        allow create, update, delete: if isAdmin(); // Only admins can manage blog posts
+    }
+
+    // Employee collection rules
+    match /employees/{employeeId} {
+      allow read: if isAdmin() || isStoreManager(); // Admins and Store Managers can see employee list
+      allow list: if isAdmin() || isStoreManager();
+      allow create, update, delete: if isAdmin(); // Only admins can manage employees
+    }
+    
+    // Store Management rules
     match /store_items/{itemId} {
-        allow read: if isStoreManager() || isAdmin();
-        allow write, create, delete: if isStoreManager();
+      allow read, list: if isStoreManager() || isAdmin();
+      allow create, update, delete: if isStoreManager() || isAdmin();
     }
     
     match /store_transactions/{transactionId} {
-        allow read, create: if isStoreManager();
-        allow write, delete: if isSuperAdmin(); // Only superadmins can alter history
+      allow read, list: if isStoreManager() || isAdmin();
+      allow create: if isStoreManager() || isAdmin();
     }
   }
 }
