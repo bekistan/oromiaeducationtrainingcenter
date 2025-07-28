@@ -9,7 +9,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail } from "lucide-react";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import {
@@ -20,14 +20,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
 
 export function Header() {
   const { t } = useLanguage();
   const { user, logout, loading } = useAuth();
+  const { toast } = useToast();
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const mountTime = useRef(new Date());
 
   useEffect(() => {
     const controlNavbar = () => {
@@ -48,6 +55,43 @@ export function Header() {
       };
     }
   }, [lastScrollY]);
+  
+  useEffect(() => {
+    if (!user || user.role !== 'company_representative' || !db) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("recipientRole", "==", "company_representative"),
+      where("recipientId", "==", user.id),
+      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          const notificationData = change.doc.data();
+          const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
+          
+          if (createdAtDate && createdAtDate > mountTime.current) {
+            toast({
+              title: `📝 ${t('agreementUpdate')}`,
+              description: notificationData.message,
+              action: notificationData.link ? (
+                <ToastAction altText={t('view')} asChild>
+                  <Link href={notificationData.link}>{t('view')}</Link>
+                </ToastAction>
+              ) : undefined,
+              duration: 15000,
+            });
+          }
+        }
+      });
+    }, (error) => {
+      console.error("Company notification listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user, t, toast]);
 
 
   const getDashboardPath = () => {
