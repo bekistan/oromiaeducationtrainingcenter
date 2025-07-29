@@ -11,12 +11,13 @@ import { CheckCircle, Home, Loader2, Hourglass, AlertCircle, UploadCloud, FileIc
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import type { BankAccountDetails } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { notifyAdminsOfNewBooking } from '@/actions/notification-actions';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
 const BANK_DETAILS_QUERY_KEY = "bankAccountDetailsPublicConfirmation";
@@ -79,6 +80,10 @@ function BookingConfirmationContent() {
 
   const handleUpload = async () => {
     if (!selectedFile || !bookingId) return;
+    if (!db) {
+        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+        return;
+    }
     setIsUploading(true);
 
     const formData = new FormData();
@@ -86,21 +91,33 @@ function BookingConfirmationContent() {
     formData.append('bookingId', bookingId);
 
     try {
+      // Step 1: Upload to API, get URL back
       const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
         method: 'POST',
         body: formData,
       });
-
       const result = await response.json();
-
       if (!response.ok) {
         throw new Error(result.details || result.error || t('failedToUploadScreenshot'));
       }
+      const { cloudinaryUrl } = result;
+      if (!cloudinaryUrl) {
+          throw new Error('API did not return a valid URL.');
+      }
+      
+      // Step 2: Update Firestore from the client with the new URL
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        paymentScreenshotUrl: cloudinaryUrl,
+        paymentStatus: 'awaiting_verification',
+      });
       
       toast({
         title: t('uploadSuccessTitle'),
         description: t('uploadSuccessDesc'),
       });
+
+      // Redirect to a final confirmation state
       router.push(`/booking-confirmation?status=upload_complete&bookingId=${bookingId}&itemName=${itemName || ''}&category=${category || ''}`);
 
     } catch (error: any) {
