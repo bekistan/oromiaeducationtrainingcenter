@@ -59,10 +59,11 @@ export function Header() {
   useEffect(() => {
     if (!user || user.role !== 'company_representative' || !db) return;
 
+    // Simplified query to avoid composite index error.
+    // We fetch all notifications for the role and then filter by recipientId and date on the client.
     const q = query(
       collection(db, "notifications"),
       where("recipientRole", "==", "company_representative"),
-      where("recipientId", "==", user.id),
       where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
     );
 
@@ -72,7 +73,8 @@ export function Header() {
           const notificationData = change.doc.data();
           const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
           
-          if (createdAtDate && createdAtDate > mountTime.current) {
+          // Client-side filtering
+          if (notificationData.recipientId === user.id && createdAtDate && createdAtDate > mountTime.current) {
             toast({
               title: `📝 ${t('agreementUpdate')}`,
               description: notificationData.message,
