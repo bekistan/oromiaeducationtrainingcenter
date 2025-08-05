@@ -15,8 +15,15 @@ export async function POST(req: NextRequest) {
   if (!cloudName || !cloudinaryApiKeyEnv || !cloudinaryApiSecretEnv) {
     const errorMsg = "Cloudinary environment variables are not fully set on the server.";
     console.error(`[API] FAILED: ${errorMsg}`);
+    return NextResponse.json({ error: "File upload service is not configured correctly on the server." }, { status: 500 });
+  }
+  
+  if (!db) {
+    const errorMsg = "Firebase is not configured. Database is unavailable.";
+    console.error(`[API] FAILED: ${errorMsg}`);
     return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
+
   try {
     cloudinary.config({
       cloud_name: cloudName,
@@ -28,12 +35,6 @@ export async function POST(req: NextRequest) {
   } catch (configError: any) {
     console.error('[API] FAILED: Error during Cloudinary SDK configuration:', configError);
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
-  }
-
-  if (!db) {
-    const errorMsg = "Firebase is not configured. Database is unavailable.";
-    console.error(`[API] FAILED: ${errorMsg}`);
-    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 
   try {
