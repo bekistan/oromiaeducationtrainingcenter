@@ -80,10 +80,7 @@ function BookingConfirmationContent() {
 
   const handleUpload = async () => {
     if (!selectedFile || !bookingId) return;
-    if (!db) {
-        toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
-        return;
-    }
+
     setIsUploading(true);
 
     const formData = new FormData();
@@ -91,26 +88,16 @@ function BookingConfirmationContent() {
     formData.append('bookingId', bookingId);
 
     try {
-      // Step 1: Upload to API, get URL back
+      // The API now handles both Cloudinary upload and Firestore update
       const response = await fetch('/api/upload-payment-screenshot-to-airtable', {
         method: 'POST',
         body: formData,
       });
-      const result = await response.json();
+      
       if (!response.ok) {
+        const result = await response.json().catch(() => ({error: 'An unknown error occurred during upload.'}));
         throw new Error(result.details || result.error || t('failedToUploadScreenshot'));
       }
-      const { cloudinaryUrl } = result;
-      if (!cloudinaryUrl) {
-          throw new Error('API did not return a valid URL.');
-      }
-      
-      // Step 2: Update Firestore from the client with the new URL
-      const bookingRef = doc(db, "bookings", bookingId);
-      await updateDoc(bookingRef, {
-        paymentScreenshotUrl: cloudinaryUrl,
-        paymentStatus: 'awaiting_verification',
-      });
       
       toast({
         title: t('uploadSuccessTitle'),
