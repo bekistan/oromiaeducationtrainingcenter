@@ -46,21 +46,21 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'Booking ID is required for upload.' }, { status: 400 });
     console.log(`[API] Received file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // 1. Upload to Cloudinary
+    // 1. Upload to Cloudinary using data URI
     console.log('[API] Step 1: Uploading to Cloudinary...');
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    const cloudinaryUploadResult = await new Promise<{ secure_url?: string; error?: any }>((resolve, reject) => {
-      cloudinary.uploader.upload_stream({ folder: 'payment_proofs', resource_type: 'image' }, (error, result) => {
-          if (error) reject(error);
-          else resolve({ secure_url: result?.secure_url });
-        }).end(buffer);
+    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
+    
+    const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
+        folder: 'payment_proofs',
+        resource_type: 'image',
     });
 
-    if (!cloudinaryUploadResult.secure_url) {
-      console.error('[API] FAILED at Step 1: Cloudinary upload failed.', cloudinaryUploadResult.error);
-      return NextResponse.json({ error: 'Failed to upload image to server.', details: cloudinaryUploadResult.error?.message }, { status: 500 });
+
+    if (!cloudinaryUploadResult?.secure_url) {
+      console.error('[API] FAILED at Step 1: Cloudinary upload failed.', cloudinaryUploadResult);
+      return NextResponse.json({ error: 'Failed to upload image to server.', details: "Cloudinary did not return a secure URL." }, { status: 500 });
     }
     
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
