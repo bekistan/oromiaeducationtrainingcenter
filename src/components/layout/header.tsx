@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
@@ -33,38 +33,35 @@ export function Header() {
   const { toast } = useToast();
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  const lastScrollY = useRef(0);
   const mountTime = useRef(new Date());
 
-  useEffect(() => {
-    const controlNavbar = () => {
-      if (typeof window !== 'undefined') {
-        if (window.scrollY > lastScrollY && window.scrollY > 150) { // Hide after scrolling down 150px
-          setIsVisible(false);
-        } else {
-          setIsVisible(true);
-        }
-        setLastScrollY(window.scrollY);
+  const controlNavbar = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      if (window.scrollY > lastScrollY.current && window.scrollY > 150) {
+        setIsVisible(false);
+      } else {
+        setIsVisible(true);
       }
-    };
+      lastScrollY.current = window.scrollY;
+    }
+  }, []);
 
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       window.addEventListener('scroll', controlNavbar);
       return () => {
         window.removeEventListener('scroll', controlNavbar);
       };
     }
-  }, [lastScrollY]);
+  }, [controlNavbar]);
   
   useEffect(() => {
     if (!user || user.role !== 'company_representative' || !db) return;
 
-    // Simplified query to avoid composite index error.
-    // We fetch all notifications for the role and then filter by recipientId and date on the client.
     const q = query(
       collection(db, "notifications"),
-      where("recipientRole", "==", "company_representative"),
-      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
+      where("recipientRole", "==", "company_representative")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -73,7 +70,6 @@ export function Header() {
           const notificationData = change.doc.data();
           const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
           
-          // Client-side filtering
           if (notificationData.recipientId === user.id && createdAtDate && createdAtDate > mountTime.current) {
             toast({
               title: `📝 ${t('agreementUpdate')}`,
