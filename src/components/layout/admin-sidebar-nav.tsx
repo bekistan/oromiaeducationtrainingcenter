@@ -83,6 +83,19 @@ export function AdminSidebarNav() {
   const renderNavs = ADMIN_NAVS.filter(item => {
     if (!item.roles || item.roles.length === 0) return true; 
     if (!user || !item.roles.includes(user.role)) return false; 
+    
+    // For parent items with children, show them if any child is visible.
+    if (item.children) {
+      return item.children.some(child => {
+        if (!child.roles || child.roles.length === 0) return true;
+        if (!child.roles.includes(user.role)) return false;
+        if (user.role === 'admin' && user.buildingAssignment && child.generalAdminOnly) {
+          return false;
+        }
+        return true;
+      });
+    }
+
     if (user.role === 'admin' && user.buildingAssignment && item.generalAdminOnly) {
         return false;
     }
