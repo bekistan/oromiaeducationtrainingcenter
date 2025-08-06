@@ -54,12 +54,20 @@ export const ADMIN_NAVS: NavItem[] = [
     ]
   },
   {
-    labelKey: 'siteManagement',
+    labelKey: 'manageFacilities',
     authRequired: true,
     roles: ['admin', 'superadmin'],
     children: [
       { labelKey: 'manageDormitories', href: '/admin/dormitories', authRequired: true, roles: ['admin', 'superadmin'] },
       { labelKey: 'manageHalls', href: '/admin/halls', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+    ]
+  },
+  {
+    labelKey: 'siteManagement',
+    authRequired: true,
+    roles: ['admin', 'superadmin'],
+    generalAdminOnly: true,
+    children: [
       { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true, notificationType: 'company_registration' },
       { labelKey: 'manageEmployees', href: '/admin/employees', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
       { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },

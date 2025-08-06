@@ -28,7 +28,8 @@ import {
   ChevronDown,
   BookMarked,
   Store,
-  Contact
+  Contact,
+  Package
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react"
@@ -43,11 +44,13 @@ const ICONS: Record<string, LucideIcon> = {
   notifications: Bell,
   dormitories: Bed,
   halls: Building,
-  manageBookings: ListChecks,
-  manageDormitories: Bed, 
-  manageHalls: Building, 
+  manageBookings: ListChecks, 
   manageDormitoryBookings: BedDouble,
   manageFacilityBookings: ListChecks, 
+  manageFacilities: Package,
+  manageDormitories: Bed, 
+  manageHalls: Building,
+  siteManagement: Settings,
   manageCompanies: Users,
   manageEmployees: Contact,
   manageBlog: BookMarked,
@@ -62,7 +65,6 @@ const ICONS: Record<string, LucideIcon> = {
   registerAdmin: UserPlus,
   registerKeyholder: KeyRound,
   registerStoreManager: Store,
-  siteManagement: Settings,
 };
 
 export function AdminSidebarNav() {
