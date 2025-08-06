@@ -150,6 +150,7 @@ export default function ManageTransactionsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [STORE_ITEMS_QUERY_KEY] });
+      // No need to invalidate transactions query as it's real-time
       toast({ title: t('success'), description: t('transactionRecordedSuccessfully') });
       setIsFormOpen(false);
     },
@@ -162,10 +163,18 @@ export default function ManageTransactionsPage() {
     paginatedData,
     setSearchTerm,
     searchTerm,
+    currentPage,
+    pageCount,
+    nextPage,
+    previousPage,
+    canNextPage,
+    canPreviousPage,
+    totalItems,
   } = useSimpleTable({
     data: transactions,
     rowsPerPage: 10,
     searchKeys: ['itemName', 'reason', 'type', 'responsibleEmployeeName'],
+    initialSort: { key: 'transactionDate' as any, direction: 'descending'}
   });
 
   const onSubmit = (values: TransactionFormValues) => {
@@ -231,6 +240,15 @@ export default function ManageTransactionsPage() {
                   )}
                 </TableBody>
               </Table>
+              {pageCount > 1 && (
+                 <div className="flex items-center justify-between py-4">
+                  <span className="text-sm text-muted-foreground">{t('page')} {currentPage + 1} {t('of')} {pageCount}</span>
+                  <div className="space-x-2">
+                    <Button variant="outline" size="sm" onClick={previousPage} disabled={!canPreviousPage}><ChevronLeft className="h-4 w-4 mr-1"/>{t('previous')}</Button>
+                    <Button variant="outline" size="sm" onClick={nextPage} disabled={!canNextPage}>{t('next')}<ChevronRight className="h-4 w-4 ml-1"/></Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -287,7 +305,7 @@ export default function ManageTransactionsPage() {
                   </FormItem>
                 )}
               />
-              <FormField control={form.control} name="quantityChange" render={({ field }) => (<FormItem><FormLabel>{t('quantity')}</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="quantityChange" render={({ field }) => (<FormItem><FormLabel>{t('quantity')}</FormLabel><FormControl><Input type="number" {...field} min="1" /></FormControl><FormMessage /></FormItem>)} />
               {watchedTransactionType === 'out' && (
                 <FormField
                   control={form.control}

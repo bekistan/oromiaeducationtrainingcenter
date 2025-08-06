@@ -12,7 +12,6 @@ import { db } from '@/lib/firebase';
 import { collection, query, where, Timestamp, orderBy, onSnapshot, getCountFromServer } from 'firebase/firestore';
 import { formatDate } from '@/lib/date-utils';
 
-const STORE_DASHBOARD_QUERY_KEY = "storeManagerDashboardData";
 const LOW_STOCK_THRESHOLD = 10;
 
 interface StoreDashboardStats {
@@ -22,40 +21,46 @@ interface StoreDashboardStats {
     recentTransactions: StoreTransaction[];
 }
 
-const fetchInitialStoreDashboardData = async (): Promise<StoreDashboardStats> => {
-    // This function can be kept for initial load or SSR if needed, but the main logic moves to the listener
-    return { totalItemTypes: 0, itemsLowInStock: 0, transactionsToday: 0, recentTransactions: [] };
-};
-
 export default function StoreManagerDashboardPage() {
   const { t } = useLanguage();
     
-  const { data: initialData, isLoading: isLoadingInitial, error } = useQuery<StoreDashboardStats, Error>({
-      queryKey: [STORE_DASHBOARD_QUERY_KEY],
-      queryFn: fetchInitialStoreDashboardData,
-      staleTime: Infinity, 
+  const [stats, setStats] = useState<StoreDashboardStats>({
+    totalItemTypes: 0,
+    itemsLowInStock: 0,
+    transactionsToday: 0,
+    recentTransactions: [],
   });
-
-  const [liveStats, setLiveStats] = useState<StoreDashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db) {
+        setError("Database not configured.");
+        setIsLoading(false);
+        return;
+    };
 
+    const listeners: (() => void)[] = [];
+    
     // Listener for items
     const itemsQuery = query(collection(db, "store_items"));
-    const unsubscribeItems = onSnapshot(itemsQuery, (querySnapshot) => {
+    const itemsUnsubscribe = onSnapshot(itemsQuery, (querySnapshot) => {
         const allItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StoreItem));
         const totalItemTypes = allItems.length;
         const itemsLowInStock = allItems.filter(item => item.quantity < LOW_STOCK_THRESHOLD).length;
 
-        setLiveStats(prev => ({
-            ...prev!,
+        setStats(prev => ({
+            ...prev,
             totalItemTypes,
             itemsLowInStock,
         }));
+        setIsLoading(false);
     }, (err) => {
         console.error("Store items listener error:", err);
+        setError("Failed to load store items.");
+        setIsLoading(false);
     });
+    listeners.push(itemsUnsubscribe);
 
     // Listener for transactions
     const today = new Date();
@@ -63,30 +68,28 @@ export default function StoreManagerDashboardPage() {
     const todayTimestamp = Timestamp.fromDate(today);
 
     const recentTransactionsQuery = query(collection(db, "store_transactions"), orderBy("transactionDate", "desc"), where("transactionDate", ">=", todayTimestamp));
-    const unsubscribeTransactions = onSnapshot(recentTransactionsQuery, (querySnapshot) => {
+    const transactionsUnsubscribe = onSnapshot(recentTransactionsQuery, (querySnapshot) => {
         const recentTransactions = querySnapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             transactionDate: (doc.data().transactionDate as Timestamp).toDate().toISOString(),
         } as StoreTransaction));
 
-        setLiveStats(prev => ({
-            ...prev!,
+        setStats(prev => ({
+            ...prev,
             transactionsToday: recentTransactions.length,
             recentTransactions: recentTransactions.slice(0, 5),
         }));
     }, (err) => {
         console.error("Store transactions listener error:", err);
+        setError("Failed to load transactions.");
     });
+    listeners.push(transactionsUnsubscribe);
 
     return () => {
-        unsubscribeItems();
-        unsubscribeTransactions();
+        listeners.forEach(unsub => unsub());
     };
   }, []);
-
-  const stats = useMemo(() => liveStats || initialData, [liveStats, initialData]);
-  const isLoading = isLoadingInitial && !liveStats;
 
   const statCards = [
       { titleKey: "totalStockItems", value: stats?.totalItemTypes, icon: <Package className="h-6 w-6 text-primary" />, detailsKey: "distinctItemTypesInStore" },
@@ -104,7 +107,7 @@ export default function StoreManagerDashboardPage() {
   }
 
   if (error) {
-      return <p className="text-destructive">{t('errorLoadingDashboardData')}: {error.message}</p>;
+      return <p className="text-destructive">{t('errorLoadingDashboardData')}: {error}</p>;
   }
 
   return (
