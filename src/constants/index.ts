@@ -68,7 +68,6 @@ export const ADMIN_NAVS: NavItem[] = [
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
   { 
     labelKey: 'manageSettings', 
-    href: '/admin/settings', 
     authRequired: true, 
     roles: ['admin', 'superadmin'], 
     generalAdminOnly: true,

@@ -62,6 +62,7 @@ const ICONS: Record<string, LucideIcon> = {
   registerAdmin: UserPlus,
   registerKeyholder: KeyRound,
   registerStoreManager: Store,
+  siteManagement: Settings,
 };
 
 export function AdminSidebarNav() {
