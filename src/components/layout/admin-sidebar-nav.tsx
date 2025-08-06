@@ -81,8 +81,9 @@ export function AdminSidebarNav() {
   }
 
   const renderNavs = ADMIN_NAVS.filter(item => {
+    if (!user) return false;
     if (!item.roles || item.roles.length === 0) return true; 
-    if (!user || !item.roles.includes(user.role)) return false; 
+    if (!item.roles.includes(user.role)) return false; 
     
     // For parent items with children, show them if any child is visible.
     if (item.children) {
@@ -111,8 +112,9 @@ export function AdminSidebarNav() {
           
           if (item.children && item.children.length > 0) {
              const filteredChildren = item.children.filter(child => {
+                if (!user) return false;
                 if (!child.roles || child.roles.length === 0) return true;
-                if (!user || !child.roles.includes(child.role)) return false;
+                if (!child.roles.includes(user.role)) return false;
                 if (user.role === 'admin' && user.buildingAssignment && child.generalAdminOnly) {
                     return false;
                 }
