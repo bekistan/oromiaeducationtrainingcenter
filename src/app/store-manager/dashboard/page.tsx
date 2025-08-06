@@ -152,7 +152,7 @@ export default function StoreManagerDashboardPage() {
                                       {t(tx.type)}
                                     </span>
                                   </TableCell>
-                                  <TableCell>{tx.quantityChange}</TableCell>
+                                  <TableCell>{tx.type === 'in' ? '+' : '-'}{tx.quantityChange}</TableCell>
                                   <TableCell>{tx.reason}</TableCell>
                                   <TableCell className="text-xs">{formatDate(tx.transactionDate, 'HH:mm')}</TableCell>
                               </TableRow>
