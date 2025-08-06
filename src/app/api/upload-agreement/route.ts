@@ -8,7 +8,7 @@ import { v2 as cloudinary } from 'cloudinary';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-agreement] START ---');
   
-  // --- Cloudinary Configuration ---
+  // --- Cloudinary Configuration (Pre-flight) ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'File server configuration failed.', details: configError.message }, { status: 500 });
   }
 
+  // --- Main Logic ---
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -40,7 +41,6 @@ export async function POST(req: NextRequest) {
 
     console.log(`[API] Received agreement file: ${file.name}, for Booking ID: ${bookingId}`);
 
-    // Convert file to a base64 string for direct upload
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const base64String = buffer.toString('base64');
@@ -48,10 +48,9 @@ export async function POST(req: NextRequest) {
 
     console.log('[API] Uploading agreement to Cloudinary with resource_type: auto...');
     
-    // Using cloudinary.uploader.upload is more robust for various file types
     const cloudinaryUploadResult = await cloudinary.uploader.upload(dataUri, {
       folder: 'signed_agreements',
-      resource_type: 'auto', // This handles PDFs and other file types correctly
+      resource_type: 'auto', 
     });
 
     if (!cloudinaryUploadResult?.secure_url) {

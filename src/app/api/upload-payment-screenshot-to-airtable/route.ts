@@ -7,7 +7,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-payment-proof] START ---');
 
-  // --- Cloudinary Configuration (on-demand) ---
+  // --- Cloudinary and DB Configuration Check (Pre-flight) ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
 
+  // --- Main Logic ---
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

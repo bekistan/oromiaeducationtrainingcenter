@@ -5,7 +5,7 @@ import { v2 as cloudinary } from 'cloudinary';
 export async function POST(req: NextRequest) {
   console.log('\n--- [API /upload-blog-image] START ---');
 
-  // --- Cloudinary Configuration ---
+  // --- Cloudinary Configuration (Pre-flight) ---
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const cloudinaryApiKeyEnv = process.env.CLOUDINARY_API_KEY;
   const cloudinaryApiSecretEnv = process.env.CLOUDINARY_API_SECRET;
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Image server configuration failed.', details: configError.message }, { status: 500 });
   }
 
+  // --- Main Logic ---
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
@@ -37,7 +38,6 @@ export async function POST(req: NextRequest) {
     }
     console.log(`[API] Received blog image: ${file.name}`);
 
-    // Convert file to data URI for Cloudinary upload
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
