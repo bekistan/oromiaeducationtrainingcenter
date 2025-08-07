@@ -74,3 +74,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to process brand asset upload.', details: error.message }, { status: 500 });
   }
 }
+
+    

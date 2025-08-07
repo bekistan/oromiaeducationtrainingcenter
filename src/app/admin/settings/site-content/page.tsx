@@ -330,7 +330,7 @@ export default function AdminSiteContentPage() {
                 </Card>
                 <Card>
                     <CardHeader>
-                        <div className="flex justify-between items-center">
+                         <div className="flex justify-between items-center">
                             <CardTitle className="text-lg">{t('discoverSection')}</CardTitle>
                             <Button type="button" variant="ghost" size="sm" onClick={() => handleTranslate('discoverSectionTitle', form.getValues('discoverSectionTitle.en'))} disabled={isTranslating['discoverSectionTitle']} >
                                 {isTranslating['discoverSectionTitle'] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Languages className="h-4 w-4" />}<span className="ml-2 hidden sm:inline">{t('autoTranslate')}</span>
@@ -507,3 +507,5 @@ export default function AdminSiteContentPage() {
     </Form>
   );
 }
+
+    

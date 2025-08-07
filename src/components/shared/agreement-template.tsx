@@ -148,7 +148,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             font-size: 10pt;
           }
           @page {
-            size: A4 landscape;
+            size: A4 portrait;
             margin: 15mm; 
           }
         }
@@ -242,3 +242,5 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     </div>
   );
 }
+
+    

@@ -5,17 +5,17 @@ export const SITE_NAME = "Oromia Education Center";
 export const SITE_DESCRIPTION = "Your premier destination for educational facilities and comfortable accommodations. Book with us for a seamless experience.";
 
 export const STATIC_IMAGES = [
-  { name: 'Ifa Boru Building', path: '/images/Ifaboru.jpg' },
-  { name: 'Bu\'ura Boru Building', path: '/images/Bu\'uraboru.jpg' },
-  { name: 'Conference Hall (Wide)', path: '/images/Hall.jpg' },
-  { name: 'Conference Hall (Side)', path: '/images/Hall2.jpg' },
-  { name: 'Hall Interior', path: '/images/Hall_inside.jpg' },
-  { name: 'Hall Interior 2', path: '/images/Hall_inside_2.jpg' },
-  { name: 'Hall Stage View', path: '/images/Hall_stage.jpg' },
-  { name: 'Catering Service', path: '/images/catering.jpg' },
-  { name: 'Meeting Section', path: '/images/Sections.jpg' },
-  { name: 'Standard Dormitory Room', path: '/images/dorm_room.jpg' },
-  { name: 'Main Logo', path: '/images/logo.png' },
+  { name: 'Ifa Boru Building', path: '/images/Ifaboru.jpg', dataAiHint: "modern building" },
+  { name: 'Bu\'ura Boru Building', path: '/images/Bu\'uraboru.jpg', dataAiHint: "modern building" },
+  { name: 'Conference Hall (Wide)', path: '/images/Hall.jpg', dataAiHint: "conference hall" },
+  { name: 'Conference Hall (Side)', path: '/images/Hall2.jpg', dataAiHint: "conference hall side view" },
+  { name: 'Hall Interior', path: '/images/Hall_inside.jpg', dataAiHint: "hall interior" },
+  { name: 'Hall Interior 2', path: '/images/Hall_inside_2.jpg', dataAiHint: "hall interior lights" },
+  { name: 'Hall Stage View', path: '/images/Hall_stage.jpg', dataAiHint: "stage view" },
+  { name: 'Catering Service', path: '/images/catering.jpg', dataAiHint: "catering food" },
+  { name: 'Meeting Section', path: '/images/Sections.jpg', dataAiHint: "meeting room" },
+  { name: 'Standard Dormitory Room', path: '/images/dorm_room.jpg', dataAiHint: "dormitory room" },
+  { name: 'Main Logo', path: '/images/logo.png', dataAiHint: "logo" },
 ];
 
 export const SUPPORTED_LOCALES = [
@@ -285,3 +285,5 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     am: ""
   }
 };
+
+    

@@ -272,3 +272,5 @@ export interface StoreTransaction {
   responsibleEmployeeId?: string;
   responsibleEmployeeName?: string;
 }
+
+    
