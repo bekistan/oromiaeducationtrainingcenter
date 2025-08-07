@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -22,7 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { onSnapshot, collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ToastAction } from "@/components/ui/toast";
 import {
