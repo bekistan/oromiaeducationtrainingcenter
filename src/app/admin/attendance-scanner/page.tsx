@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +21,11 @@ export default function AttendanceScannerPage() {
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastScan, setLastScan] = useState<{ employee: Employee; record: AttendanceRecord } | null>(null);
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
     const handleScan = async (result: string | null) => {
         if (result && !isProcessing) {
@@ -100,7 +105,7 @@ export default function AttendanceScannerPage() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center gap-4">
                     <div className="w-full max-w-md aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center relative">
-                        {isCameraOn ? (
+                        {isClient && isCameraOn ? (
                              <QRCodeScanner
                                 onScan={handleScan}
                                 onError={handleError}

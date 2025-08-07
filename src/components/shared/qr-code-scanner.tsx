@@ -12,9 +12,9 @@ interface QRCodeScannerProps {
 export const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   return (
     <QrScanner
-        onDecode={onScan}
+        onDecode={(result) => onScan(result)}
         onError={onError}
-        containerStyle={{ width: '100%', height: '100%', paddingTop: 0 }}
+        containerStyle={{ width: '100%', height: '100%', paddingTop: '0' }}
         videoStyle={{ width: '100%', height: '100%', objectFit: 'cover' }}
     />
   );
