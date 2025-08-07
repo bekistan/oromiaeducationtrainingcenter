@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -44,7 +44,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const mountTime = useRef(new Date());
+  const [lastNotificationTimestamp, setLastNotificationTimestamp] = useState<Timestamp | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -56,33 +56,34 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   useEffect(() => {
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || !db) return;
     
-    // Corrected query: Simplifies the query to avoid needing a composite index.
-    // We fetch all notifications for the relevant roles and then filter by timestamp on the client side.
+    // Set the initial timestamp to now, so we only get future notifications
+    const initialTimestamp = Timestamp.now();
+    setLastNotificationTimestamp(initialTimestamp);
+    
     const q = query(
       collection(db, "notifications"),
       where("recipientRole", "in", ["admin", "superadmin"]),
       orderBy("createdAt", "desc"),
-      limit(10) // Listen to the 10 most recent to be efficient
+      limit(1) // Only fetch the most recent one to check
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const notificationData = change.doc.data();
-          const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
-          // Check if notification is new (created after component mounted)
-          if (createdAtDate && createdAtDate > mountTime.current) {
-            toast({
-              title: `🔔 ${t('newNotification')}`,
-              description: notificationData.message,
-              action: notificationData.link ? (
-                <ToastAction altText={t('view')} asChild>
-                  <Link href={notificationData.link}>{t('view')}</Link>
-                </ToastAction>
-              ) : undefined,
-              duration: 15000 
-            });
-          }
+        const notificationData = change.doc.data();
+        const createdAt = notificationData.createdAt as Timestamp;
+
+        if (change.type === "added" && createdAt && (!lastNotificationTimestamp || createdAt > lastNotificationTimestamp)) {
+          setLastNotificationTimestamp(createdAt); // Update the last seen timestamp
+          toast({
+            title: `🔔 ${t('newNotification')}`,
+            description: notificationData.message,
+            action: notificationData.link ? (
+              <ToastAction altText={t('view')} asChild>
+                <Link href={notificationData.link}>{t('view')}</Link>
+              </ToastAction>
+            ) : undefined,
+            duration: 15000 
+          });
         }
       });
     }, (error) => {
