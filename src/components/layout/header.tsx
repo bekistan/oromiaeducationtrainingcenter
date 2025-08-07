@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -9,7 +8,7 @@ import { useLanguage } from "@/hooks/use-language";
 import { useAuth } from "@/hooks/use-auth";
 import { PUBLIC_NAVS } from "@/constants";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetClose } from "@/components/ui/sheet";
-import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail, FileText } from "lucide-react";
+import { Menu, LogOutIcon, LayoutDashboard, Loader2, UserCircle, ChevronDown, Phone, Mail, FileText, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +24,8 @@ import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firest
 import { db } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { Badge } from "@/components/ui/badge";
+import type { AdminNotification } from "@/types";
 
 
 export function Header() {
@@ -34,7 +35,7 @@ export function Header() {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
-  const mountTime = useRef(new Date());
+  const [lastNotificationTimestamp, setLastNotificationTimestamp] = useState<Timestamp | null>(null);
 
   const controlNavbar = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -56,24 +57,36 @@ export function Header() {
     }
   }, [controlNavbar]);
   
+   // Centralized notification listener
   useEffect(() => {
-    if (!user || user.role !== 'company_representative' || !db) return;
+    if (!user || !user.role || !db) return;
+
+    // Roles that should receive real-time popups
+    const listenableRoles: Array<typeof user.role> = ['admin', 'superadmin', 'keyholder', 'company_representative'];
+    if (!listenableRoles.includes(user.role)) return;
+
+    // Set initial timestamp to avoid showing old notifications on login
+    const initialTimestamp = Timestamp.now();
+    setLastNotificationTimestamp(initialTimestamp);
 
     const q = query(
       collection(db, "notifications"),
-      where("recipientRole", "==", "company_representative"),
-      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
+      where("recipientRole", "==", user.role),
+      where("createdAt", ">", initialTimestamp)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const notificationData = change.doc.data();
-          const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
-          
-          if (notificationData.recipientId === user.id && createdAtDate && createdAtDate > mountTime.current) {
+        const notificationData = change.doc.data() as AdminNotification;
+        
+        // Final check to ensure it's a new notification and for the correct user if targeted
+        if (change.type === "added" && (!notificationData.recipientId || notificationData.recipientId === user.id)) {
+            let toastTitle = t('newNotification'); // Default title
+            if (notificationData.type === 'key_assignment_pending') toastTitle = `🔑 ${t('newKeyAssignmentTitle')}`;
+            if (notificationData.type.includes('agreement')) toastTitle = `📝 ${t('agreementUpdate')}`;
+
             toast({
-              title: `📝 ${t('agreementUpdate')}`,
+              title: toastTitle,
               description: notificationData.message,
               action: notificationData.link ? (
                 <ToastAction altText={t('view')} asChild>
@@ -82,11 +95,10 @@ export function Header() {
               ) : undefined,
               duration: 15000,
             });
-          }
         }
       });
     }, (error) => {
-      console.error("Company notification listener error:", error);
+      console.error(`Notification listener error for role ${user.role}:`, error);
     });
 
     return () => unsubscribe();
@@ -129,6 +141,13 @@ export function Header() {
         {(user.role === 'admin' || user.role === 'superadmin') && (
             <DropdownMenuItem asChild>
                 <Link href="/admin/profile"><UserCircle className="mr-2 h-4 w-4" /><span>{t('userProfile')}</span></Link>
+            </DropdownMenuItem>
+        )}
+         {(user.role === 'admin' || user.role === 'superadmin') && (
+            <DropdownMenuItem asChild>
+                <Link href="/admin/notifications" className="flex justify-between items-center w-full">
+                    <span className="flex items-center"><Bell className="mr-2 h-4 w-4" />{t('notifications')}</span>
+                </Link>
             </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

@@ -21,7 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { onSnapshot, collection, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ToastAction } from "@/components/ui/toast";
 import {
@@ -44,7 +44,6 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [lastNotificationTimestamp, setLastNotificationTimestamp] = useState<Timestamp | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,45 +52,8 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || !db) return;
-    
-    // Set the initial timestamp to now, so we only get future notifications
-    const initialTimestamp = Timestamp.now();
-    setLastNotificationTimestamp(initialTimestamp);
-    
-    const q = query(
-      collection(db, "notifications"),
-      where("recipientRole", "in", ["admin", "superadmin"]),
-      orderBy("createdAt", "desc"),
-      limit(1) // Only fetch the most recent one to check
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        const notificationData = change.doc.data();
-        const createdAt = notificationData.createdAt as Timestamp;
-
-        if (change.type === "added" && createdAt && (!lastNotificationTimestamp || createdAt > lastNotificationTimestamp)) {
-          setLastNotificationTimestamp(createdAt); // Update the last seen timestamp
-          toast({
-            title: `🔔 ${t('newNotification')}`,
-            description: notificationData.message,
-            action: notificationData.link ? (
-              <ToastAction altText={t('view')} asChild>
-                <Link href={notificationData.link}>{t('view')}</Link>
-              </ToastAction>
-            ) : undefined,
-            duration: 15000 
-          });
-        }
-      });
-    }, (error) => {
-      console.error("Error with notification listener:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user, t, toast]);
+  // NOTE: The real-time notification listener has been moved to the main public Header component
+  // to ensure admins are notified even when they are not inside the /admin/* routes.
 
   const handleLogout = useCallback(async () => {
     try {
