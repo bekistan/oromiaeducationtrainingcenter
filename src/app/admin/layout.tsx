@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -21,9 +22,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { onSnapshot, collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { ToastAction } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,8 +50,9 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
     }
   }, [user, authLoading, router]);
 
-  // NOTE: The real-time notification listener has been moved to the main public Header component
+  // NOTE: The primary real-time notification listener has been moved to the main public Header component
   // to ensure admins are notified even when they are not inside the /admin/* routes.
+  // This layout component remains to provide the structural UI for the admin section.
 
   const handleLogout = useCallback(async () => {
     try {

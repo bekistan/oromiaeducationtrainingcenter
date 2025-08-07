@@ -31,9 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LanguageSwitcher } from '@/components/layout/language-switcher';
-import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { ToastAction } from "@/components/ui/toast";
 
 interface KeyholderLayoutProps {
   children: ReactNode;
@@ -44,44 +41,11 @@ export default function KeyholderLayout({ children }: KeyholderLayoutProps) {
   const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const mountTime = useRef(new Date());
-
-  useEffect(() => {
-    if (!user || user.role !== 'keyholder' || !db) return;
-
-    const q = query(
-      collection(db, "notifications"),
-      where("recipientRole", "==", "keyholder"),
-      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const notificationData = change.doc.data();
-          const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
-          
-          if (createdAtDate && createdAtDate > mountTime.current) {
-            toast({
-              title: `🔑 ${t('newKeyAssignmentTitle')}`,
-              description: notificationData.message,
-              action: notificationData.link ? (
-                <ToastAction altText={t('view')} asChild>
-                  <Link href={notificationData.link}>{t('view')}</Link>
-                </ToastAction>
-              ) : undefined,
-              duration: 15000,
-            });
-          }
-        }
-      });
-    }, (error) => {
-      console.error("Keyholder notification listener error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user, t, toast]);
-
+  
+  // NOTE: The primary real-time notification listener has been moved to the main public Header component.
+  // This ensures keyholders are notified of new key assignments no matter where they might navigate on the site,
+  // though typically they will remain in this keyholder dashboard.
+  // This layout component remains to provide the structural UI for the keyholder section.
 
   const handleLogout = useCallback(async () => {
     try {

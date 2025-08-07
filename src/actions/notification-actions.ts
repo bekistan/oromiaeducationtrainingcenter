@@ -12,9 +12,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:9002';
 
 /**
  * Notifies relevant parties about a new booking.
- * - Sends an SMS to General Admins for new FACILITY bookings.
- * - Sends an SMS to the relevant Building Admin for new DORMITORY bookings.
- * - Creates a web notification for ALL new bookings.
+ * This function creates a web notification for all admins and, if configured, sends an SMS.
  * @param booking - The newly created booking object.
  */
 export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> {
@@ -23,7 +21,6 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     return;
   }
   console.log('--- [Notification Action] START: notifyAdminsOfNewBooking ---');
-  console.log('[Notification Action] Received booking object:', JSON.stringify(booking, null, 2));
 
   try {
     const customerName = booking.guestName || booking.companyName || 'Unknown';
@@ -37,19 +34,16 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     }
     
     const fullLink = `${BASE_URL}${notificationLink}`;
-
-    console.log(`[Notification Action] Generated Link: ${fullLink}`);
     
+    // --- (Optional) SMS Notification Logic ---
+    // This part runs only if SMS service is configured in environment variables.
     let phoneNumbers: string[] = [];
     let smsMessage = '';
 
-    // --- SMS Notification Logic ---
     if (booking.bookingCategory === 'facility') {
-        console.log('[Notification Action] Facility booking detected. Getting general admin phone numbers...');
         phoneNumbers = await getAdminPhoneNumbers();
         smsMessage = `New Facility Booking from ${customerName}. Total: ${booking.totalCost} ETB. View: ${fullLink}`;
     } else if (booking.bookingCategory === 'dormitory') {
-        console.log('[Notification Action] Dormitory booking detected. Getting building-specific admin phone numbers...');
         const firstDormId = booking.items[0]?.id;
         if (firstDormId) {
             const dormRef = doc(db, "dormitories", firstDormId);
@@ -60,44 +54,26 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
                 if (buildingName) {
                     phoneNumbers = await getBuildingAdminPhoneNumbers(buildingName);
                     smsMessage = `New Dormitory Booking for ${dormData.roomNumber} by ${customerName}. View: ${fullLink}`;
-                } else {
-                    console.log('[Notification Action] Dormitory has no building name, cannot send targeted SMS.');
                 }
-            } else {
-                 console.log(`[Notification Action] Dormitory document with ID ${firstDormId} not found.`);
             }
-        } else {
-            console.log('[Notification Action] No dormitory ID found in booking items.');
         }
     }
 
     if (phoneNumbers.length > 0 && smsMessage) {
-        console.log(`[Notification Action] Found ${phoneNumbers.length} phone numbers to notify:`, phoneNumbers.join(', '));
-        console.log('[Notification Action] Starting SMS loop...');
         for (const phone of phoneNumbers) {
-            console.log(`[Notification Action] Preparing to send SMS to ${phone}`);
             try {
+                // sendSms will throw an error if not configured, which is caught below.
                 await sendSms(phone, smsMessage);
-                console.log(`[Notification Action] SMS submission to provider for ${phone} was successful.`);
+                console.log(`[Notification Action] SMS submission for ${phone} was successful.`);
             } catch (smsError: any) {
-                console.error(`################################################################`);
-                console.error(`##### [Notification Action] FAILED TO SEND SMS TO ADMIN: ${phone} #####`);
-                console.error("The error occurred while trying to send an SMS for booking ID:", booking.id);
-                console.error("The caught error object is below:");
-                console.error(smsError);
-                if (smsError.stack) {
-                  console.error("Stack trace:", smsError.stack);
-                }
-                console.error("####################### END OF SMS FAILURE #######################");
+                console.warn(`[Notification Action] Could not send SMS to admin ${phone}. This is expected if SMS is not configured. Error: ${smsError.message}`);
             }
         }
-    } else {
-        console.log('[Notification Action] No phone numbers found or no SMS message generated. Skipping SMS sending.');
     }
 
-
-    // --- Web Notification Logic ---
-    console.log('[Notification Action] Creating web notification in Firestore for all booking types...');
+    // --- (Primary) Web Notification Logic ---
+    // This creates the free, real-time alert inside the application.
+    console.log('[Notification Action] Creating web notification in Firestore...');
     const webMessage = `New ${bookingCategoryCapitalized} booking from ${customerName}. Total: ${booking.totalCost} ETB. ID: ${booking.id.substring(0, 6)}...`;
     const notificationType = booking.bookingCategory === 'dormitory' ? 'new_dormitory_booking' : 'new_facility_booking';
     
@@ -105,7 +81,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
       message: webMessage,
       type: notificationType,
       relatedId: booking.id,
-      recipientRole: 'admin' as const,
+      recipientRole: 'admin', // Targets both 'admin' and 'superadmin' roles
       isRead: false,
       createdAt: serverTimestamp(),
       link: notificationLink,
@@ -114,15 +90,7 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
     console.log('[Notification Action] Web notification created successfully.');
 
   } catch (error: any) {
-    console.error("################################################################");
-    console.error("##### [Notification Action] CRITICAL UNHANDLED FAILURE IN MAIN TRY BLOCK! #####");
-    console.error("################################################################");
-    console.error("This error was not caught by the inner SMS loop. Error for booking ID:", booking.id);
-    console.error(error);
-    if (error.stack) {
-      console.error("Stack trace:", error.stack);
-    }
-    console.error("##################### END OF CRITICAL FAILURE ####################");
+    console.error("[Notification Action] CRITICAL FAILURE:", error);
   } finally {
     console.log('--- [Notification Action] END: notifyAdminsOfNewBooking ---');
   }
@@ -130,20 +98,14 @@ export async function notifyAdminsOfNewBooking(booking: Booking): Promise<void> 
 
 
 /**
- * Notifies keyholders via SMS and web notification when a dormitory booking is approved.
+ * Notifies keyholders when a dormitory booking is approved for key handover.
  * @param booking - The approved booking object.
  */
 export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<void> {
-  if (!db) {
-    console.error("--- [Notification Action] FAILED: Firebase DB not configured. Aborting notifyKeyholdersOfDormApproval. ---");
-    return;
-  }
+  if (!db) return;
   console.log('--- [Notification Action] START: notifyKeyholdersOfDormApproval ---');
-  console.log('[Notification Action] Received booking object for keyholder notification:', JSON.stringify(booking, null, 2));
 
   if (booking.bookingCategory !== 'dormitory' || booking.approvalStatus !== 'approved') {
-    console.log('[Notification Action] Not an approved dormitory booking. Skipping keyholder notification.');
-    console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
     return;
   }
   
@@ -153,31 +115,20 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
   const keyholderLink = `/keyholder/assign-keys`;
 
   try {
-    // --- SMS Notification Logic ---
-    console.log('[Notification Action] Getting keyholder phone numbers...');
+    // --- (Optional) SMS Notification ---
     const keyholderPhoneNumbers = await getKeyholderPhoneNumbers();
     if (keyholderPhoneNumbers.length > 0) {
-        console.log(`[Notification Action] Found ${keyholderPhoneNumbers.length} keyholder phone numbers:`, keyholderPhoneNumbers.join(', '));
         const message = `Booking Approved!\nGuest: ${guestName}\nRoom: ${roomName}\nCheck-in: ${startDate}\nPlease prepare for key handover.`;
-        console.log(`[Notification Action] Preparing to send approved booking SMS to keyholders. Message: "${message}"`);
-        
         for (const phone of keyholderPhoneNumbers) {
             try {
                 await sendSms(phone, message);
-                console.log(`[Notification Action] SMS submission to provider for keyholder ${phone} was successful.`);
             } catch (smsError: any) {
-                console.error(`################################################################`);
-                console.error(`##### [Notification Action] FAILED TO SEND SMS TO KEYHOLDER: ${phone} #####`);
-                console.error(smsError);
-                if (smsError.stack) console.error("Stack trace:", smsError.stack);
-                console.error("####################### END OF SMS FAILURE #######################");
+                 console.warn(`[Notification Action] Could not send SMS to keyholder ${phone}. Error: ${smsError.message}`);
             }
         }
-    } else {
-        console.log('[Notification Action] No keyholder phone numbers found for SMS.');
     }
 
-    // --- Web Notification Logic ---
+    // --- (Primary) Web Notification ---
     console.log('[Notification Action] Creating web notification for keyholders...');
     const webMessage = `Key assignment needed for ${guestName} in room ${roomName}. Check-in: ${startDate}.`;
     const webNotification: Omit<AdminNotification, 'id' | 'createdAt'> & { createdAt: any } = {
@@ -193,30 +144,18 @@ export async function notifyKeyholdersOfDormApproval(booking: Booking): Promise<
     console.log('[Notification Action] Keyholder web notification created successfully.');
 
   } catch (error: any) {
-    console.error("################################################################");
-    console.error("##### [Notification Action] CRITICAL UNHANDLED FAILURE IN KEYHOLDER NOTIFICATION! #####");
-    console.error("Error for booking ID:", booking.id);
-    console.error(error);
-    if (error.stack) console.error("Stack trace:", error.stack);
-    console.error("##################### END OF CRITICAL FAILURE ####################");
+    console.error("[Notification Action] CRITICAL FAILURE in Keyholder Notification:", error);
   } finally {
      console.log('--- [Notification Action] END: notifyKeyholdersOfDormApproval ---');
   }
 }
 
 /**
- * Notifies a company representative that their agreement is ready.
+ * Notifies a company representative that their agreement is ready to be signed.
  * @param booking - The approved facility booking.
  */
 export async function notifyCompanyOfAgreement(booking: Booking): Promise<void> {
-  if (!db) {
-    console.error("[Notification Action] FAILED: DB not configured for notifyCompanyOfAgreement.");
-    return;
-  }
-  if (!booking.userId) {
-    console.log("[Notification Action] No userId on booking, cannot send targeted web notification to company.");
-    return;
-  }
+  if (!db || !booking.userId) return;
 
   const notification: Omit<AdminNotification, 'id' | 'createdAt'> & { createdAt: any } = {
     message: `Your agreement for booking #${booking.id.substring(0, 6)} is ready to be signed.`,
@@ -238,14 +177,11 @@ export async function notifyCompanyOfAgreement(booking: Booking): Promise<void> 
 }
 
 /**
- * Notifies admins that a signed agreement has been uploaded.
+ * Notifies admins that a company has uploaded a signed agreement.
  * @param booking - The booking with the uploaded agreement.
  */
 export async function notifyAdminsOfSignedAgreement(booking: Booking): Promise<void> {
-  if (!db) {
-    console.error("[Notification Action] FAILED: DB not configured for notifyAdminsOfSignedAgreement.");
-    return;
-  }
+  if (!db) return;
   
   const notificationLink = `/admin/manage-facility-bookings#${booking.id}`;
   const message = `Agreement for booking #${booking.id.substring(0, 6)} has been signed and uploaded by ${booking.companyName}.`;

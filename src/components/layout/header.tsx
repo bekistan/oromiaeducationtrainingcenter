@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -35,7 +36,7 @@ export function Header() {
   const pathname = usePathname();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
-  const [lastNotificationTimestamp, setLastNotificationTimestamp] = useState<Timestamp | null>(null);
+  const mountTime = useRef(new Date());
 
   const controlNavbar = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -65,21 +66,27 @@ export function Header() {
     const listenableRoles: Array<typeof user.role> = ['admin', 'superadmin', 'keyholder', 'company_representative'];
     if (!listenableRoles.includes(user.role)) return;
 
-    // Set initial timestamp to avoid showing old notifications on login
-    const initialTimestamp = Timestamp.now();
-    setLastNotificationTimestamp(initialTimestamp);
-
-    const q = query(
-      collection(db, "notifications"),
-      where("recipientRole", "==", user.role),
-      where("createdAt", ">", initialTimestamp)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    let notificationQuery;
+    if (user.role === 'admin' || user.role === 'superadmin') {
+        // Admins and Super Admins listen to 'admin' role notifications
+        notificationQuery = query(
+          collection(db, "notifications"),
+          where("recipientRole", "==", "admin"),
+          where("createdAt", ">", Timestamp.fromDate(mountTime.current))
+        );
+    } else {
+        // Other specific roles (keyholder, company_representative) listen to their own role
+        notificationQuery = query(
+          collection(db, "notifications"),
+          where("recipientRole", "==", user.role),
+          where("createdAt", ">", Timestamp.fromDate(mountTime.current))
+        );
+    }
+    
+    const unsubscribe = onSnapshot(notificationQuery, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         const notificationData = change.doc.data() as AdminNotification;
         
-        // Final check to ensure it's a new notification and for the correct user if targeted
         if (change.type === "added" && (!notificationData.recipientId || notificationData.recipientId === user.id)) {
             let toastTitle = t('newNotification'); // Default title
             if (notificationData.type === 'key_assignment_pending') toastTitle = `🔑 ${t('newKeyAssignmentTitle')}`;
