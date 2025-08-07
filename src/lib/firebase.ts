@@ -3,6 +3,7 @@ import { initializeApp, getApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
+import { getMessaging, type Messaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -20,6 +21,7 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
+let messaging: Messaging | null = null;
 
 if (isFirebaseConfigured) {
   try {
@@ -27,6 +29,10 @@ if (isFirebaseConfigured) {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
+    // Initialize messaging only in browser environment
+    if (typeof window !== 'undefined') {
+        messaging = getMessaging(app);
+    }
   } catch (error) {
     console.error("Firebase initialization failed:", error);
   }
@@ -39,4 +45,4 @@ if (isFirebaseConfigured) {
   }
 }
 
-export { app, db, auth, storage };
+export { app, db, auth, storage, messaging };

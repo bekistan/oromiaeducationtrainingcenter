@@ -146,7 +146,8 @@ export interface User {
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 
-  buildingAssignment?: 'ifaboru' | 'buuraboru' | null; 
+  buildingAssignment?: 'ifaboru' | 'buuraboru' | null;
+  fcmToken?: string; // For push notifications
 }
 
 export interface CompanyProfile {
@@ -263,4 +264,11 @@ export interface StoreTransaction {
   recordedBy: string; // User ID of the store manager
   responsibleEmployeeId?: string;
   responsibleEmployeeName?: string;
+}
+
+export interface Employee {
+    id: string;
+    name: string;
+    position: string;
+    employeeId: string;
 }
