@@ -22,7 +22,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { onSnapshot, collection, query, where, Timestamp } from 'firebase/firestore';
+import { onSnapshot, collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { ToastAction } from "@/components/ui/toast";
 import {
@@ -57,22 +57,21 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   useEffect(() => {
     if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || !db) return;
     
-    const recipientRoles = ['admin', 'superadmin'];
-    if (user.role === 'superadmin') {
-      // Superadmins listen to their own notifications too if any are specifically targeted
-      recipientRoles.push('superadmin');
-    }
-    
+    // Corrected query: Simplifies the query to avoid needing a composite index.
+    // We fetch all notifications for the relevant roles and then filter by timestamp on the client side.
     const q = query(
       collection(db, "notifications"),
-      where("recipientRole", "in", recipientRoles),
-      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
+      where("recipientRole", "in", ["admin", "superadmin"]),
+      orderBy("createdAt", "desc"),
+      limit(10) // Listen to the 10 most recent to be efficient
     );
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const notificationData = change.doc.data();
           const createdAtDate = (notificationData.createdAt as Timestamp)?.toDate();
+          // Check if notification is new (created after component mounted)
           if (createdAtDate && createdAtDate > mountTime.current) {
             toast({
               title: `🔔 ${t('newNotification')}`,
