@@ -222,33 +222,33 @@ export default function CompanyBookingAgreementViewPage() {
   }
 
   return (
-    <>
-    <PublicLayout usePrintLayout={true}>
-        <div className="bg-slate-50 min-h-[calc(100vh-8rem)] py-8 px-2 print:bg-white print:p-0">
-            <div className="max-w-4xl mx-auto mb-4 no-print">
-                <div className="flex justify-between items-center mb-4">
-                    <Button onClick={() => router.push('/company/dashboard')} variant="outline" size="sm">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToCompanyDashboard')}
-                    </Button>
-                    {booking?.agreementStatus === 'sent_to_client' && !booking?.signedAgreementUrl && (
-                        <Button onClick={() => window.print()} variant="default" size="sm">
-                            <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
-                        </Button>
-                    )}
-                </div>
-                {booking?.signedAgreementUrl ? renderViewSignedCard() : renderUploadCard()}
-            </div>
-            {booking && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
-        </div>
-    </PublicLayout>
-    {booking?.signedAgreementUrl && (
-      <SignedAgreementPreviewDialog
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        fileUrl={booking.signedAgreementUrl}
-        fileName={booking.signedAgreementUrl.split('/').pop() || 'signed-agreement'}
-      />
-    )}
-    </>
+    <div className="printable-agreement-wrapper">
+      <PublicLayout usePrintLayout={true}>
+          <div className="bg-slate-50 min-h-screen py-8 px-2 print:bg-white print:p-0">
+              <div className="max-w-4xl mx-auto mb-4 no-print">
+                  <div className="flex justify-between items-center mb-4">
+                      <Button onClick={() => router.push('/company/dashboard')} variant="outline" size="sm">
+                          <ArrowLeft className="mr-2 h-4 w-4" /> {t('backToCompanyDashboard')}
+                      </Button>
+                      {booking?.agreementStatus === 'sent_to_client' && !booking?.signedAgreementUrl && (
+                          <Button onClick={() => window.print()} variant="default" size="sm">
+                              <Printer className="mr-2 h-4 w-4" /> {t('printDownloadAgreement')}
+                          </Button>
+                      )}
+                  </div>
+                  {booking?.signedAgreementUrl ? renderViewSignedCard() : renderUploadCard()}
+              </div>
+              {booking && <AgreementTemplate booking={booking} customTerms={booking?.customAgreementTerms} />}
+          </div>
+      </PublicLayout>
+      {booking?.signedAgreementUrl && (
+        <SignedAgreementPreviewDialog
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          fileUrl={booking.signedAgreementUrl}
+          fileName={booking.signedAgreementUrl.split('/').pop() || 'signed-agreement'}
+        />
+      )}
+    </div>
   );
 }

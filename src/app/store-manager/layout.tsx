@@ -96,7 +96,7 @@ export default function StoreManagerLayout({ children }: StoreManagerLayoutProps
   }, [logout, router, t, toast]);
 
   if (authLoading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}...</p></div>;
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">{t('loading')}</p></div>;
   }
 
   if (user?.role !== 'store_manager') {

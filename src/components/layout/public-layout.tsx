@@ -8,12 +8,16 @@ import { cn } from '@/lib/utils';
 
 interface PublicLayoutProps {
   children: ReactNode;
-  usePrintLayout?: boolean; // New prop to control layout for printing
+  usePrintLayout?: boolean;
 }
 
 export function PublicLayout({ children, usePrintLayout = false }: PublicLayoutProps) {
+  if (usePrintLayout) {
+    return <div className="printable-agreement-wrapper">{children}</div>;
+  }
+
   return (
-    <div className={cn("flex min-h-screen flex-col", usePrintLayout && "print:block")}>
+    <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />

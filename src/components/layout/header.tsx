@@ -61,7 +61,8 @@ export function Header() {
 
     const q = query(
       collection(db, "notifications"),
-      where("recipientRole", "==", "company_representative")
+      where("recipientRole", "==", "company_representative"),
+      where("createdAt", ">=", Timestamp.fromDate(mountTime.current))
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {

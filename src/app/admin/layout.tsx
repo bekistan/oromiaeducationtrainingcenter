@@ -55,7 +55,7 @@ export default function AdminLayout({ children, params: receivedRouteParams }: A
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!user || (user.role !== 'admin' && user.role !== 'superadmin')) return;
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || !db) return;
     
     const recipientRoles = ['admin', 'superadmin'];
     if (user.role === 'superadmin') {
