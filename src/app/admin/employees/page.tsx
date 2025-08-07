@@ -12,15 +12,19 @@ import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from 'react-hook-form';
 import * as z from "zod";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, ChevronLeft, ChevronRight, Users, Eye } from "lucide-react";
 import { formatDate } from '@/lib/date-utils';
+import { v4 as uuidv4 } from 'uuid';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const EMPLOYEES_QUERY_KEY = "employees";
 
@@ -38,7 +42,7 @@ const fetchEmployees = async (): Promise<Employee[]> => {
   return querySnapshot.docs.map(docSnap => ({
     id: docSnap.id,
     ...docSnap.data(),
-    createdAt: (docSnap.data().createdAt as Timestamp).toDate().toISOString(),
+    createdAt: (docSnap.data().createdAt as Timestamp)?.toDate().toISOString(),
   } as Employee));
 };
 
@@ -46,6 +50,8 @@ export default function ManageEmployeesPage() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -67,7 +73,8 @@ export default function ManageEmployeesPage() {
       if (id) {
         await updateDoc(doc(db, "employees", id), values);
       } else {
-        await addDoc(collection(db, "employees"), { ...values, createdAt: serverTimestamp() });
+        const employeeId = `OEC-${uuidv4().slice(0, 8).toUpperCase()}`;
+        await addDoc(collection(db, "employees"), { ...values, employeeId, createdAt: serverTimestamp() });
       }
     },
     onSuccess: (_, { id }) => {
@@ -108,7 +115,7 @@ export default function ManageEmployeesPage() {
   } = useSimpleTable({
     data: employees,
     rowsPerPage: 10,
-    searchKeys: ['name', 'phone', 'position'],
+    searchKeys: ['name', 'phone', 'position', 'employeeId'],
   });
 
   const getSortIndicator = (columnKey: keyof Employee) => {
@@ -138,9 +145,19 @@ export default function ManageEmployeesPage() {
   const onSubmit = (values: EmployeeFormValues) => {
     mutation.mutate({ values, id: employeeToEdit?.id });
   };
+  
+  if (authLoading) {
+    return <div className="flex justify-center h-40 items-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
 
   if (error) {
     return <div className="text-destructive">{t('errorFetchingEmployees')}: {error.message}</div>;
+  }
+  
+  const canAccess = user?.role === 'superadmin' || user?.role === 'hr_director';
+  if (!canAccess) {
+      router.push('/admin/dashboard');
+      return <div className="flex justify-center h-40 items-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
@@ -171,6 +188,7 @@ export default function ManageEmployeesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead onClick={() => requestSort('name')} className="cursor-pointer group">{t('name')}{getSortIndicator('name')}</TableHead>
+                    <TableHead onClick={() => requestSort('employeeId')} className="cursor-pointer group">{t('employeeId')}{getSortIndicator('employeeId')}</TableHead>
                     <TableHead onClick={() => requestSort('phone')} className="cursor-pointer group">{t('phone')}{getSortIndicator('phone')}</TableHead>
                     <TableHead onClick={() => requestSort('position')} className="cursor-pointer group">{t('position')}{getSortIndicator('position')}</TableHead>
                     <TableHead className="text-right">{t('actions')}</TableHead>
@@ -180,15 +198,21 @@ export default function ManageEmployeesPage() {
                   {paginatedData.length > 0 ? paginatedData.map((employee) => (
                     <TableRow key={employee.id}>
                       <TableCell className="font-medium">{employee.name}</TableCell>
+                      <TableCell>{employee.employeeId || 'N/A'}</TableCell>
                       <TableCell>{employee.phone}</TableCell>
                       <TableCell>{employee.position}</TableCell>
                       <TableCell className="text-right space-x-2">
+                        <Button variant="ghost" size="icon" asChild>
+                           <Link href={`/admin/employees/${employee.id}/card`}>
+                               <Eye className="h-4 w-4" />
+                           </Link>
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => openFormForEdit(employee)}><Edit className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => openDeleteConfirm(employee)}><Trash2 className="h-4 w-4" /></Button>
                       </TableCell>
                     </TableRow>
                   )) : (
-                    <TableRow><TableCell colSpan={4} className="h-24 text-center">{searchTerm ? t('noEmployeesMatchSearch') : t('noEmployeesAdded')}</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="h-24 text-center">{searchTerm ? t('noEmployeesMatchSearch') : t('noEmployeesAdded')}</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

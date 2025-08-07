@@ -69,8 +69,10 @@ export const ADMIN_NAVS: NavItem[] = [
     generalAdminOnly: true,
     children: [
       { labelKey: 'manageCompanies', href: '/admin/manage-companies', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true, notificationType: 'company_registration' },
-      { labelKey: 'manageEmployees', href: '/admin/employees', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+      { labelKey: 'manageEmployees', href: '/admin/employees', authRequired: true, roles: ['admin', 'superadmin', 'hr_director'] },
       { labelKey: 'manageBlog', href: '/admin/blog', authRequired: true, roles: ['admin', 'superadmin'], generalAdminOnly: true },
+      { labelKey: 'attendanceScanner', href: '/admin/attendance-scanner', authRequired: true, roles: ['admin', 'superadmin', 'hr_director'] },
+      { labelKey: 'attendanceLog', href: '/admin/attendance-log', authRequired: true, roles: ['admin', 'superadmin', 'hr_director'] },
     ]
   },
   { labelKey: 'reports', href: '/admin/reports', authRequired: true, roles: ['admin', 'superadmin'] }, 
@@ -96,6 +98,7 @@ export const ADMIN_NAVS: NavItem[] = [
       { labelKey: 'registerAdmin', href: '/admin/register-admin' },
       { labelKey: 'registerKeyholder', href: '/admin/register-keyholder' },
       { labelKey: 'registerStoreManager', href: '/admin/register-store-manager' },
+      { labelKey: 'registerHrDirector', href: '/admin/register-hr-director' },
     ]
   },
   { labelKey: 'userProfile', href: '/admin/profile', authRequired: true, roles: ['admin', 'superadmin'] },
@@ -285,5 +288,3 @@ export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
     am: ""
   }
 };
-
-    

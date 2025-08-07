@@ -109,7 +109,7 @@ export default function EmployeeIdCardPage() {
                     <div className="flex items-center gap-3">
                         <div className="w-20 h-24 rounded-md overflow-hidden border-2 border-primary/50 flex-shrink-0">
                             <Image
-                                src={`https://placehold.co/80x96.png`}
+                                src={'https://placehold.co/80x96.png'}
                                 alt={employee.name}
                                 width={80}
                                 height={96}
@@ -136,4 +136,3 @@ export default function EmployeeIdCardPage() {
         </div>
     );
 }
-

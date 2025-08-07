@@ -57,6 +57,13 @@ interface StoreManagerDetails {
     phone?: string;
 }
 
+interface HrDirectorDetails {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string;
+}
+
 // Define the shape of the context state
 interface AuthState {
   user: AppUserType | null;
@@ -67,6 +74,7 @@ interface AuthState {
   signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
   signupKeyholder: (keyholderDetails: KeyholderDetails) => Promise<AppUserType | null>;
   signupStoreManager: (storeManagerDetails: StoreManagerDetails) => Promise<AppUserType | null>;
+  signupHrDirector: (hrDirectorDetails: HrDirectorDetails) => Promise<AppUserType | null>;
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -318,6 +326,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
   
+  const signupHrDirector = useCallback(async (hrDirectorDetails: HrDirectorDetails): Promise<AppUserType | null> => {
+    if (!isFirebaseConfigured || !auth || !db) {
+        throw new Error("Firebase is not configured. Cannot sign up HR Director.");
+    }
+     const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
+     if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
+     const currentUserDocSnap = await getDoc(currentUserDocRef);
+     if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') {
+      throw new Error("Only superadmins can register new HR Directors.");
+    }
+
+    const userCredential = await createUserWithEmailAndPassword(auth, hrDirectorDetails.email, hrDirectorDetails.password);
+    const fbUserInstance = userCredential.user;
+    const newHrDirectorDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
+      email: hrDirectorDetails.email,
+      name: hrDirectorDetails.name,
+      phone: hrDirectorDetails.phone || '',
+      role: 'hr_director' as const,
+      createdAt: serverTimestamp(),
+    };
+    await setDoc(doc(db, "users", fbUserInstance.uid), newHrDirectorDocData);
+    return {
+        id: fbUserInstance.uid,
+        email: hrDirectorDetails.email,
+        name: hrDirectorDetails.name,
+        phone: hrDirectorDetails.phone,
+        role: 'hr_director',
+        createdAt: new Date().toISOString(),
+    };
+  }, []);
+
   const logout = useCallback(async (): Promise<void> => {
     if (!isFirebaseConfigured || !auth) {
         console.warn("Attempted to log out, but Firebase is not configured.");
@@ -378,9 +417,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signupAdmin,
     signupKeyholder,
     signupStoreManager,
+    signupHrDirector,
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, signupStoreManager, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, signupStoreManager, signupHrDirector, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>
