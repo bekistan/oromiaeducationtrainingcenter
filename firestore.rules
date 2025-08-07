@@ -1,84 +1,99 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if a user is an admin or superadmin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+
+    // Helper function to check user roles
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
-    // Helper function to check if user is a specific role
-    function isRole(role) {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    function getUserRole(userId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+    function isSuperAdmin() {
+        return isSignedIn() && getUserRole(request.auth.uid) == 'superadmin';
+    }
+    function isAdmin() {
+        return isSignedIn() && (getUserRole(request.auth.uid) == 'admin' || isSuperAdmin());
+    }
+    function isKeyholder() {
+        return isSignedIn() && getUserRole(request.auth.uid) == 'keyholder';
+    }
+     function isHrDirector() {
+        return isSignedIn() && getUserRole(request.auth.uid) == 'hr_director';
     }
 
     // Publicly readable collections
-    match /blog/{postId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /dormitories/{dormId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-    
     match /halls/{hallId} {
       allow read: if true;
       allow write: if isAdmin();
     }
+    match /dormitories/{dormId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /blog/{postId} {
+      allow read: if resource.data.isPublished == true;
+      allow write: if isAdmin();
+    }
     
+    // Configuration readable by anyone, writable only by admins
     match /site_configuration/{docId} {
         allow read: if true;
         allow write: if isAdmin();
     }
 
-    // User-specific data
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow create: if true; // Anyone can create a user account (register)
-      allow update: if request.auth.uid == userId || isAdmin();
+    // Users can create their own booking, admins can manage all
+    match /bookings/{bookingId} {
+      allow read: if isUser(resource.data.userId) || isAdmin() || isKeyholder();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isKeyholder() || isUser(resource.data.userId);
       allow delete: if isAdmin();
     }
 
-    // Bookings can be created by authenticated users, but only managed by admins or the user who created it
-    match /bookings/{bookingId} {
-      allow read: if request.auth != null; // Allow any authenticated user to read (for checking their own booking)
-      allow create: if request.auth != null;
-      allow update, delete: if isAdmin() || get(/databases/$(database)/documents/bookings/$(bookingId)).data.userId == request.auth.uid;
-    }
-    
-    // Notifications are write-only for the system (via server functions), and read-only for the recipient
-    match /notifications/{notificationId} {
-        allow read: if request.auth.uid == resource.data.recipientId || isRole(resource.data.recipientRole);
-        allow create: if true; // Allow server-side functions to create notifications
-        allow update, delete: if isRole(resource.data.recipientRole);
-    }
-    
-    // Store items can be managed by store managers and admins
-    match /store_items/{itemId} {
-      allow read, write: if isRole('store_manager') || isAdmin();
-    }
-    
-    match /store_transactions/{transactionId} {
-       allow read, write: if isRole('store_manager') || isAdmin();
-    }
-    
-    // Employees can be managed by HR Directors and Admins
-    match /employees/{employeeId} {
-        allow read, write: if isRole('hr_director') || isAdmin();
-    }
-    
-    // Attendance can be recorded and read by HR Directors and Admins
-    match /attendance/{recordId} {
-        allow read, write: if isRole('hr_director') || isAdmin();
+    // Users can manage their own user document, admins can manage any
+    match /users/{userId} {
+      allow read, update: if isUser(userId) || isSuperAdmin();
+      allow create: if true; // Allows signup
+      allow delete: if isSuperAdmin();
     }
 
-    // By default, deny all other access
-    match /{document=**} {
-      allow read, write: if false;
+    // Notifications can be read by the intended recipient
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && 
+                    (resource.data.recipientRole == getUserRole(request.auth.uid) ||
+                     resource.data.recipientId == request.auth.uid ||
+                     // Allow general admins to see all admin notifications
+                     (resource.data.recipientRole == 'admin' && isAdmin()));
+      // Writes should be handled by server-side logic (cloud functions/server actions)
+      allow write: if false; 
+    }
+
+    // Attendance records can be written by anyone authenticated (from scanner)
+    // and read by admins/hr
+     match /attendance/{recordId} {
+      allow read: if isAdmin() || isHrDirector();
+      allow create: if isSignedIn();
+      allow write: if false; // Transactions are immutable
+    }
+
+    // Employees can be read by scanner, managed by HR/Admins
+    match /employees/{employeeId} {
+        allow read: if isSignedIn(); // Allow any authenticated user (scanner) to read
+        allow write: if isSuperAdmin() || isHrDirector();
+    }
+
+    // Store items and transactions managed by store manager
+    match /store_items/{itemId} {
+        allow read: if true; // Allow read for potential future display
+        allow write: if isSignedIn() && getUserRole(request.auth.uid) == 'store_manager';
+    }
+    match /store_transactions/{transactionId} {
+        allow read: if isSignedIn() && getUserRole(request.auth.uid) == 'store_manager';
+        allow create: if isSignedIn() && getUserRole(request.auth.uid) == 'store_manager';
+        allow write: if false;
     }
   }
 }
