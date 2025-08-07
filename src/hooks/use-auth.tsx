@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext, createContext, type ReactNode, useMemo } from 'react';
-import { auth, db, isFirebaseConfigured } from '@/lib/firebase'; // Import the flag
+import { auth, db } from '@/lib/firebase';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -57,13 +57,6 @@ interface StoreManagerDetails {
     phone?: string;
 }
 
-interface HrDirectorDetails {
-    name: string;
-    email: string;
-    password: string;
-    phone?: string;
-}
-
 // Define the shape of the context state
 interface AuthState {
   user: AppUserType | null;
@@ -74,7 +67,6 @@ interface AuthState {
   signupAdmin: (adminDetails: AdminDetails) => Promise<AppUserType | null>;
   signupKeyholder: (keyholderDetails: KeyholderDetails) => Promise<AppUserType | null>;
   signupStoreManager: (storeManagerDetails: StoreManagerDetails) => Promise<AppUserType | null>;
-  signupHrDirector: (hrDirectorDetails: HrDirectorDetails) => Promise<AppUserType | null>;
   logout: () => Promise<void>;
   updateUserDocument: (userId: string, data: Partial<AppUserType>) => Promise<void>;
 }
@@ -92,70 +84,57 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If firebase is not configured, we can't do anything.
-    if (!isFirebaseConfigured || !auth) {
-      setLoading(false);
-      return;
+    if (!auth) {
+        setLoading(false);
+        return;
     }
-    
-    setLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentFbUser) => {
-      setLoading(true); // Ensure loading is true at the start of handling
-      try {
+      setLoading(true);
+      if (currentFbUser && db) {
         setFirebaseUser(currentFbUser);
-        if (currentFbUser && db) { // Also check if db is available
-          const userDocRef = doc(db, "users", currentFbUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
+        const userDocRef = doc(db, "users", currentFbUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
 
-          if (userDocSnap.exists()) {
-            const userDataFromDb = userDocSnap.data();
-            let createdAtString: string | undefined = undefined;
+        if (userDocSnap.exists()) {
+          const userDataFromDb = userDocSnap.data();
+          let createdAtString: string | undefined = undefined;
             if (userDataFromDb.createdAt instanceof Timestamp) {
               createdAtString = userDataFromDb.createdAt.toDate().toISOString();
             } else if (typeof userDataFromDb.createdAt === 'string') {
               createdAtString = userDataFromDb.createdAt;
-            } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number' && typeof userDataFromDb.createdAt.nanoseconds === 'number') {
-              createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
             }
 
-            const processedUserData: AppUserType = {
-              id: currentFbUser.uid,
-              email: userDataFromDb.email || '',
-              role: userDataFromDb.role || 'individual',
-              name: userDataFromDb.name,
-              position: userDataFromDb.position,
-              companyId: userDataFromDb.companyId,
-              companyName: userDataFromDb.companyName,
-              approvalStatus: userDataFromDb.approvalStatus,
-              phone: userDataFromDb.phone,
-              buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
-              createdAt: createdAtString,
-            };
-            setUser(processedUserData);
-          } else {
-            console.warn("User document not found in Firestore for UID:", currentFbUser.uid, "- Signing out to prevent inconsistent state.");
-            await firebaseSignOut(auth);
-            setUser(null);
-          }
+          const processedUserData: AppUserType = {
+            id: currentFbUser.uid,
+            email: userDataFromDb.email || '',
+            role: userDataFromDb.role || 'individual',
+            name: userDataFromDb.name,
+            position: userDataFromDb.position,
+            companyId: userDataFromDb.companyId,
+            companyName: userDataFromDb.companyName,
+            approvalStatus: userDataFromDb.approvalStatus,
+            phone: userDataFromDb.phone,
+            buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
+            createdAt: createdAtString,
+          };
+          setUser(processedUserData);
         } else {
-          setUser(null);
+           console.warn("User document not found in Firestore for UID:", currentFbUser.uid, "- Signing out to prevent inconsistent state.");
+           await firebaseSignOut(auth);
+           setUser(null);
         }
-      } catch (error: any) {
-        console.error("Auth state change error:", error);
-        setUser(null);
+      } else {
         setFirebaseUser(null);
-      } finally {
-        setLoading(false);
+        setUser(null);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []); // Empty dependency array means this runs once on mount.
+  }, []);
 
   const login = useCallback(async (email: string, pass: string): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-      throw new Error("Firebase is not configured. Please check your environment variables.");
-    }
+    if (!auth || !db) throw new Error("Firebase is not properly configured.");
     
     setLoading(true);
     try {
@@ -166,15 +145,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (userDocSnap.exists()) {
         const userDataFromDb = userDocSnap.data();
-        let createdAtString: string | undefined = undefined;
+         let createdAtString: string | undefined = undefined;
         if (userDataFromDb.createdAt instanceof Timestamp) {
           createdAtString = userDataFromDb.createdAt.toDate().toISOString();
         } else if (typeof userDataFromDb.createdAt === 'string') {
             createdAtString = userDataFromDb.createdAt;
-        } else if (userDataFromDb.createdAt && typeof userDataFromDb.createdAt.seconds === 'number' && typeof userDataFromDb.createdAt.nanoseconds === 'number') {
-            createdAtString = new Timestamp(userDataFromDb.createdAt.seconds, userDataFromDb.createdAt.nanoseconds).toDate().toISOString();
         }
-
         const appUserData: AppUserType = {
           id: fbUserInstance.uid,
           email: userDataFromDb.email || '',
@@ -199,9 +175,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signupCompany = useCallback(async (companyDetails: CompanyDetails): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-        throw new Error("Firebase is not configured. Cannot sign up company.");
-    }
+    if (!auth || !db) throw new Error("Firebase is not properly configured.");
     const userCredential = await createUserWithEmailAndPassword(auth, companyDetails.email, companyDetails.password);
     const fbUserInstance = userCredential.user;
     const companyId = `comp_${fbUserInstance.uid.substring(0, 10)}_${Date.now().toString(36)}`;
@@ -232,9 +206,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signupAdmin = useCallback(async (adminDetails: AdminDetails): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-      throw new Error("Firebase is not configured. Cannot sign up admin.");
-    }
+    if (!auth || !db) throw new Error("Firebase is not properly configured.");
     const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
     if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
     const currentUserDocSnap = await getDoc(currentUserDocRef);
@@ -265,9 +237,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signupKeyholder = useCallback(async (keyholderDetails: KeyholderDetails): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-        throw new Error("Firebase is not configured. Cannot sign up keyholder.");
-    }
+    if (!auth || !db) throw new Error("Firebase is not properly configured.");
      const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
      if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
      const currentUserDocSnap = await getDoc(currentUserDocRef);
@@ -296,9 +266,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const signupStoreManager = useCallback(async (storeManagerDetails: StoreManagerDetails): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-        throw new Error("Firebase is not configured. Cannot sign up store manager.");
-    }
+    if (!auth || !db) throw new Error("Firebase is not properly configured.");
      const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
      if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
      const currentUserDocSnap = await getDoc(currentUserDocRef);
@@ -325,52 +293,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         createdAt: new Date().toISOString(),
     };
   }, []);
-  
-  const signupHrDirector = useCallback(async (hrDirectorDetails: HrDirectorDetails): Promise<AppUserType | null> => {
-    if (!isFirebaseConfigured || !auth || !db) {
-        throw new Error("Firebase is not configured. Cannot sign up HR Director.");
-    }
-     const currentUserDocRef = auth.currentUser ? doc(db, "users", auth.currentUser.uid) : null;
-     if (!currentUserDocRef) throw new Error("Current user not found for authorization check.");
-     const currentUserDocSnap = await getDoc(currentUserDocRef);
-     if (!currentUserDocSnap.exists() || currentUserDocSnap.data()?.role !== 'superadmin') {
-      throw new Error("Only superadmins can register new HR Directors.");
-    }
-
-    const userCredential = await createUserWithEmailAndPassword(auth, hrDirectorDetails.email, hrDirectorDetails.password);
-    const fbUserInstance = userCredential.user;
-    const newHrDirectorDocData: Omit<AppUserType, 'id' | 'createdAt'> & { createdAt: any } = {
-      email: hrDirectorDetails.email,
-      name: hrDirectorDetails.name,
-      phone: hrDirectorDetails.phone || '',
-      role: 'hr_director' as const,
-      createdAt: serverTimestamp(),
-    };
-    await setDoc(doc(db, "users", fbUserInstance.uid), newHrDirectorDocData);
-    return {
-        id: fbUserInstance.uid,
-        email: hrDirectorDetails.email,
-        name: hrDirectorDetails.name,
-        phone: hrDirectorDetails.phone,
-        role: 'hr_director',
-        createdAt: new Date().toISOString(),
-    };
-  }, []);
 
   const logout = useCallback(async (): Promise<void> => {
-    if (!isFirebaseConfigured || !auth) {
-        console.warn("Attempted to log out, but Firebase is not configured.");
-        setUser(null);
-        setFirebaseUser(null);
-        return;
+    if (auth) {
+        await firebaseSignOut(auth);
     }
-    await firebaseSignOut(auth);
   }, []);
 
   const updateUserDocument = useCallback(async (userId: string, data: Partial<AppUserType>): Promise<void> => {
-    if (!isFirebaseConfigured || !db) {
-        throw new Error("Firebase is not configured. Cannot update user document.");
-    }
+    if (!db) throw new Error("Firebase DB not configured.");
     const userDocRef = doc(db, "users", userId);
     const updateData = { ...data };
     if (data.hasOwnProperty('buildingAssignment') && data.buildingAssignment === undefined) {
@@ -387,8 +318,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           createdAtString = updatedDataFromDb.createdAt.toDate().toISOString();
         } else if (typeof updatedDataFromDb.createdAt === 'string') {
             createdAtString = updatedDataFromDb.createdAt;
-        } else if (updatedDataFromDb.createdAt && typeof updatedDataFromDb.createdAt.seconds === 'number' && typeof updatedDataFromDb.createdAt.nanoseconds === 'number') {
-            createdAtString = new Timestamp(updatedDataFromDb.createdAt.seconds, updatedDataFromDb.createdAt.nanoseconds).toDate().toISOString();
         }
         const refreshedUser: AppUserType = {
           id: userId,
@@ -417,10 +346,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signupAdmin,
     signupKeyholder,
     signupStoreManager,
-    signupHrDirector,
     logout,
     updateUserDocument,
-  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, signupStoreManager, signupHrDirector, logout, updateUserDocument]);
+  }), [user, firebaseUser, loading, login, signupCompany, signupAdmin, signupKeyholder, signupStoreManager, logout, updateUserDocument]);
 
   return (
     <AuthContext.Provider value={contextValue}>

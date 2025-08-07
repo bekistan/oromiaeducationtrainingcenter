@@ -52,7 +52,6 @@ const ICONS: Record<string, LucideIcon> = {
   manageHalls: Building,
   siteManagement: Settings,
   manageCompanies: Users,
-  manageEmployees: Contact,
   manageBlog: BookMarked,
   reports: FileText, 
   userManagement: UserPlus, 

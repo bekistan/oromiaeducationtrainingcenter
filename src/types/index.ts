@@ -138,7 +138,7 @@ export type KeyStatus = 'not_issued' | 'issued' | 'returned';
 export interface User {
   id: string;
   email: string;
-  role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder' | 'store_manager' | 'hr_director';
+  role: 'admin' | 'superadmin' | 'company_representative' | 'individual' | 'keyholder' | 'store_manager';
   name?: string;
   position?: string;
   companyId?: string;
@@ -147,15 +147,6 @@ export interface User {
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 
   buildingAssignment?: 'ifaboru' | 'buuraboru' | null; 
-}
-
-export interface Employee {
-  id: string;
-  name: string;
-  phone: string;
-  position: string;
-  createdAt: import('firebase/firestore').Timestamp;
-  employeeId?: string;
 }
 
 export interface CompanyProfile {
@@ -272,13 +263,4 @@ export interface StoreTransaction {
   recordedBy: string; // User ID of the store manager
   responsibleEmployeeId?: string;
   responsibleEmployeeName?: string;
-}
-
-// Attendance Types
-export interface AttendanceRecord {
-    id: string;
-    employeeId: string;
-    employeeName: string;
-    timestamp: import('firebase/firestore').Timestamp;
-    type: 'check-in' | 'check-out';
 }
