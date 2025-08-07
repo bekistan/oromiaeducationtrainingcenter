@@ -1,30 +1,28 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '@/hooks/use-language';
 import { useToast } from '@/hooks/use-toast';
-import { QrScanner } from '@yudiel/react-qr-scanner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Camera, CameraOff, Loader2, CheckCircle, AlertTriangle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, limit, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import type { Employee, AttendanceRecord } from '@/types';
-import { useAuth } from '@/hooks/use-auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/date-utils';
+import { QRCodeScanner } from '@/components/shared/qr-code-scanner';
 
 export default function AttendanceScannerPage() {
     const { t } = useLanguage();
     const { toast } = useToast();
-    const { user } = useAuth();
     const [isCameraOn, setIsCameraOn] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastScan, setLastScan] = useState<{ employee: Employee; record: AttendanceRecord } | null>(null);
 
-    const handleScan = async (result: string) => {
+    const handleScan = async (result: string | null) => {
         if (result && !isProcessing) {
             setIsProcessing(true);
             const employeeId = result;
@@ -85,7 +83,11 @@ export default function AttendanceScannerPage() {
 
     const handleError = (error: any) => {
         console.error('QR Scanner Error:', error);
-        toast({ variant: 'destructive', title: t('cameraError'), description: t('failedToAccessCamera') });
+        if(error?.name === 'NotAllowedError') {
+             toast({ variant: 'destructive', title: t('cameraPermissionDenied'), description: t('cameraPermissionDeniedDesc') });
+        } else {
+            toast({ variant: 'destructive', title: t('cameraError'), description: t('failedToAccessCamera') });
+        }
         setIsCameraOn(false);
     };
 
@@ -99,11 +101,9 @@ export default function AttendanceScannerPage() {
                 <CardContent className="flex flex-col items-center gap-4">
                     <div className="w-full max-w-md aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center relative">
                         {isCameraOn ? (
-                             <QrScanner
-                                onDecode={handleScan}
+                             <QRCodeScanner
+                                onScan={handleScan}
                                 onError={handleError}
-                                containerStyle={{ width: '100%', height: '100%' }}
-                                videoStyle={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />
                         ) : (
                             <div className="text-center text-muted-foreground">
