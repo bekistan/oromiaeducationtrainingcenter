@@ -9,6 +9,7 @@ import { ADMIN_NAVS } from "@/constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   SidebarMenu, 
+  SidebarMenuBadge,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"; 
 import { 
@@ -38,6 +39,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { AdminNotification } from "@/types";
 
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard, 
@@ -70,6 +75,29 @@ export function AdminSidebarNav() {
   const pathname = usePathname();
   const { t } = useLanguage();
   const { user, loading } = useAuth(); 
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!user || (user.role !== 'admin' && user.role !== 'superadmin') || !db) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      where("recipientRole", "==", "admin"),
+      where("isRead", "==", false)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const counts: Record<string, number> = {};
+      snapshot.docs.forEach(doc => {
+        const notification = doc.data() as AdminNotification;
+        const type = notification.type;
+        counts[type] = (counts[type] || 0) + 1;
+      });
+      setUnreadCounts(counts);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const isSubpathActive = (href?: string, exact: boolean = false) => {
     if (!href) return false;
@@ -86,7 +114,6 @@ export function AdminSidebarNav() {
     if (!item.roles || item.roles.length === 0) return true; 
     if (!item.roles.includes(user.role)) return false; 
     
-    // For parent items with children, show them if any child is visible.
     if (item.children) {
       return item.children.some(child => {
         if (!child.roles || child.roles.length === 0) return true;
@@ -104,12 +131,30 @@ export function AdminSidebarNav() {
     return true;
   });
 
+  const calculateNotificationCount = (item: NavItem): number => {
+    if (!item.notificationType && !item.children) return 0;
+    
+    let count = 0;
+    
+    if (item.notificationType) {
+      const types = Array.isArray(item.notificationType) ? item.notificationType : [item.notificationType];
+      count += types.reduce((acc, type) => acc + (unreadCounts[type] || 0), 0);
+    }
+
+    if (item.children) {
+      count += item.children.reduce((acc, child) => acc + calculateNotificationCount(child), 0);
+    }
+    
+    return count;
+  };
+
   return (
     <ScrollArea className="h-full p-2">
       <SidebarMenu>
         {renderNavs.map((item) => {
           const Icon = ICONS[item.labelKey] || LayoutDashboard; 
           const isParentActive = item.children ? item.children.some(child => isSubpathActive(child.href)) : isSubpathActive(item.href, true);
+          const notificationCount = calculateNotificationCount(item);
           
           if (item.children && item.children.length > 0) {
              const filteredChildren = item.children.filter(child => {
@@ -136,22 +181,29 @@ export function AdminSidebarNav() {
                        <Icon className="h-5 w-5" />
                        <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
                      </div>
-                     <ChevronDown className="h-4 w-4 group-data-[collapsible=icon]:hidden transition-transform [&[data-state=open]]:-rotate-180" />
+                     <div className="flex items-center gap-2">
+                        {notificationCount > 0 && <SidebarMenuBadge>{notificationCount}</SidebarMenuBadge>}
+                        <ChevronDown className="h-4 w-4 group-data-[collapsible=icon]:hidden transition-transform [&[data-state=open]]:-rotate-180" />
+                     </div>
                    </SidebarMenuButton>
                  </CollapsibleTrigger>
                  <CollapsibleContent>
                     <div className="pl-6 group-data-[collapsible=icon]:hidden space-y-1 py-1">
-                        {filteredChildren.map(child => (
-                            <Link key={child.href} href={child.href!} passHref legacyBehavior>
-                                <SidebarMenuButton
-                                  isActive={isSubpathActive(child.href, child.href === item.href)}
-                                  className="justify-start w-full h-8 text-sm font-normal"
-                                  variant="ghost"
-                                >
-                                 <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
-                                </SidebarMenuButton>
-                            </Link>
-                        ))}
+                        {filteredChildren.map(child => {
+                            const childNotificationCount = calculateNotificationCount(child);
+                            return (
+                                <Link key={child.href} href={child.href!} passHref legacyBehavior>
+                                    <SidebarMenuButton
+                                      isActive={isSubpathActive(child.href, child.href === item.href)}
+                                      className="justify-start w-full h-8 text-sm font-normal"
+                                      variant="ghost"
+                                    >
+                                     <span className="group-data-[collapsible=icon]:hidden">{t(child.labelKey)}</span>
+                                     {childNotificationCount > 0 && <SidebarMenuBadge>{childNotificationCount}</SidebarMenuBadge>}
+                                    </SidebarMenuButton>
+                                </Link>
+                            )
+                        })}
                     </div>
                  </CollapsibleContent>
               </Collapsible>
@@ -167,6 +219,7 @@ export function AdminSidebarNav() {
                 >
                   <Icon className="mr-2 h-5 w-5" />
                   <span className="group-data-[collapsible=icon]:hidden">{t(item.labelKey)}</span>
+                  {notificationCount > 0 && <SidebarMenuBadge>{notificationCount}</SidebarMenuBadge>}
                 </SidebarMenuButton>
             </Link>
           );
