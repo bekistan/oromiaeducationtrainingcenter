@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Building, CalendarPlus, Loader2, CalendarDays, AlertCircle, ArrowDown, CalendarClock, ShoppingCart } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import type { DateRange } from 'react-day-picker';
@@ -84,7 +84,7 @@ export default function HallsAndSectionsPage() {
     }
     setIsLoadingInitialFacilities(true);
     try {
-      const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true));
+      const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), orderBy("name"));
       const itemsSnapshot = await getDocs(itemsQuery);
       const allItemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
       setAllAdminEnabledFacilities(allItemsData);

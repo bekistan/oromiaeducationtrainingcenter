@@ -7,12 +7,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compa
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "YOUR_NEXT_PUBLIC_FIREBASE_API_KEY",
-  authDomain: "YOUR_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  projectId: "YOUR_NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  storageBucket: "YOUR_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  appId: "YOUR_NEXT_PUBLIC_FIREBASE_APP_ID",
+  apiKey: "AIzaSyDCCBk25weEefkH_hfX-Yru5RE9yJ0XtQgY",
+  authDomain: "oroedu-4a86c.firebaseapp.com",
+  projectId: "oroedu-4a86c",
+  storageBucket: "oroedu-4a86c.appspot.com",
+  messagingSenderId: "337131238082",
+  appId: "1:337131238082:web:fc94369715fbdfff96015b",
   measurementId: "YOUR_NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID"
 };
 

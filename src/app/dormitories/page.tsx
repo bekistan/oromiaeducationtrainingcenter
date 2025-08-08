@@ -7,7 +7,7 @@ import { DormitoryList } from "@/components/sections/dormitory-list";
 import type { Dormitory, Booking } from "@/types";
 import { useLanguage } from "@/hooks/use-language";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CalendarDays, AlertCircle, ChevronLeft, ChevronRight, Building, Users, ArrowDown } from "lucide-react";
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
@@ -51,7 +51,7 @@ export default function DormitoriesPage() {
     }
     setIsLoadingInitialDorms(true);
     try {
-      const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
+      const q = query(collection(db, "dormitories"), where("isAvailable", "==", true), orderBy("roomNumber"));
       const querySnapshot = await getDocs(q);
       const dormsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
