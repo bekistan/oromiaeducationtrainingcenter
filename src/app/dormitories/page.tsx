@@ -51,12 +51,16 @@ export default function DormitoriesPage() {
     }
     setIsLoadingInitialDorms(true);
     try {
-      const q = query(collection(db, "dormitories"), where("isAvailable", "==", true), orderBy("roomNumber"));
+      const q = query(collection(db, "dormitories"), where("isAvailable", "==", true));
       const querySnapshot = await getDocs(q);
       const dormsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         } as Dormitory));
+      
+      // Sort client-side
+      dormsData.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
+
       setAllAdminEnabledDormitories(dormsData);
     } catch (error) {
       console.error("Error fetching all admin-enabled dormitories: ", error);
