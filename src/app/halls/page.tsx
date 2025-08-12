@@ -84,12 +84,9 @@ export default function HallsAndSectionsPage() {
     }
     setIsLoadingInitialFacilities(true);
     try {
-      const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true));
+      const itemsQuery = query(collection(db, "halls"), where("isAvailable", "==", true), orderBy("name", "asc"));
       const itemsSnapshot = await getDocs(itemsQuery);
       const allItemsData = itemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hall));
-
-      // Sort client-side
-      allItemsData.sort((a,b) => a.name.localeCompare(b.name));
 
       setAllAdminEnabledFacilities(allItemsData);
     } catch (error) {
