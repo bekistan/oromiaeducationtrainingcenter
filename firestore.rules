@@ -3,6 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // --- HELPER FUNCTIONS ---
     function isSuperAdmin() {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
@@ -13,6 +14,10 @@ service cloud.firestore {
 
     function isKeyholder() {
         return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
+    }
+
+    function isStoreManager() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'store_manager';
     }
     
     function isCompanyRep() {
@@ -29,47 +34,53 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
     }
     match /blog/{postId} {
-        allow read: if resource.data.isPublished == true || isSuperAdmin() || isAdmin();
-        allow write: if isSuperAdmin() || isAdmin();
+      allow read: if resource.data.isPublished == true || isSuperAdmin() || isAdmin();
+      allow write: if isSuperAdmin() || isAdmin();
     }
     match /site_configuration/{docId} {
-        allow read: if true;
-        allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
+      allow read: if true;
+      allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
     }
-     match /store_items/{itemId} {
+    match /employees/{employeeId} {
+      allow read: if isSuperAdmin() || isAdmin() || isStoreManager();
+      allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
+    }
+
+    // --- STORE MANAGEMENT ---
+    match /store_items/{itemId} {
       allow read: if isSuperAdmin() || isAdmin() || isKeyholder() || isStoreManager();
       allow write: if isSuperAdmin() || isStoreManager();
     }
     match /store_transactions/{transactionId} {
       allow read: if isSuperAdmin() || isAdmin() || isStoreManager();
-      allow write: if isSuperAdmin() || isStoreManager();
-    }
-     match /employees/{employeeId} {
-      allow read: if isSuperAdmin() || isAdmin() || isStoreManager();
-      allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
+      allow create: if isSuperAdmin() || isStoreManager();
     }
 
     // --- BOOKINGS ---
     match /bookings/{bookingId} {
-      // Allow anyone to create a dormitory booking, and any logged-in user to create a booking for themselves.
+      // Allow anonymous users to create dormitory bookings.
+      // Allow any logged-in user to create a booking for themselves (covers individual users).
       allow create: if (request.resource.data.bookingCategory == 'dormitory' && request.auth == null)
                     || (request.auth != null && request.auth.uid == request.resource.data.userId);
 
       // Admins and SuperAdmins can manage all bookings.
       allow read, update, delete: if isSuperAdmin() || isAdmin();
       
-      // Company reps can read their own bookings and update them (e.g., uploading an agreement).
-      // Reading their own single booking document. The 'list' rule for the dashboard is separate.
+      // Company reps can read their own single booking document and update it.
       allow get, update: if isCompanyRep()
                          && request.auth.uid == resource.data.userId
                          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
 
-      // Allow company reps to LIST bookings that match their companyId.
-      // This rule specifically enables the dashboard query.
-      allow list: if isCompanyRep() && request.query.resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
-
-      // Keyholders can read and update keyStatus on dormitory bookings.
+      // Keyholders can read dormitory bookings and update them (e.g., keyStatus).
       allow read, update: if isKeyholder() && resource.data.bookingCategory == 'dormitory';
+
+      // Allow company reps to LIST bookings that match their companyId.
+      // This is the key rule that enables the company dashboard to work correctly.
+      allow list: if isCompanyRep() 
+                  && request.query.where.size() > 0 
+                  && request.query.where[0].fieldPath == 'companyId'
+                  && request.query.where[0].op == '=='
+                  && request.query.where[0].value == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
     }
 
     // --- USERS ---
@@ -86,7 +97,7 @@ service cloud.firestore {
       // Superadmins can do anything to user documents.
       allow read, write: if isSuperAdmin();
       
-      // General Admins can read user documents (for company approval page) but not edit roles.
+      // General Admins can read user documents (for company approval page).
       allow read: if isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null;
     }
     
