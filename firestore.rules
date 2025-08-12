@@ -3,97 +3,90 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
+    
     function isSuperAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
     }
-
+    
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isKeyholder() {
-        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
+        return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
     
-    function isStoreManager() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'store_manager';
-    }
-
     function isCompanyRep() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
     }
-    
-    // --- Collection Rules ---
 
-    // PUBLIC COLLECTIONS (Read-only for all)
-    match /halls/{hallId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    // Allow anyone to read these public collections
     match /dormitories/{dormId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin() || isAdmin();
     }
-     match /blog/{postId} {
+    match /halls/{hallId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
+    }
+    match /blog/{postId} {
+        allow read: if resource.data.isPublished == true || isSuperAdmin() || isAdmin();
+        allow write: if isSuperAdmin() || isAdmin();
     }
     match /site_configuration/{docId} {
         allow read: if true;
-        allow write: if isAdmin();
-    }
-    match /employees/{employeeId} {
-      allow read: if isAdmin() || isStoreManager();
-      allow write: if isAdmin();
+        allow write: if isSuperAdmin() || (isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null);
     }
 
-    // USER DATA
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow update: if request.auth.uid == userId || isSuperAdmin();
-      allow create, delete: if isSuperAdmin();
-    }
-
-    // BOOKINGS
+    // Bookings
     match /bookings/{bookingId} {
-      // Allow anyone to create a dormitory booking.
-      // Allow only authenticated company reps to create facility bookings.
-      allow create: if (request.resource.data.bookingCategory == 'dormitory' || 
-                       (request.resource.data.bookingCategory == 'facility' && isCompanyRep()));
-                       
-      // Allow the user who made the booking or an admin to read it.
-      allow read: if (isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin()));
+      // Allow anyone to create a dormitory booking, and any logged-in user to create for themselves
+      allow create: if request.resource.data.bookingCategory == 'dormitory'
+                    || (request.auth != null && request.auth.uid == request.resource.data.userId);
       
-      // Allow users to update their own bookings (e.g., upload agreement) and admins/keyholders to update status.
-      allow update: if (isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin() || isKeyholder()));
-      
-      // Only admins can delete bookings.
-      allow delete: if isAdmin();
-    }
+      // Allow authenticated company reps to create facility bookings
+      allow create: if request.resource.data.bookingCategory == 'facility'
+                    && isCompanyRep()
+                    && request.auth.uid == request.resource.data.userId;
 
-    // NOTIFICATIONS
-    match /notifications/{notificationId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin(); // Notifications are created via server-side actions, which run with admin privileges.
+      // Admins can manage all bookings
+      allow read, update, delete: if isSuperAdmin() || isAdmin();
+
+      // Company reps can read their own bookings and update them
+      allow read, update: if isCompanyRep()
+                      && request.auth.uid == resource.data.userId
+                      && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
     }
     
-    // STORE ITEMS & TRANSACTIONS
-    match /store_items/{itemId} {
-      allow read: if isStoreManager() || isAdmin();
-      allow write: if isStoreManager() || isAdmin();
-    }
-    
-    match /store_transactions/{transactionId} {
-      allow read: if isStoreManager() || isAdmin();
-      allow create: if isStoreManager() || isAdmin(); // Transactions created server-side or by store manager
-      allow update, delete: if isAdmin(); // Only admin can edit/delete history
+    // Allow company reps to LIST bookings that match their companyId
+    // This is the key fix for the dashboard query
+    match /bookings/{bookingId} {
+        allow list: if isCompanyRep()
+                    && request.query.resource.data.companyId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
     }
 
+    // Users
+    match /users/{userId} {
+      // Allow a user to read their own document
+      allow get: if request.auth.uid == userId;
+
+      // Allow a user to update their own non-critical info
+      allow update: if request.auth.uid == userId && !(request.resource.data.role != resource.data.role);
+
+      // Anyone can create a company_representative user document for themselves during signup
+      allow create: if request.auth.uid == userId && 
+                      (request.resource.data.role == 'company_representative' || request.resource.data.role == 'individual');
+      
+      // Superadmins can do anything to user documents
+      allow read, write: if isSuperAdmin();
+      
+      // General Admins can read user documents (for company approval page) but not edit roles
+      allow read: if isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.buildingAssignment == null;
+    }
+    
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
