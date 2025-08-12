@@ -37,8 +37,8 @@ export default function CompanyDashboardPage() {
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
     try {
-      // Simplified query to prevent index errors
-      const q = query(collection(db, "bookings"), where("companyId", "==", companyId), orderBy("bookedAt", "desc"));
+      // **FIX**: Removed orderBy to prevent needing a composite index. Sorting will be done client-side.
+      const q = query(collection(db, "bookings"), where("companyId", "==", companyId));
       const querySnapshot = await getDocs(q);
       
       const bookingsData = querySnapshot.docs
@@ -55,6 +55,14 @@ export default function CompanyDashboardPage() {
             } as Booking;
         });
       
+      // Sort client-side
+      bookingsData.sort((a, b) => {
+          const dateA = toDateObject(a.bookedAt);
+          const dateB = toDateObject(b.bookedAt);
+          if (!dateA || !dateB) return 0;
+          return dateB.getTime() - dateA.getTime();
+      });
+
       setAllBookings(bookingsData);
     } catch (error) {
       console.error("Error fetching company bookings: ", error);
