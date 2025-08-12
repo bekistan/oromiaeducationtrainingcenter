@@ -3,74 +3,97 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isSuperAdmin() {
-      return request.auth != null && request.auth.token.role == 'superadmin';
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
-    
+
+    function isSuperAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
     function isAdmin() {
-      return request.auth != null && (request.auth.token.role == 'admin' || isSuperAdmin());
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'superadmin'];
     }
 
     function isKeyholder() {
-        return request.auth != null && request.auth.token.role == 'keyholder';
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'keyholder';
     }
     
     function isStoreManager() {
-        return request.auth != null && request.auth.token.role == 'store_manager';
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'store_manager';
     }
 
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-    
     function isCompanyRep() {
-        return request.auth != null && request.auth.token.role == 'company_representative';
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'company_representative';
     }
+    
+    // --- Collection Rules ---
 
-    //--- Default Deny ---//
-    match /{document=**} {
-      allow read, write: if false;
+    // PUBLIC COLLECTIONS (Read-only for all)
+    match /halls/{hallId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-
-    //--- Publicly Readable Collections ---//
-    match /blog/{postId} { allow read: if true; }
-    match /halls/{hallId} { allow read: if true; }
-    match /dormitories/{dormId} { allow read: if true; }
-    match /site_configuration/{docId} { allow read: if true; }
-    
-    //--- User Profiles ---//
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow update: if isOwner(userId);
-      allow create, delete: if isSuperAdmin();
+    match /dormitories/{dormId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-    
-    //--- Bookings ---//
-    match /bookings/{bookingId} {
-      allow create: if request.auth != null; // ALL users must be authenticated to create any booking
-      allow read: if isAdmin() || isKeyholder() || (isOwner(request.resource.data.userId));
-      allow update, delete: if isAdmin();
-      allow update: if isKeyholder() && (request.resource.data.keyStatus != resource.data.keyStatus);
+     match /blog/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-    
-    //--- Notifications ---//
-    match /notifications/{notificationId} {
-      allow read, update: if isAdmin() || isKeyholder() || isStoreManager() || (isCompanyRep() && request.auth.uid == resource.data.recipientId);
-      allow create: if true; // Allows server-side actions to create notifications
-    }
-    
-    //--- Store Management ---//
-    match /store_items/{itemId} {
-        allow read, write: if isStoreManager() || isAdmin();
-    }
-    match /store_transactions/{transactionId} {
-        allow read: if isStoreManager() || isAdmin();
-        allow create: if isStoreManager();
+    match /site_configuration/{docId} {
+        allow read: if true;
+        allow write: if isAdmin();
     }
     match /employees/{employeeId} {
-        allow read, write: if isStoreManager() || isAdmin();
+      allow read: if isAdmin() || isStoreManager();
+      allow write: if isAdmin();
+    }
+
+    // USER DATA
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow update: if request.auth.uid == userId || isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+    }
+
+    // BOOKINGS
+    match /bookings/{bookingId} {
+      // Allow anyone to create a dormitory booking.
+      // Allow only authenticated company reps to create facility bookings.
+      allow create: if (request.resource.data.bookingCategory == 'dormitory' || 
+                       (request.resource.data.bookingCategory == 'facility' && isCompanyRep()));
+                       
+      // Allow the user who made the booking or an admin to read it.
+      allow read: if (isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin()));
+      
+      // Allow users to update their own bookings (e.g., upload agreement) and admins/keyholders to update status.
+      allow update: if (isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin() || isKeyholder()));
+      
+      // Only admins can delete bookings.
+      allow delete: if isAdmin();
+    }
+
+    // NOTIFICATIONS
+    match /notifications/{notificationId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin(); // Notifications are created via server-side actions, which run with admin privileges.
     }
     
+    // STORE ITEMS & TRANSACTIONS
+    match /store_items/{itemId} {
+      allow read: if isStoreManager() || isAdmin();
+      allow write: if isStoreManager() || isAdmin();
+    }
+    
+    match /store_transactions/{transactionId} {
+      allow read: if isStoreManager() || isAdmin();
+      allow create: if isStoreManager() || isAdmin(); // Transactions created server-side or by store manager
+      allow update, delete: if isAdmin(); // Only admin can edit/delete history
+    }
+
   }
 }

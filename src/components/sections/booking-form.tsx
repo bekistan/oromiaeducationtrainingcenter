@@ -91,6 +91,12 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   useEffect(() => {
     const fetchPricing = async () => {
       setIsLoadingPricing(true);
+      if (!db) {
+        console.warn("Database not configured. Using default pricing.");
+        setPricingSettings(DEFAULT_PRICING_SETTINGS);
+        setIsLoadingPricing(false);
+        return;
+      }
       try {
         const pricingDocRef = doc(db, PRICING_SETTINGS_DOC_PATH);
         const pricingDocSnap = await getDoc(pricingDocRef);
@@ -115,8 +121,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const formSchema = isDormitoryBooking ? dormitoryBookingSchema : facilityBookingSchema;
 
   const defaultDormitoryValues: DormitoryBookingValues = {
-    fullName: "",
-    phone: "",
+    fullName: user && user.role === 'individual' ? user.name || "" : "",
+    phone: user && user.role === 'individual' ? user.phone || "" : "",
     employer: "",
     dateRange: undefined,
   };
@@ -174,6 +180,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
   const checkFacilityAvailability = useCallback(async (itemsToCheck: BookingItem[], selectedRange: DateRange): Promise<string | null> => {
     if (!selectedRange.from || !selectedRange.to) return null;
     if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
+    if (!db) return t('databaseConnectionError');
 
     // This simplified query avoids the need for a composite Firestore index, which can cause permission-like errors if not created.
     const q = query(
@@ -231,6 +238,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     if (!selectedRange.from || !selectedRange.to) return null;
     if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
     if (!itemToCheck.capacity || itemToCheck.capacity <= 0) return t('dormitoryCapacityNotConfigured');
+    if (!db) return t('databaseConnectionError');
 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
@@ -331,6 +339,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
 
 
   async function onSubmit(data: DormitoryBookingValues | FacilityBookingValues) {
+    if (!db) {
+      toast({ variant: "destructive", title: t('error'), description: t('databaseConnectionError') });
+      return;
+    }
     setIsSubmitting(true);
     let totalCost = 0;
     const itemNameForConfirmation = itemsToBook.map(item => item.name).join(', ');
@@ -356,28 +368,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const dormData = data as DormitoryBookingValues;
       const item = itemsToBook[0]; 
       let proceedWithBooking = true;
-
-      const startOfDay = new Date(startDateObject);
-      startOfDay.setHours(0, 0, 0, 0);
-      const startOfDayTimestamp = Timestamp.fromDate(startOfDay);
-
-      const endOfDay = new Date(startDateObject); 
-      endOfDay.setHours(23, 59, 59, 999);
-      const endOfDayTimestamp = Timestamp.fromDate(endOfDay);
-
+      
+      // Simplified query to check for duplicates to avoid composite index requirement
       const existingBookingQuery = query(
         collection(db, "bookings"),
-        where("approvalStatus", "in", ["pending", "approved"]), 
-        where("bookingCategory", "==", "dormitory"),
-        where("phone", "==", dormData.phone),
-        where("startDate", ">=", startOfDayTimestamp),
-        where("startDate", "<=", endOfDayTimestamp),
-        orderBy("startDate") 
+        where("phone", "==", dormData.phone)
       );
 
       try {
         const existingBookingSnapshot = await getDocs(existingBookingQuery);
-        if (!existingBookingSnapshot.empty) {
+        const hasDuplicate = existingBookingSnapshot.docs.some(doc => {
+            const booking = doc.data() as Booking;
+            const bookingStart = toDateObject(booking.startDate);
+            // Check if the booking is for a dormitory and overlaps with the start date of the new booking.
+            return booking.bookingCategory === 'dormitory' && 
+                   (booking.approvalStatus === 'pending' || booking.approvalStatus === 'approved') &&
+                   bookingStart && 
+                   bookingStart.getTime() === startDateObject.getTime();
+        });
+
+        if (hasDuplicate) {
            toast({
             variant: "destructive",
             title: t('duplicateBookingTitle'),
@@ -387,19 +397,8 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         }
       } catch (queryError: any) {
         console.error("Firestore query error during existing booking check:", queryError);
-        let indexCreationLink = "";
-        if (queryError.message && typeof queryError.message === 'string' && queryError.message.includes("indexes?create_composite=")) {
-            const match = queryError.message.match(/(https:\/\/console\.firebase\.google\.com\/v1\/r\/project\/[^/]+\/firestore\/indexes\?create_composite=[^ ]+)/);
-            if (match && match[0]) indexCreationLink = match[0];
-        }
-
-        if (queryError.code === 'failed-precondition' && indexCreationLink) {
-          toast({ variant: "destructive", title: t('warningDatabaseConfigNeeded'), description: t('duplicateCheckSkippedBookingProceeds'), duration: 10000 });
-          console.warn("DUPLICATE CHECK SKIPPED due to missing Firestore index. Booking will proceed. Index link: " + indexCreationLink);
-        } else {
-          toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('firestoreIndexRequiredErrorDetailed') });
-          proceedWithBooking = false;
-        }
+        toast({ variant: "destructive", title: t('bookingErrorTitle'), description: t('errorCheckingForDuplicates') });
+        proceedWithBooking = false;
       }
       
       if (!proceedWithBooking) {
