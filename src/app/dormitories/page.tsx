@@ -99,19 +99,19 @@ export default function DormitoriesPage() {
       
       try {
         const querySnapshot = await getDocs(bookingsQuery);
+        const overlappingBookings = querySnapshot.docs.map(docSnap => docSnap.data() as Booking).filter(b => {
+            const bookingEnd = toDateObject(b.endDate);
+            return bookingEnd && bookingEnd >= selectedDateRange.from!;
+        });
+
 
         const bookedBedsCount: { [dormId: string]: number } = {};
-        querySnapshot.forEach(docSnap => {
-            const booking = docSnap.data() as Booking;
-            const bookingEndDate = toDateObject(booking.endDate);
-            
-            if (bookingEndDate && bookingEndDate >= selectedDateRange.from!) {
-                booking.items.forEach(item => {
-                    if (item.itemType === "dormitory") {
-                        bookedBedsCount[item.id] = (bookedBedsCount[item.id] || 0) + 1;
-                    }
-                });
-            }
+        overlappingBookings.forEach(booking => {
+            booking.items.forEach(item => {
+                if (item.itemType === "dormitory") {
+                    bookedBedsCount[item.id] = (bookedBedsCount[item.id] || 0) + 1;
+                }
+            });
         });
 
         const availableDorms = allAdminEnabledDormitories.filter(dorm => {

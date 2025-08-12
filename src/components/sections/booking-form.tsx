@@ -182,16 +182,26 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     if (selectedRange.to < selectedRange.from) return t('invalidDateRange');
     if (!db) return t('databaseConnectionError');
 
-    // This simplified query avoids the need for a composite Firestore index, which can cause permission-like errors if not created.
+    const fromTimestamp = Timestamp.fromDate(selectedRange.from);
+    const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
+
+    // Simplified query to avoid composite indexes.
     const q = query(
       collection(db, "bookings"),
       where("bookingCategory", "==", "facility"),
-      where("approvalStatus", "in", ["approved", "pending"])
+      where("approvalStatus", "in", ["approved", "pending"]),
+      where("startDate", "<=", toTimestamp)
     );
 
     try {
       const querySnapshot = await getDocs(q);
-      const allBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking));
+      
+      // Filter bookings that overlap with the selected range on the client-side.
+      const overlappingBookings = querySnapshot.docs.map(docSnap => ({id: docSnap.id, ...docSnap.data()} as Booking)).filter(booking => {
+          const bookingEnd = toDateObject(booking.endDate);
+          return bookingEnd && bookingEnd >= selectedRange.from!;
+      });
+
 
       for (const item of itemsToCheck) {
         // Admin availability check from the item itself
@@ -206,19 +216,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
             return t('itemNotFoundDatabase', {itemName: item.name });
         }
 
-        // Check for booking conflicts
-        const conflictingBooking = allBookings.find(booking => {
-          // Check if the current booking is for the item we are checking
-          const isForItem = booking.items.some(bookedItem => bookedItem.id === item.id);
-          if (!isForItem) return false;
-
-          // Check for date overlap
-          const bookingStart = toDateObject(booking.startDate);
-          const bookingEnd = toDateObject(booking.endDate);
-          if (!bookingStart || !bookingEnd) return false; // Invalid booking data, skip
-
-          return (bookingStart <= selectedRange.to! && bookingEnd >= selectedRange.from!);
-        });
+        // Check for booking conflicts in the client-filtered list.
+        const conflictingBooking = overlappingBookings.find(booking => 
+          booking.items.some(bookedItem => bookedItem.id === item.id)
+        );
         
         if (conflictingBooking) {
           return t('itemUnavailableConflict', { itemName: item.name });
@@ -243,26 +244,29 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
     const fromTimestamp = Timestamp.fromDate(selectedRange.from);
     const toTimestamp = Timestamp.fromDate(new Date(selectedRange.to.setHours(23, 59, 59, 999)));
 
+    // Simplified query
     const q = query(
         collection(db, "bookings"),
         where("bookingCategory", "==", "dormitory"),
-        where("approvalStatus", "==", "approved"), 
+        where("approvalStatus", "in", ["approved", "pending"]), 
         where("startDate", "<=", toTimestamp)
     );
 
     try {
         const querySnapshot = await getDocs(q);
         let bookedBedsDuringPeriod = 0;
-        querySnapshot.forEach(docSnap => {
+        
+        querySnapshot.docs.forEach(docSnap => {
             const booking = docSnap.data() as Booking;
-            const bookingStartDate = toDateObject(booking.startDate);
             const bookingEndDate = toDateObject(booking.endDate);
 
-            if (bookingStartDate && bookingEndDate && bookingStartDate <= selectedRange.to! && bookingEndDate >= selectedRange.from!) {
+            // Client-side overlap check
+            if (bookingEndDate && bookingEndDate >= selectedRange.from!) {
                 const isForThisRoom = booking.items.some(bookedItem => bookedItem.id === itemToCheck.id && bookedItem.itemType === "dormitory");
                 if (isForThisRoom) bookedBedsDuringPeriod++;
             }
         });
+
         if (bookedBedsDuringPeriod >= itemToCheck.capacity) return t('dormitoryBedsUnavailable', { roomName: itemToCheck.name });
         return null;
     } catch (error: any) {
@@ -369,10 +373,10 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
       const item = itemsToBook[0]; 
       let proceedWithBooking = true;
       
-      // Simplified query to check for duplicates to avoid composite index requirement
       const existingBookingQuery = query(
         collection(db, "bookings"),
-        where("phone", "==", dormData.phone)
+        where("phone", "==", dormData.phone),
+        where("bookingCategory", "==", "dormitory")
       );
 
       try {
@@ -380,9 +384,7 @@ export function BookingForm({ bookingCategory, itemsToBook }: BookingFormProps) 
         const hasDuplicate = existingBookingSnapshot.docs.some(doc => {
             const booking = doc.data() as Booking;
             const bookingStart = toDateObject(booking.startDate);
-            // Check if the booking is for a dormitory and overlaps with the start date of the new booking.
-            return booking.bookingCategory === 'dormitory' && 
-                   (booking.approvalStatus === 'pending' || booking.approvalStatus === 'approved') &&
+            return (booking.approvalStatus === 'pending' || booking.approvalStatus === 'approved') &&
                    bookingStart && 
                    bookingStart.getTime() === startDateObject.getTime();
         });

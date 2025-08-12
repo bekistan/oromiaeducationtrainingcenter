@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { Booking, AgreementStatus } from '@/types';
 import { AlertCircle, Building, ShoppingBag, Utensils, Coffee, Loader2, Info, ChevronLeft, ChevronRight, FileSignature, Hourglass, FileText, UploadCloud, ExternalLink, Eye } from 'lucide-react';
 import { db } from '@/lib/firebase'; 
-import { collection, getDocs, query, where, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
@@ -37,7 +37,8 @@ export default function CompanyDashboardPage() {
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
     try {
-      const q = query(collection(db, "bookings"), where("companyId", "==", companyId));
+      // Simplified query to prevent index errors
+      const q = query(collection(db, "bookings"), where("companyId", "==", companyId), orderBy("bookedAt", "desc"));
       const querySnapshot = await getDocs(q);
       
       const bookingsData = querySnapshot.docs
@@ -52,8 +53,7 @@ export default function CompanyDashboardPage() {
             agreementSentAt: data.agreementSentAt instanceof Timestamp ? data.agreementSentAt.toDate().toISOString() : data.agreementSentAt,
             agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
             } as Booking;
-        })
-        .sort((a,b) => new Date(b.bookedAt as string).getTime() - new Date(a.bookedAt as string).getTime());
+        });
       
       setAllBookings(bookingsData);
     } catch (error) {
