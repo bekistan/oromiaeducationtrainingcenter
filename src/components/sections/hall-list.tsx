@@ -121,21 +121,21 @@ export function HallList({ halls, selectable = false, selectedItems = [], onSele
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="p-4 mt-auto">
-                {!selectable && (
-                    <Button 
-                      className="w-full" 
-                      disabled={!hall.isAvailable || loading || !selectedDateRange?.from} 
-                      onClick={(e) => {
-                          e.stopPropagation();
-                          handleBookNowClick(hall.id);
-                      }}
-                      title={!selectedDateRange?.from ? t('selectDateRangeFirst') : ''}
-                    >
-                      {loading ? t('loading') : t('bookNow')}
-                    </Button>
-                )}
-              </CardFooter>
+               {selectable ? null : (
+                <CardFooter className="p-4 mt-auto">
+                  <Button 
+                    className="w-full" 
+                    disabled={!hall.isAvailable || loading || !selectedDateRange?.from} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBookNowClick(hall.id);
+                    }}
+                    title={!selectedDateRange?.from ? t('selectDateRangeFirstTooltip') : ''}
+                  >
+                    {loading ? t('loading') : t('bookNow')}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           </ScrollAnimate>
         )

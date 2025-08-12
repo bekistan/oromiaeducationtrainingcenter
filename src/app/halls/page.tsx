@@ -188,6 +188,9 @@ export default function HallsAndSectionsPage() {
     return selectedDateRange?.from && selectedDateRange?.to ? availableFacilitiesInRange : filteredFacilitiesByType;
   }, [selectedDateRange, availableFacilitiesInRange, filteredFacilitiesByType]);
 
+  const canSelectItems = useMemo(() => {
+    return user?.role === 'company_representative' && user.approvalStatus === 'approved' && !!(selectedDateRange?.from && selectedDateRange?.to);
+  }, [user, selectedDateRange]);
 
   const renderContent = () => {
     if (isLoadingInitialFacilities) {
@@ -224,7 +227,7 @@ export default function HallsAndSectionsPage() {
     return (
       <HallList
         halls={displayedFacilities}
-        selectable={user?.role === 'company_representative' && user.approvalStatus === 'approved'}
+        selectable={canSelectItems}
         selectedItems={selectedItems}
         onSelectionChange={setSelectedItems}
         selectedDateRange={selectedDateRange}
@@ -313,7 +316,7 @@ export default function HallsAndSectionsPage() {
 
             {renderContent()}
 
-            {user && user.role === 'company_representative' && user.approvalStatus === 'approved' && selectedDateRange?.from && selectedDateRange?.to && selectedItems.length > 0 && (
+            {canSelectItems && selectedItems.length > 0 && (
                 <Dialog open={isCartOpen} onOpenChange={setIsCartOpen}>
                     <DialogTrigger asChild>
                          <div className="fixed bottom-6 right-6 z-40">
@@ -331,7 +334,7 @@ export default function HallsAndSectionsPage() {
                          <div className="overflow-y-auto pr-6">
                             <BookingCart 
                                 selectedItems={selectedItems}
-                                dateRange={selectedDateRange}
+                                dateRange={selectedDateRange!}
                                 allFacilities={allAdminEnabledFacilities}
                                 dailyAvailability={dailyAvailability}
                                 onBookingComplete={() => setIsCartOpen(false)}
