@@ -142,10 +142,14 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             box-shadow: none;
             border: none;
             width: 100%;
-            height: 100%;
-            page-break-after: avoid;
-            page-break-before: avoid;
-            font-size: 10pt;
+            height: auto; /* Change to auto */
+            page-break-inside: avoid; /* Prevent breaking inside the component */
+          }
+          .schedule-table {
+            page-break-inside: auto; /* Allow table to break across pages if needed */
+          }
+          .schedule-table tr {
+            page-break-inside: avoid; /* Avoid breaking inside a row */
           }
           @page {
             size: A4 portrait;
@@ -189,19 +193,25 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
         {booking.schedule && booking.schedule.length > 0 && (
           <section className="mb-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-3">Sagantaa Guyyaa Guyyaan</h2>
-            <div className="space-y-2 bg-slate-50 p-4 rounded-md border border-slate-200">
-              {booking.schedule.map((daySchedule, index) => (
-                daySchedule.itemIds && daySchedule.itemIds.length > 0 && (
-                  <div key={index} className="text-sm border-b last:border-b-0 py-1">
-                    <strong>{formatDate(new Date(daySchedule.date), 'EEEE, MMMM dd, yyyy')}:</strong>
-                    <ul className="list-disc list-inside pl-4">
-                      {daySchedule.itemIds.map((itemId: string) => (
-                        <li key={itemId}>{getFacilityName(itemId)}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              ))}
+            <div className="overflow-x-auto bg-slate-50 p-4 rounded-md border border-slate-200">
+              <table className="w-full text-sm text-left table-auto schedule-table">
+                <thead className="bg-slate-200">
+                  <tr>
+                    <th className="p-2 font-semibold">Guyyaa</th>
+                    <th className="p-2 font-semibold">Mooraa Qabame</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {booking.schedule.map((daySchedule, index) => (
+                    daySchedule.itemIds && daySchedule.itemIds.length > 0 && (
+                      <tr key={index} className="border-b last:border-b-0">
+                        <td className="p-2 align-top font-medium whitespace-nowrap">{formatDate(new Date(daySchedule.date), 'EEEE, MMMM dd, yyyy')}</td>
+                        <td className="p-2 align-top">{daySchedule.itemIds.map((itemId: string) => getFacilityName(itemId)).join(', ')}</td>
+                      </tr>
+                    )
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -242,5 +252,3 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     </div>
   );
 }
-
-    
