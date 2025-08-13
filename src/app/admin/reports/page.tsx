@@ -13,7 +13,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy, limit, getCountFromServer, doc, documentId } from 'firebase/firestore';
 import type { Booking, User as AppUserType, Dormitory } from '@/types';
-import { formatDate } from '@/lib/date-utils';
+import { formatEthiopianDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
@@ -99,17 +99,17 @@ export default function AdminReportsPage() {
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8), 
-      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
+      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'),
       [t('guestName')]: b.guestName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
-      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
+      [t('startDate')]: formatEthiopianDate(b.startDate, 'full'),
+      [t('endDate')]: formatEthiopianDate(b.endDate, 'full'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
     return {
-      filename: `${t('userDormReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('userDormReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -144,12 +144,12 @@ export default function AdminReportsPage() {
     const summaryText = `
 ${t('financialSummaryReport')} (${currentUser.role === 'admin' && currentUser.buildingAssignment ? currentUser.buildingAssignment : t('allBuildings')})
 ---------------------------------
-${t('period')}: ${formatDate(range.from, 'yyyy-MM-dd')} - ${formatDate(range.to, 'yyyy-MM-dd')}
+${t('period')}: ${formatEthiopianDate(range.from, 'full')} - ${formatEthiopianDate(range.to, 'full')}
 ${t('totalRevenue')}: ${totalRevenue.toLocaleString()} ${t('currencySymbol')}
 ${t('bookingsCount')}: ${bookingsForReport.length}
     `;
     return {
-      filename: `${t('financialSummaryReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
+      filename: `${t('financialSummaryReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -169,17 +169,17 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'), 
+      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'), 
       [t('companyName')]: b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
-      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
+      [t('startDate')]: formatEthiopianDate(b.startDate, 'full'),
+      [t('endDate')]: formatEthiopianDate(b.endDate, 'full'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
     return {
-      filename: `${t('hallUtilizationReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('hallUtilizationReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -196,12 +196,12 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const summaryText = `
 ${t('occupancyAnalyticsReport')}
 ---------------------------------
-${t('period')}: ${formatDate(range.from, 'yyyy-MM-dd')} - ${formatDate(range.to, 'yyyy-MM-dd')}
+${t('period')}: ${formatEthiopianDate(range.from, 'full')} - ${formatEthiopianDate(range.to, 'full')}
 ${t('dormitoryBookings')}: ${dormSnapshot.data().count}
 ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     `;
     return {
-      filename: `${t('occupancyAnalyticsReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
+      filename: `${t('occupancyAnalyticsReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -232,16 +232,16 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
 
     const reportData = bookings.map(b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
+      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'),
       [category === 'dormitory' ? t('guestName') : t('companyName')]: category === 'dormitory' ? b.guestName : b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('dates')]: `${formatDate(b.startDate, 'yyyy-MM-dd')} - ${formatDate(b.endDate, 'yyyy-MM-dd')}`,
+      [t('dates')]: `${formatEthiopianDate(b.startDate, 'full')} - ${formatEthiopianDate(b.endDate, 'full')}`,
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
     }));
      return {
-      filename: `${t(periodTitleKey)}_${category}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t(periodTitleKey)}_${category}_${formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -265,10 +265,10 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
       [t('email')]: c.email,
       [t('phone')]: c.phone || t('notProvided'),
       [t('approvalStatus')]: t(c.approvalStatus || 'pending'),
-      [t('registrationDate')]: formatDate(c.createdAt, 'yyyy-MM-dd')
+      [t('registrationDate')]: formatEthiopianDate(c.createdAt, 'full')
     }));
     return {
-      filename: `${t('companyRegistrationReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('companyRegistrationReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -294,10 +294,10 @@ ${t('totalRegisteredCompanies')}: ${stats.total}
 ${t('approvedCompanies')}: ${stats.approved}
 ${t('pendingCompanies')}: ${stats.pending}
 ${t('rejectedCompanies')}: ${stats.rejected}
-${t('reportGeneratedOn')}: ${formatDate(new Date(), 'yyyy-MM-dd HH:mm')}
+${t('reportGeneratedOn')}: ${formatEthiopianDate(new Date(), 'full')}
     `;
      return {
-      filename: `${t('overallCompanyStatsReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.txt`,
+      filename: `${t('overallCompanyStatsReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };

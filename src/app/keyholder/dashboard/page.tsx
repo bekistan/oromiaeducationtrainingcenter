@@ -10,7 +10,7 @@ import type { Booking } from "@/types";
 import { KeyRound, Hourglass, CheckCircle, Loader2 } from "lucide-react";
 import { db } from '@/lib/firebase';
 import { collection, query, where, Timestamp, orderBy, onSnapshot } from 'firebase/firestore';
-import { toDateObject, formatDualDate } from '@/lib/date-utils';
+import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
 
 const KEYHOLDER_DATA_QUERY_KEY = "keyholderDashboardData";
 
@@ -134,7 +134,7 @@ export default function KeyholderDashboardPage() {
                                     <TableRow key={booking.id}>
                                         <TableCell>{booking.guestName}</TableCell>
                                         <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                        <TableCell className="text-xs">{formatDualDate(booking.startDate, 'MMM d, yy', 'MMM D, YY')}</TableCell>
+                                        <TableCell className="text-xs">{formatEthiopianDate(booking.startDate)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

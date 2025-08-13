@@ -16,7 +16,7 @@ import { collection, getDocs, query, where, doc, updateDoc, Timestamp } from 'fi
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDate, toDateObject } from '@/lib/date-utils';
+import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
 
 export default function KeyholderAssignKeysPage() {
   const { t } = useLanguage();
@@ -197,8 +197,8 @@ export default function KeyholderAssignKeysPage() {
                     <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
                     <TableCell>{booking.phone || t('notAvailable')}</TableCell>
                     <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
-                    <TableCell className="text-xs">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
-                    <TableCell className="text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
+                    <TableCell className="text-xs">{formatEthiopianDate(booking.bookedAt)}</TableCell>
+                    <TableCell className="text-xs">{formatEthiopianDate(booking.startDate)} - {formatEthiopianDate(booking.endDate)}</TableCell>
                     <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button 

@@ -14,7 +14,7 @@ import { LogIn, LogOut, Bed, Loader2, ShieldAlert, Calendar } from "lucide-react
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { formatDate, toDateObject } from '@/lib/date-utils';
+import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
 
 const KEYHOLDER_REPORTS_QUERY_KEY = "keyholderDailyReports";
 
@@ -121,7 +121,7 @@ export default function KeyholderDailyReportsPage() {
         return <p className="text-destructive">{t('errorLoadingDashboardData')}: {error.message}</p>;
     }
 
-    const todayFormatted = formatDate(new Date(), 'EEEE, MMMM d, yyyy');
+    const todayFormatted = formatEthiopianDate(new Date(), 'full');
 
     return (
         <div className="space-y-6">
@@ -199,7 +199,7 @@ export default function KeyholderDailyReportsPage() {
                                         <TableRow key={booking.id}>
                                             <TableCell>{booking.guestName}</TableCell>
                                             <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                            <TableCell>{formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
+                                            <TableCell>{formatEthiopianDate(booking.endDate, 'full')}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

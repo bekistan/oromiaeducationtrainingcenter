@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Booking, BookingItem, BrandAssets, User } from '@/types';
@@ -5,7 +6,7 @@ import { useLanguage } from '@/hooks/use-language';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Timestamp, doc as firestoreDoc, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { SITE_NAME, BRAND_ASSETS_DOC_PATH } from '@/constants'; 
-import { formatDate } from '@/lib/date-utils';
+import { formatEthiopianDate } from '@/lib/date-utils';
 import { useQuery } from '@tanstack/react-query';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
@@ -63,13 +64,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
     return <p>Waliigalteen kun tajaajila kanaaf hin hojjetu.</p>; 
   }
   
-  const agreementDate = formatDate(new Date(), 'MMMM dd, yyyy');
+  const agreementDate = formatEthiopianDate(new Date(), 'full');
   
   const startDateObj = booking.startDate instanceof Timestamp ? booking.startDate.toDate() : parseISO(booking.startDate as string);
   const endDateObj = booking.endDate instanceof Timestamp ? booking.endDate.toDate() : parseISO(booking.endDate as string);
 
-  const startDateFormatted = formatDate(startDateObj, 'MMMM dd, yyyy');
-  const endDateFormatted = formatDate(endDateObj, 'MMMM dd, yyyy');
+  const startDateFormatted = formatEthiopianDate(startDateObj, 'full');
+  const endDateFormatted = formatEthiopianDate(endDateObj, 'full');
   const numberOfDays = differenceInCalendarDays(endDateObj, startDateObj) + 1;
   
   const numberOfAttendees = booking.numberOfAttendees || 0;
@@ -187,7 +188,7 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
                   {booking.schedule.map((daySchedule, index) => (
                     daySchedule.itemIds && daySchedule.itemIds.length > 0 && (
                       <tr key={index} className="border-b last:border-b-0">
-                        <td className="p-2 align-top font-medium whitespace-nowrap">{formatDate(new Date(daySchedule.date), 'EEEE, MMMM dd, yyyy')}</td>
+                        <td className="p-2 align-top font-medium whitespace-nowrap">{formatEthiopianDate(new Date(daySchedule.date), 'full')}</td>
                         <td className="p-2 align-top">{daySchedule.itemIds.map((itemId: string) => getFacilityName(itemId)).join(', ')}</td>
                       </tr>
                     )
