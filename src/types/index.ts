@@ -1,4 +1,3 @@
-
 import { STORE_ITEM_CATEGORIES } from '@/constants';
 
 export type Locale = 'en' | 'om' | 'am';
@@ -110,6 +109,7 @@ export interface Booking {
   paymentScreenshotUrl?: string;
   // Facility specific
   companyName?: string;
+  companyAddress?: string;
   contactPerson?: string;
   email?: string;
   customAgreementTerms?: string;
@@ -143,6 +143,7 @@ export interface User {
   position?: string;
   companyId?: string;
   companyName?: string;
+  address?: string;
   approvalStatus?: 'pending' | 'approved' | 'rejected';
   phone?: string;
   createdAt?: string | import('firebase/firestore').Timestamp; 

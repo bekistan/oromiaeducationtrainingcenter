@@ -1,4 +1,3 @@
-
 import type { NavItem, User, SiteContentSettings } from '@/types'; 
 
 export const SITE_NAME = "Oromia Education Center";
@@ -178,7 +177,32 @@ export const DEFAULT_PRICING_SETTINGS = {
   defaultLedProjectorCostPerDay: 500,
 };
 
-export const DEFAULT_AGREEMENT_TERMS = "These are the default terms and conditions. Please replace this text in the admin settings with your organization's official rental agreement terms.";
+export const DEFAULT_AGREEMENT_TERMS = `
+Kutaa 1: Ibsa Waliigalaa
+Waliigalteen kun haalawwan kireeffama mooraa fi tajaajila MBLQBO (Mana Barumsaa, Leenjii fi Qorannoo Biiroo Oromiyaa) bulchuuf kan gargaarudha.
+
+Kutaa 2: Tajaajila Kennamu
+MBLQBO tajaajiloota armaan gadii ni kenna:
+- Kireeffama galmawwanii fi kutaalee addaa walgahiiwwaniif.
+- Tajaajila nyaataa fi dhugaatii akka barbaachisummaa isaatti.
+- Iddoo jireenyaa yeroo gabaabaaf (dormitories).
+
+Kutaa 3: Dirqama Kireeffataa (Client)
+- Kireeffataan qabeenya kiraan fudhateef kunuunsa gochuu qaba.
+- Kaffaltii waliigalame yeroon kaffaluu.
+- Seeraa fi qajeelfama giddugalichaa kabajuu.
+
+Kutaa 4: Dirqama MBLQBO
+- Iddoo qulqulluu fi mijaa'aa ta'e kireeffataadhaaf qopheessuu.
+- Nageenya naannoo mooraa eeguu.
+- Tajaajila waliigalame akkuma karoorfame kennuu.
+
+Kutaa 5: Kaffaltii
+Kaffaltiin tajaajila argame hunda dura yookaan akkuma waliigaltetti raawwatama. Kaffaltiin yeroon hin kaffalamne yoo jiraate, MBLQBO waliigaltee kana addaan kutuu ni danda'a.
+
+Kutaa 6: Addaan Kutuu Waliigaltee
+Gartuun kamiyyuu haalawwan waliigaltee kana keessatti ibsaman yoo cabse, gartuun kaan beeksisa barreeffamaa guyyaa 15 dura kennuun waliigaltee kana addaan kutuu ni danda'a.
+`;
 
 export const DEFAULT_SITE_CONTENT: SiteContentSettings = {
   welcomeMessage: {

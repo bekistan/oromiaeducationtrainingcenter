@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -20,6 +19,7 @@ const companyRegistrationSchema = z.object({
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
   contactPerson: z.string().min(2, { message: "Contact person name must be at least 2 characters." }),
   position: z.string().min(2, { message: "Position must be at least 2 characters." }),
+  address: z.string().min(5, { message: "Address must be at least 5 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   phone: z.string().min(7, { message: "Phone number seems too short." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
@@ -39,6 +39,7 @@ export default function RegisterCompanyPage() {
       companyName: "",
       contactPerson: "",
       position: "",
+      address: "",
       email: "",
       phone: "",
       password: "",
@@ -52,6 +53,7 @@ export default function RegisterCompanyPage() {
         companyName: data.companyName,
         name: data.contactPerson, // This is contact person's name
         position: data.position,
+        address: data.address,
         email: data.email,
         phone: data.phone,
         password: data.password,
@@ -96,6 +98,7 @@ export default function RegisterCompanyPage() {
               <FormField control={form.control} name="companyName" render={({ field }) => ( <FormItem><FormLabel>{t('companyName')}</FormLabel><FormControl><Input placeholder={t('enterCompanyName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="contactPerson" render={({ field }) => ( <FormItem><FormLabel>{t('contactPersonName')}</FormLabel><FormControl><Input placeholder={t('enterContactPersonName')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="position" render={({ field }) => ( <FormItem><FormLabel>{t('position')}</FormLabel><FormControl><Input placeholder={t('enterPosition')} {...field} /></FormControl><FormMessage /></FormItem> )} />
+              <FormField control={form.control} name="address" render={({ field }) => ( <FormItem><FormLabel>{t('address')}</FormLabel><FormControl><Input placeholder={t('enterFullAddress')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="email" render={({ field }) => ( <FormItem><FormLabel>{t('email')}</FormLabel><FormControl><Input type="email" placeholder={t('enterEmail')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="phone" render={({ field }) => ( <FormItem><FormLabel>{t('phone')}</FormLabel><FormControl><Input type="tel" placeholder={t('enterPhone')} {...field} /></FormControl><FormMessage /></FormItem> )} />
               <FormField control={form.control} name="password" render={({ field }) => ( <FormItem><FormLabel>{t('password')}</FormLabel><FormControl><Input type="password" placeholder={t('enterPassword')} {...field} /></FormControl><FormMessage /></FormItem> )} />

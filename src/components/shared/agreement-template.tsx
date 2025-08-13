@@ -1,14 +1,12 @@
-
 'use client';
 
-import type { Booking, BookingItem, BrandAssets } from '@/types';
+import type { Booking, BookingItem, BrandAssets, User } from '@/types';
 import { useLanguage } from '@/hooks/use-language';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc as firestoreDoc, getDoc as getFirestoreDoc } from 'firebase/firestore';
 import { SITE_NAME, BRAND_ASSETS_DOC_PATH } from '@/constants'; 
 import { formatDate } from '@/lib/date-utils';
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Image from 'next/image';
 
@@ -18,47 +16,27 @@ interface AgreementTemplateProps {
 }
 
 const BRAND_ASSETS_QUERY_KEY = "brandAssetsForAgreement";
+const COMPANY_USER_QUERY_KEY = "companyUserForAgreement";
 
 const fetchBrandAssets = async (): Promise<BrandAssets | null> => {
   if (!db) {
     console.warn("Database not configured. Cannot fetch brand assets.");
     return null;
   }
-  const docRef = doc(db, BRAND_ASSETS_DOC_PATH);
-  const docSnap = await getDoc(docRef);
+  const docRef = firestoreDoc(db, BRAND_ASSETS_DOC_PATH);
+  const docSnap = await getFirestoreDoc(docRef);
   if (docSnap.exists()) {
     return docSnap.data() as BrandAssets;
   }
   return null;
 };
 
-// Default terms in Afan Oromo
-const afanOromoDefaultTerms = `
-Kutaa 1: Ibsa Waliigalaa
-Waliigalteen kun haalawwan kireeffama mooraa fi tajaajila MBLQBO (Mana Barumsaa, Leenjii fi Qorannoo Biiroo Oromiyaa) bulchuuf kan gargaarudha.
-
-Kutaa 2: Tajaajila Kennamu
-MBLQBO tajaajiloota armaan gadii ni kenna:
-- Kireeffama galmawwanii fi kutaalee addaa walgahiiwwaniif.
-- Tajaajila nyaataa fi dhugaatii akka barbaachisummaa isaatti.
-- Iddoo jireenyaa yeroo gabaabaaf (dormitories).
-
-Kutaa 3: Dirqama Kireeffataa (Client)
-- Kireeffataan qabeenya kiraan fudhateef kunuunsa gochuu qaba.
-- Kaffaltii waliigalame yeroon kaffaluu.
-- Seeraa fi qajeelfama giddugalichaa kabajuu.
-
-Kutaa 4: Dirqama MBLQBO
-- Iddoo qulqulluu fi mijaa'aa ta'e kireeffataadhaaf qopheessuu.
-- Nageenya naannoo mooraa eeguu.
-- Tajaajila waliigalame akkuma karoorfame kennuu.
-
-Kutaa 5: Kaffaltii
-Kaffaltiin tajaajila argame hunda dura yookaan akkuma waliigaltetti raawwatama. Kaffaltiin yeroon hin kaffalamne yoo jiraate, MBLQBO waliigaltee kana addaan kutuu ni danda'a.
-
-Kutaa 6: Addaan Kutuu Waliigaltee
-Gartuun kamiyyuu haalawwan waliigaltee kana keessatti ibsaman yoo cabse, gartuun kaan beeksisa barreeffamaa guyyaa 15 dura kennuun waliigaltee kana addaan kutuu ni danda'a.
-`;
+const fetchCompanyUser = async (userId?: string): Promise<User | null> => {
+    if (!db || !userId) return null;
+    const userRef = firestoreDoc(db, "users", userId);
+    const userSnap = await getFirestoreDoc(userRef);
+    return userSnap.exists() ? userSnap.data() as User : null;
+};
 
 
 export function AgreementTemplate({ booking, customTerms }: AgreementTemplateProps) {
@@ -69,6 +47,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
       queryFn: fetchBrandAssets,
       staleTime: 1000 * 60 * 10, // 10 minutes
   });
+
+  const { data: companyUser } = useQuery<User | null>({
+      queryKey: [COMPANY_USER_QUERY_KEY, booking?.userId],
+      queryFn: () => fetchCompanyUser(booking?.userId),
+      enabled: !!booking?.userId, // Only run if there is a userId on the booking
+  });
+
 
   if (!booking) {
     return <p>Waliigaltee fe'aa jira...</p>; 
@@ -91,16 +76,13 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
 
   const totalBookingCostFromRecord = booking.totalCost; 
 
-  const termsToRender = customTerms || afanOromoDefaultTerms;
+  const termsToRender = customTerms || t('defaultAgreementTermsOromo');
   const facilitiesBookedString = booking.items.map(item => `${item.name} (${t(item.itemType)})`).join(', ');
 
   const replacePlaceholders = (template: string) => {
     let replaced = template;
     const replacements: Record<string, string | number> = {
       '{{{clientName}}}': booking.companyName || 'Maamila',
-      '{{{clientContactPerson}}}': booking.contactPerson || 'Nama Qunnamtii',
-      '{{{clientEmail}}}': booking.email || 'Email hin jiru',
-      '{{{clientPhone}}}': booking.phone || 'Lakkoofsa bilbilaa hin jiru',
       '{{{facilitiesBooked}}}': facilitiesBookedString,
       '{{{startDate}}}': startDateFormatted,
       '{{{endDate}}}': endDateFormatted,
@@ -175,8 +157,8 @@ export function AgreementTemplate({ booking, customTerms }: AgreementTemplatePro
             <div>
               <h3 className="font-medium text-gray-700">Kireeffataa (Maamila)</h3>
               <p className="text-sm">{booking.companyName || 'Maamila hin beekamne'}</p>
-              <p className="text-sm">Teessoo: {booking.companyName || 'Teessoo hin beekamne'}</p>
-              <p className="text-sm">Nama Qunnamtii: {booking.contactPerson || 'Hin jiru'}</p>
+              <p className="text-sm">Teessoo: {companyUser?.address || 'Teessoo hin jiru'}</p>
+              <p className="text-sm">Bilbila: {booking.phone || 'Bilbili hin jiru'}</p>
             </div>
           </div>
         </section>

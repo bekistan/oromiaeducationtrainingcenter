@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useContext, createContext, type ReactNode, useMemo } from 'react';
@@ -30,6 +29,7 @@ interface CompanyDetails {
   companyName: string;
   name: string; // Contact person's name
   position: string;
+  address: string;
   email: string;
   phone: string;
   password: string;
@@ -112,6 +112,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             position: userDataFromDb.position,
             companyId: userDataFromDb.companyId,
             companyName: userDataFromDb.companyName,
+            address: userDataFromDb.address,
             approvalStatus: userDataFromDb.approvalStatus,
             phone: userDataFromDb.phone,
             buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
@@ -159,6 +160,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           position: userDataFromDb.position,
           companyId: userDataFromDb.companyId,
           companyName: userDataFromDb.companyName,
+          address: userDataFromDb.address,
           approvalStatus: userDataFromDb.approvalStatus,
           phone: userDataFromDb.phone,
           buildingAssignment: userDataFromDb.buildingAssignment === null ? undefined : userDataFromDb.buildingAssignment,
@@ -184,6 +186,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         name: companyDetails.name,
         position: companyDetails.position,
         companyName: companyDetails.companyName,
+        address: companyDetails.address,
         phone: companyDetails.phone,
         role: 'company_representative' as const,
         approvalStatus: 'pending' as const,
@@ -197,6 +200,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         name: companyDetails.name,
         position: companyDetails.position,
         companyName: companyDetails.companyName,
+        address: companyDetails.address,
         phone: companyDetails.phone,
         role: 'company_representative',
         approvalStatus: 'pending',
@@ -327,6 +331,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           position: updatedDataFromDb.position,
           companyId: updatedDataFromDb.companyId,
           companyName: updatedDataFromDb.companyName,
+          address: updatedDataFromDb.address,
           approvalStatus: updatedDataFromDb.approvalStatus,
           phone: updatedDataFromDb.phone,
           buildingAssignment: updatedDataFromDb.buildingAssignment === null ? undefined : updatedDataFromDb.buildingAssignment,
