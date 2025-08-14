@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { formatEthiopianDate } from '@/lib/date-utils';
+import { formatEthiopianDate, formatDate } from '@/lib/date-utils';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
@@ -29,6 +30,19 @@ interface DashboardStats {
   availableBedsStat: { available: number; total: number };
   availableHalls: { available: number; total: number };
 }
+
+// A new async component to handle the Ethiopian date display
+const EthiopianDateDisplay = ({ dateInput }: { dateInput: any }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  useEffect(() => {
+    async function getEthDate() {
+      const ethDate = await formatEthiopianDate(dateInput);
+      setFormattedDate(ethDate);
+    }
+    getEthDate();
+  }, [dateInput]);
+  return <>{formattedDate}</>;
+};
 
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
@@ -262,7 +276,7 @@ export default function AdminDashboardPage() {
                   <TableBody>
                     {displayedRecentBookings.map(booking => (
                       <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap"><EthiopianDateDisplay dateInput={booking.bookedAt} /></TableCell>
                         <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                         <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
                         <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>

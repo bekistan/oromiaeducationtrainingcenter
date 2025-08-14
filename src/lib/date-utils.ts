@@ -1,4 +1,5 @@
 
+
 import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
 import { toEthiopian } from 'ethiopian-calendar-date-converter';
@@ -44,15 +45,16 @@ export const formatDate = (
   }
 };
 
-export const formatEthiopianDate = (
+export const formatEthiopianDate = async (
     dateInput: DateInput,
     formatStr: 'default' | 'full' = 'default'
-): string => {
+): Promise<string> => {
     const dateObj = toDateObject(dateInput);
-    if (!dateObj) return 'N/A';
+    if (!dateObj) return Promise.resolve('N/A');
 
     try {
-        const [year, month, day] = toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+        // The library function is asynchronous, so we must await it.
+        const [year, month, day] = await toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
         
         const monthNames = [
           'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit', 

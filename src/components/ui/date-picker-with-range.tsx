@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -14,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useLanguage } from "@/hooks/use-language"
-import { formatEthiopianDate } from "@/lib/date-utils" // Import the Ethiopian date formatter
+import { formatEthiopianDate, formatDate } from "@/lib/date-utils"
 
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   date?: DateRange;
@@ -35,12 +36,30 @@ export function DatePickerWithRange({
   const { t } = useLanguage();
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
+  const [ethiopianDisplay, setEthiopianDisplay] = React.useState<string>("");
 
   React.useEffect(() => {
     if (initialDate) {
       setDate(initialDate);
     }
   }, [initialDate]);
+
+  React.useEffect(() => {
+    const generateDisplay = async () => {
+        if (date?.from && date?.to) {
+            const fromEth = await formatEthiopianDate(date.from, 'full');
+            const toEth = await formatEthiopianDate(date.to, 'full');
+            setEthiopianDisplay(`${fromEth} - ${toEth}`);
+        } else if (date?.from) {
+            const fromEth = await formatEthiopianDate(date.from, 'full');
+            setEthiopianDisplay(fromEth);
+        } else {
+            setEthiopianDisplay("");
+        }
+    };
+    generateDisplay();
+  }, [date]);
+
 
   const handleSelect = (selectedDate: DateRange | undefined) => {
     setDate(selectedDate);
@@ -62,17 +81,16 @@ export function DatePickerWithRange({
 
   const renderDateDisplay = () => {
     if (date?.from) {
-      if (date.to) {
-        const fromGregorian = formatEthiopianDate(date.from, 'full');
-        const toGregorian = formatEthiopianDate(date.to, 'full');
+        const gregFrom = formatDate(date.from, 'MMM d, yyyy');
+        const gregTo = date.to ? formatDate(date.to, 'MMM d, yyyy') : '';
+        const gregDisplay = gregTo ? `${gregFrom} - ${gregTo}` : gregFrom;
+        
         return (
-          <div className="flex flex-col items-start">
-            <span className="text-xs font-semibold">{fromGregorian} - {toGregorian}</span>
-            <span className="text-xs text-muted-foreground">({t('gregorianAbbr')}: {formatEthiopianDate(date.from, 'default')} - {formatEthiopianDate(date.to, 'default')})</span>
+          <div className="flex flex-col items-start text-left">
+            <span className="text-xs font-semibold">{ethiopianDisplay || t('loading')}...</span>
+            <span className="text-xs text-muted-foreground">({t('gregorianAbbr')}: {gregDisplay})</span>
           </div>
         )
-      }
-      return formatEthiopianDate(date.from, 'full');
     }
     return <span>{t('pickADateRange')}</span>
   }
