@@ -2,7 +2,7 @@
 
 import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
-import { toEthiopian } from 'ethiopian-calendar-date-converter';
+import toEthiopian from 'ethiopian-calendar-date-converter';
 
 type DateInput = string | Date | Timestamp | undefined | null;
 
