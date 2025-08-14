@@ -4,7 +4,6 @@
 import * as React from "react"
 import { Calendar as CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
-import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -15,6 +14,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { useLanguage } from "@/hooks/use-language"
+import { formatEthiopianDate } from "@/lib/date-utils" // Import the Ethiopian date formatter
 
 interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> {
   date?: DateRange;
@@ -52,7 +52,6 @@ export function DatePickerWithRange({
     }
   }
 
-  const displayFormat = 'LLL dd, y';
   const today = new Date();
   today.setHours(0,0,0,0);
   
@@ -60,6 +59,23 @@ export function DatePickerWithRange({
     ...(disableFuture && { after: today }),
     ...(disablePast && { before: today }),
   };
+
+  const renderDateDisplay = () => {
+    if (date?.from) {
+      if (date.to) {
+        const fromGregorian = formatEthiopianDate(date.from, 'full');
+        const toGregorian = formatEthiopianDate(date.to, 'full');
+        return (
+          <div className="flex flex-col items-start">
+            <span className="text-xs font-semibold">{fromGregorian} - {toGregorian}</span>
+            <span className="text-xs text-muted-foreground">({t('gregorianAbbr')}: {formatEthiopianDate(date.from, 'default')} - {formatEthiopianDate(date.to, 'default')})</span>
+          </div>
+        )
+      }
+      return formatEthiopianDate(date.from, 'full');
+    }
+    return <span>{t('pickADateRange')}</span>
+  }
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -70,23 +86,12 @@ export function DatePickerWithRange({
             variant={"outline"}
             disabled={propDisabled}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "w-full justify-start text-left font-normal h-auto",
               !date && "text-muted-foreground"
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, displayFormat)} -{" "}
-                  {format(date.to, displayFormat)}
-                </>
-              ) : (
-                format(date.from, displayFormat)
-              )
-            ) : (
-              <span>{t('pickADateRange')}</span>
-            )}
+            {renderDateDisplay()}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
