@@ -18,7 +18,7 @@ import { collection, getDocs, query, where, Timestamp, doc, updateDoc, orderBy }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
+import { formatEthiopianDate, toDateObject } from '@/lib/date-utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
@@ -37,8 +37,11 @@ export default function CompanyDashboardPage() {
   const fetchBookings = useCallback(async (companyId: string) => {
     setIsLoadingBookings(true);
     try {
-      // **FIX**: Removed orderBy to prevent needing a composite index. Sorting will be done client-side.
-      const q = query(collection(db, "bookings"), where("companyId", "==", companyId));
+      const q = query(
+        collection(db, "bookings"), 
+        where("companyId", "==", companyId),
+        orderBy("bookedAt", "desc")
+      );
       const querySnapshot = await getDocs(q);
       
       const bookingsData = querySnapshot.docs
@@ -54,14 +57,6 @@ export default function CompanyDashboardPage() {
             agreementSignedAt: data.agreementSignedAt instanceof Timestamp ? data.agreementSignedAt.toDate().toISOString() : data.agreementSignedAt,
             } as Booking;
         });
-      
-      // Sort client-side
-      bookingsData.sort((a, b) => {
-          const dateA = toDateObject(a.bookedAt);
-          const dateB = toDateObject(b.bookedAt);
-          if (!dateA || !dateB) return 0;
-          return dateB.getTime() - dateA.getTime();
-      });
 
       setAllBookings(bookingsData);
     } catch (error) {
@@ -297,7 +292,7 @@ export default function CompanyDashboardPage() {
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.bookedAt)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.bookedAt, 'full')}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>

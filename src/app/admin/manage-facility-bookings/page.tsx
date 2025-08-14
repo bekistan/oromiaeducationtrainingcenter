@@ -38,7 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { formatDate, toDateObject } from '@/lib/date-utils';
+import { formatEthiopianDate, toDateObject } from '@/lib/date-utils';
 import { AGREEMENT_TEMPLATE_DOC_PATH, DEFAULT_AGREEMENT_TERMS } from '@/constants';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
@@ -53,8 +53,11 @@ const FACILITY_BOOKINGS_QUERY_KEY = "adminFacilityBookings";
 
 const fetchFacilityBookingsFromDb = async (): Promise<Booking[]> => {
   if (!db) return [];
-  // Simplified query to avoid composite index on (bookingCategory, bookedAt)
-  const q = query(collection(db, "bookings"), where("bookingCategory", "==", "facility"));
+  const q = query(
+    collection(db, "bookings"), 
+    where("bookingCategory", "==", "facility"),
+    orderBy("bookedAt", "desc")
+  );
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(docSnap => {
     const data = docSnap.data();
@@ -377,10 +380,10 @@ export default function AdminManageFacilityBookingsPage() {
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt, 'full')}</TableCell>
                       <TableCell className="min-w-[150px]">{booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
                       <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
