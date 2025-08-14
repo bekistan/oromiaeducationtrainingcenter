@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers";
 import { useForm } from 'react-hook-form';
 import * as z from "zod";
 import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";

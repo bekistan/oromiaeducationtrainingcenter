@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from 'react';
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ export default function FinancialManagementPage() {
                 <FormField control={form.control} name="defaultDormitoryPricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultDormitoryPricePerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultHallRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultHallRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 3000" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultSectionRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultSectionRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 1500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</ShadFormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</FormDescription><FormMessage /></FormItem> )} />
               </div>
               
               <h3 className="text-lg font-medium pt-4 border-t">{t('cateringServiceCosts')} ({t('perPersonPerDay')})</h3>

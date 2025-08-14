@@ -1,7 +1,8 @@
+
 "use client";
 
 import React from 'react';
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import { useAuth } from "@/hooks/use-auth"; // Use new auth hook
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { Building, Loader2 } from "lucide-react";
-import AuthLayout from '../layout'; // Assuming AuthLayout exists
 
 const companyRegistrationSchema = z.object({
   companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
@@ -83,7 +83,7 @@ export default function RegisterCompanyPage() {
   }
 
   return (
-    <AuthLayout>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
       <Card className="w-full max-w-lg shadow-2xl">
         <CardHeader className="text-center space-y-1">
            <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-2">
@@ -118,6 +118,6 @@ export default function RegisterCompanyPage() {
           </p>
         </CardFooter>
       </Card>
-    </AuthLayout>
+    </div>
   );
 }

@@ -28,7 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy as firestoreOrderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription as ShadFormDescription } from "@/components/ui/form";

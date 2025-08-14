@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from 'react';
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from "@hookform/resolvers";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
