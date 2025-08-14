@@ -16,7 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { formatDate } from '@/lib/date-utils';
+import { formatEthiopianDate } from '@/lib/date-utils';
 import { ScrollAnimate } from '@/components/shared/scroll-animate';
 
 const BANK_DETAILS_DOC_PATH = "site_configuration/bank_account_details";
@@ -262,7 +262,7 @@ export default function AdminDashboardPage() {
                   <TableBody>
                     {displayedRecentBookings.map(booking => (
                       <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt)}</TableCell>
                         <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                         <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
                         <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>

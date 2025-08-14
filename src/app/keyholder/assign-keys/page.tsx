@@ -198,7 +198,7 @@ export default function KeyholderAssignKeysPage() {
                     <TableCell>{booking.phone || t('notAvailable')}</TableCell>
                     <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
                     <TableCell className="text-xs">{formatEthiopianDate(booking.bookedAt)}</TableCell>
-                    <TableCell className="text-xs">{formatEthiopianDate(booking.startDate)} - {formatEthiopianDate(booking.endDate)}</TableCell>
+                    <TableCell className="text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
                     <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button 

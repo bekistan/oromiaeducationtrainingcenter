@@ -18,7 +18,7 @@ import { collection, getDocs, query, where, Timestamp, doc, updateDoc, orderBy }
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
-import { formatDate, toDateObject } from '@/lib/date-utils';
+import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
@@ -297,9 +297,9 @@ export default function CompanyDashboardPage() {
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.bookedAt, 'MMM d, yy HH:mm')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.bookedAt)}</TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatDate(booking.startDate, 'MMM d, yy')} - {formatDate(booking.endDate, 'MMM d, yy')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>
