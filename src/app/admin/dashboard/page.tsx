@@ -31,19 +31,6 @@ interface DashboardStats {
   availableHalls: { available: number; total: number };
 }
 
-// A new async component to handle the Ethiopian date display
-const EthiopianDateDisplay = ({ dateInput }: { dateInput: any }) => {
-  const [formattedDate, setFormattedDate] = useState<string>('...');
-  useEffect(() => {
-    async function getEthDate() {
-      const ethDate = await formatEthiopianDate(dateInput);
-      setFormattedDate(ethDate);
-    }
-    getEthDate();
-  }, [dateInput]);
-  return <>{formattedDate}</>;
-};
-
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -276,7 +263,7 @@ export default function AdminDashboardPage() {
                   <TableBody>
                     {displayedRecentBookings.map(booking => (
                       <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap"><EthiopianDateDisplay dateInput={booking.bookedAt} /></TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt)}</TableCell>
                         <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                         <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
                         <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>

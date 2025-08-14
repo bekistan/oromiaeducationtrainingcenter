@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useCallback } from 'react';
@@ -12,7 +13,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDate } from '@/lib/date-utils';
+import { formatDate, formatEthiopianDate } from '@/lib/date-utils';
 
 interface ReportOutput {
   filename: string;
@@ -86,9 +87,9 @@ export default function KeyholderReportsPage() {
       [t('guestName')]: b.guestName,
       [t('phone')]: b.phone,
       [t('roomBooked')]: b.items.map(i => i.name).join('; '),
-      [t('bookedAt')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
-      [t('checkInDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
-      [t('checkOutDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
+      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
+      [t('checkInDate')]: formatEthiopianDate(b.startDate, 'yyyy-MM-dd'),
+      [t('checkOutDate')]: formatEthiopianDate(b.endDate, 'yyyy-MM-dd'),
       [t('keyStatus')]: t(b.keyStatus || 'keyNotIssued'),
     }));
 

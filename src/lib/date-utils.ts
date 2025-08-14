@@ -1,8 +1,7 @@
 
-
 import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
-import toEthiopian from 'ethiopian-calendar-date-converter';
+import { toEthiopian } from 'ethiopian-calendar';
 
 type DateInput = string | Date | Timestamp | undefined | null;
 
@@ -45,27 +44,22 @@ export const formatDate = (
   }
 };
 
-export const formatEthiopianDate = async (
+export const formatEthiopianDate = (
     dateInput: DateInput,
     formatStr: 'default' | 'full' = 'default'
-): Promise<string> => {
+): string => {
     const dateObj = toDateObject(dateInput);
-    if (!dateObj) return Promise.resolve('N/A');
+    if (!dateObj) return 'N/A';
 
     try {
-        // The library function is asynchronous, so we must await it.
-        const [year, month, day] = await toEthiopian(dateObj.getFullYear(), dateObj.getMonth() + 1, dateObj.getDate());
+        const ethiopianDate = toEthiopian(dateObj); // Library is synchronous
         
-        const monthNames = [
-          'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit', 
-          'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
-        ];
-        const monthName = monthNames[month - 1];
+        const monthName = ethiopianDate.monthName;
 
         if (formatStr === 'full') {
-             return `${monthName} ${day}, ${year}`;
+             return `${monthName} ${ethiopianDate.day}, ${ethiopianDate.year}`;
         }
-        return `${monthName.substring(0,3)} ${day}, ${year}`;
+        return `${monthName.substring(0,3)} ${ethiopianDate.day}, ${ethiopianDate.year}`;
     } catch (error) {
         console.error("Error converting to Ethiopian date:", error);
         return formatDate(dateObj); // Fallback to Gregorian format

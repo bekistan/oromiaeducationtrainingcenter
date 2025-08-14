@@ -45,13 +45,13 @@ export function DatePickerWithRange({
   }, [initialDate]);
 
   React.useEffect(() => {
-    const generateDisplay = async () => {
+    const generateDisplay = () => {
         if (date?.from && date?.to) {
-            const fromEth = await formatEthiopianDate(date.from, 'full');
-            const toEth = await formatEthiopianDate(date.to, 'full');
+            const fromEth = formatEthiopianDate(date.from, 'full');
+            const toEth = formatEthiopianDate(date.to, 'full');
             setEthiopianDisplay(`${fromEth} - ${toEth}`);
         } else if (date?.from) {
-            const fromEth = await formatEthiopianDate(date.from, 'full');
+            const fromEth = formatEthiopianDate(date.from, 'full');
             setEthiopianDisplay(fromEth);
         } else {
             setEthiopianDisplay("");
