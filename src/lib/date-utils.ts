@@ -54,30 +54,41 @@ export const formatEthiopianDate = async (
     try {
         const gregorianDateString = format(dateObj, 'yyyy-MM-dd');
         
-        // Call the internal API route
         const response = await fetch('/api/convert-date', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ gregorianDate: gregorianDateString }),
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'API request failed');
+            const errorData = await response.json().catch(() => ({error: 'API request failed'}));
+            console.error("Ethiopian date API error:", errorData.error);
+            return formatDate(dateObj); // Fallback on API error
         }
 
         const data = await response.json();
-        const ethiopianDateString = data.ethiopianDate;
+        const ethiopianDateString: string = data.ethiopianDate; // e.g., "2016-12-25"
         
-        if (formatStr === 'default') {
-            const parts = ethiopianDateString.split(' ');
-            if (parts.length >= 2) {
-                return `${parts[0].substring(0, 3)} ${parts[1]} ${parts[2]}`;
-            }
+        if (!ethiopianDateString) return formatDate(dateObj); // Fallback if format is unexpected
+
+        const [year, month, day] = ethiopianDateString.split('-');
+        
+        const monthNames = [
+          'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
+          'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
+        ];
+        
+        const monthIndex = parseInt(month, 10) - 1;
+        if (monthIndex < 0 || monthIndex >= monthNames.length) {
+            return ethiopianDateString; // Fallback if month is out of bounds
         }
-        return ethiopianDateString;
+        
+        const monthName = monthNames[monthIndex];
+
+        if (formatStr === 'default') {
+            return `${monthName.substring(0, 3)} ${parseInt(day, 10)}, ${year}`;
+        }
+        return `${monthName} ${parseInt(day, 10)}, ${year}`;
 
     } catch (error) {
         console.error("Error converting to Ethiopian date via API:", error);

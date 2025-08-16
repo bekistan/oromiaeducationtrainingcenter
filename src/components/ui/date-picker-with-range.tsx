@@ -79,13 +79,13 @@ export function DatePickerWithRange({
   const renderDateDisplay = () => {
     if (date?.from) {
         const gregFrom = formatDate(date.from, 'MMM d, yyyy');
-        const gregTo = date.to ? formatDate(date.to, 'MMM d, yyyy') : '';
-        const gregDisplay = gregTo ? `${gregFrom} - ${gregTo}` : gregFrom;
+        const gregTo = date.to ? ` - ${formatDate(date.to, 'MMM d, yyyy')}` : '';
+        const gregDisplay = `${gregFrom}${gregTo}`;
         
         return (
           <div className="flex flex-col items-start text-left">
-            <span className="text-xs font-semibold">{ethiopianDisplay || t('loading')}</span>
-            <span className="text-xs text-muted-foreground">({t('gregorianAbbr')}: {gregDisplay})</span>
+            <span className="text-sm font-semibold leading-tight">{ethiopianDisplay || t('loading')}</span>
+            <span className="text-xs text-muted-foreground leading-tight">({t('gregorianAbbr')}: {gregDisplay})</span>
           </div>
         )
     }
@@ -101,7 +101,7 @@ export function DatePickerWithRange({
             variant={"outline"}
             disabled={propDisabled}
             className={cn(
-              "w-full justify-start text-left font-normal h-auto",
+              "w-full justify-start text-left font-normal h-auto py-2",
               !date && "text-muted-foreground"
             )}
           >
