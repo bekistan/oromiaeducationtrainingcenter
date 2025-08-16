@@ -9,7 +9,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or missing gregorianDate field.' }, { status: 400 });
     }
     
-    // The new endpoint requires the parameter as gc[]=<YYYY-MM-DD>
     const apiUrl = `https://api.ethioall.com/convert/api?gc[]=${gregorianDate}`;
     
     console.log(`[API /convert-date] Calling external API: ${apiUrl}`);
@@ -24,13 +23,16 @@ export async function POST(req: NextRequest) {
     
     const data = await apiResponse.json();
 
-    // The new endpoint returns an array, and the date is inside the 'ec' property.
-    if (!data[0] || !data[0].ec) {
+    // The API returns an array, we need the first element.
+    const conversionResult = data[0];
+
+    if (!conversionResult || !conversionResult.day || !conversionResult.month_name?.english || !conversionResult.year) {
         console.error('[API /convert-date] Invalid response format from external API:', data);
         return NextResponse.json({ error: 'Received invalid format from date conversion service.' }, { status: 500 });
     }
-
-    const ethiopianDate = data[0].ec;
+    
+    const { day, month_name, year } = conversionResult;
+    const ethiopianDate = `${month_name.english} ${day}, ${year}`;
     
     console.log(`[API /convert-date] Conversion successful: ${ethiopianDate}`);
     return NextResponse.json({ ethiopianDate });
