@@ -83,18 +83,18 @@ export default function KeyholderReportsPage() {
           return endDate >= dateRange.from!;
       });
 
-    const reportData = bookings.map(b => ({
+    const reportData = await Promise.all(bookings.map(async b => ({
       [t('guestName')]: b.guestName,
       [t('phone')]: b.phone,
       [t('roomBooked')]: b.items.map(i => i.name).join('; '),
-      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
-      [t('checkInDate')]: formatEthiopianDate(b.startDate, 'yyyy-MM-dd'),
-      [t('checkOutDate')]: formatEthiopianDate(b.endDate, 'yyyy-MM-dd'),
+      [t('bookedAt')]: await formatEthiopianDate(b.bookedAt, 'full'),
+      [t('checkInDate')]: await formatEthiopianDate(b.startDate),
+      [t('checkOutDate')]: await formatEthiopianDate(b.endDate),
       [t('keyStatus')]: t(b.keyStatus || 'keyNotIssued'),
-    }));
+    })));
 
     return {
-      filename: `${t('dormitoryActivityReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('dormitoryActivityReport')}_${await formatEthiopianDate(new Date())}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };

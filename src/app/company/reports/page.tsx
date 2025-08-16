@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useCallback } from 'react';
@@ -14,7 +15,7 @@ import type { DateRange } from 'react-day-picker';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import type { Booking } from '@/types';
-import { formatDate } from '@/lib/date-utils';
+import { formatEthiopianDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 
 interface ReportOutput {
@@ -79,20 +80,20 @@ export default function CompanyReportsPage() {
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
 
-    const reportData = bookings.map(b => ({
+    const reportData = await Promise.all(bookings.map(async b => ({
       [t('bookingId')]: b.id,
       [t('itemsBooked')]: b.items.map(i => i.name).join('; '),
-      [t('startDate')]: formatDate(b.startDate, 'yyyy-MM-dd'),
-      [t('endDate')]: formatDate(b.endDate, 'yyyy-MM-dd'),
+      [t('startDate')]: await formatEthiopianDate(b.startDate),
+      [t('endDate')]: await formatEthiopianDate(b.endDate),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
       [t('agreementStatus')]: b.agreementStatus ? t(b.agreementStatus) : t('notApplicable'),
-      [t('bookedOn')]: formatDate(b.bookedAt, 'yyyy-MM-dd HH:mm'),
-    }));
+      [t('bookedOn')]: await formatEthiopianDate(b.bookedAt, 'full'),
+    })));
 
     return {
-      filename: `${t('bookingHistoryReport')}_${formatDate(new Date(), 'yyyy-MM-dd')}.csv`,
+      filename: `${t('bookingHistoryReport')}_${await formatEthiopianDate(new Date())}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
