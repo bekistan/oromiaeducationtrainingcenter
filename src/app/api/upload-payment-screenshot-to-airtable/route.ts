@@ -67,14 +67,9 @@ export async function POST(req: NextRequest) {
     const cloudinaryUrl = cloudinaryUploadResult.secure_url;
     console.log('[API] Step 1 COMPLETE. Cloudinary URL:', cloudinaryUrl);
     
-    // 2. Update Firestore document
-    console.log('[API] Step 2: Updating Firestore document...');
-    const bookingRef = doc(db, "bookings", bookingId);
-    await updateDoc(bookingRef, {
-        paymentScreenshotUrl: cloudinaryUrl,
-        paymentStatus: 'awaiting_verification',
-    });
-    console.log('[API] Step 2 COMPLETE. Firestore document updated successfully.');
+    // NOTE: The Firestore update has been moved to the client-side component
+    // to ensure the user is authenticated for the database write operation.
+    // This API route is now only responsible for uploading and returning the URL.
 
     console.log('--- [API /upload-payment-proof] END: Success ---');
     return NextResponse.json({
