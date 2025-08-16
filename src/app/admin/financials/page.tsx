@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -36,6 +36,7 @@ const pricingSettingsSchema = z.object({
 type PricingSettingsFormValues = z.infer<typeof pricingSettingsSchema>;
 
 const fetchPricingSettings = async (): Promise<PricingSettings> => {
+  if (!db) return { ...DEFAULT_PRICING_SETTINGS, id: 'pricing_settings' };
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -50,6 +51,7 @@ const fetchPricingSettings = async (): Promise<PricingSettings> => {
 };
 
 const updatePricingSettings = async (details: PricingSettingsFormValues): Promise<void> => {
+  if (!db) throw new Error("Database not configured.");
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   await setDoc(docRef, { ...details, lastUpdated: serverTimestamp() }, { merge: true });
 };
@@ -61,12 +63,7 @@ export default function FinancialManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const canAccessPage = useMemo(() => {
-    if (!user) return false;
-    if (user.role === 'superadmin') return true;
-    if (user.role === 'admin' && !user.buildingAssignment) return true;
-    return false;
-  }, [user]);
+  const canAccessPage = user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment);
 
   const { data: currentPricingSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery<PricingSettings, Error>({
     queryKey: [PRICING_SETTINGS_QUERY_KEY],
@@ -109,26 +106,26 @@ export default function FinancialManagementPage() {
     mutation.mutate(values);
   }
 
-  if (authLoading) {
-    return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (authLoading || (isLoadingSettings && canAccessPage)) {
+    return (
+      <div className="flex justify-center items-center h-40">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!canAccessPage) {
     return (
-         <Card className="w-full max-w-md mx-auto my-8">
-            <CardHeader>
-                <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>{t('financialsAccessRestricted')}</p>
-                 <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
-            </CardContent>
-         </Card>
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('financialsAccessRestricted')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
     );
-  }
-  
-  if (isLoadingSettings && canAccessPage) {
-     return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
@@ -166,7 +163,7 @@ export default function FinancialManagementPage() {
                 <FormField control={form.control} name="defaultDormitoryPricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultDormitoryPricePerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultHallRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultHallRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 3000" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultSectionRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultSectionRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 1500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</FormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</ShadFormDescription><FormMessage /></FormItem> )} />
               </div>
               
               <>
