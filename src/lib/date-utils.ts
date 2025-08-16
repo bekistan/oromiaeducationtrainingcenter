@@ -1,7 +1,6 @@
 
 import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
-import { convertToEthiopianDate } from '@/ai/flows/convert-date-flow';
 
 type DateInput = string | Date | Timestamp | undefined | null;
 
@@ -54,7 +53,23 @@ export const formatEthiopianDate = async (
 
     try {
         const gregorianDateString = format(dateObj, 'yyyy-MM-dd');
-        const ethiopianDateString = await convertToEthiopianDate({ gregorianDate: gregorianDateString });
+        
+        // Call the internal API route
+        const response = await fetch('/api/convert-date', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ gregorianDate: gregorianDateString }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'API request failed');
+        }
+
+        const data = await response.json();
+        const ethiopianDateString = data.ethiopianDate;
         
         if (formatStr === 'default') {
             const parts = ethiopianDateString.split(' ');
@@ -65,10 +80,11 @@ export const formatEthiopianDate = async (
         return ethiopianDateString;
 
     } catch (error) {
-        console.error("Error converting to Ethiopian date via AI flow:", error);
+        console.error("Error converting to Ethiopian date via API:", error);
         return formatDate(dateObj); // Fallback to Gregorian format
     }
 };
+
 
 export const formatDualDate = (dateInput: DateInput, primaryFormat: string, secondaryFormat?: string): string => {
   const dateObj = toDateObject(dateInput);
