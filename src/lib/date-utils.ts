@@ -4,45 +4,54 @@ import type { Timestamp } from 'firebase/firestore';
 
 // --- Self-contained Ethiopian Calendar Conversion Logic ---
 
-const GREGORIAN_EPOCH = 1721425.5;
-const ETHIOPIC_EPOCH = 2796;
-
-const toEthiopian = (gregorianDate: Date): { year: number, month: number, day: number, monthName: string, dayName: string } => {
-  const year = gregorianDate.getFullYear();
-  const month = gregorianDate.getMonth() + 1;
-  const day = gregorianDate.getDate();
-
-  const jd = GREGORIAN_EPOCH - 1 + 365 * (year - 1) + Math.floor((year - 1) / 4) - Math.floor((year - 1) / 100) + Math.floor((year - 1) / 400) + Math.floor((367 * month - 362) / 12 + (month <= 2 ? 0 : isGregorianLeap(year) ? -1 : -2) + day);
-  const r = (jd - ETHIOPIC_EPOCH) % 1461;
-  const n = (r % 365) + 365 * Math.floor(r / 1461);
-  let eYear = 4 * Math.floor((jd - ETHIOPIC_EPOCH) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
-  let eMonth = Math.floor(n / 30) + 1;
-  let eDay = (n % 30) + 1;
-  
-  if (eMonth > 13) {
-      eYear += 1;
-      eMonth = 1;
-  }
-
-  const monthNames = [
-    'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit', 
-    'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
-  ];
-
-  const dayNames = ['Ihude', 'Segno', 'Maksegno', 'Erob', 'Hamus', 'Arb', 'Kidame'];
-
-  return { 
-      year: eYear, 
-      month: eMonth, 
-      day: eDay,
-      monthName: monthNames[eMonth - 1],
-      dayName: dayNames[gregorianDate.getDay()]
-  };
-};
-
-const isGregorianLeap = (year: number) => {
+const isGregorianLeap = (year: number): boolean => {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 };
+
+const toEthiopian = (gregorianDate: Date): { year: number, month: number, day: number, monthName: string, dayName: string } => {
+    const gregYear = gregorianDate.getFullYear();
+    const gregMonth = gregorianDate.getMonth() + 1;
+    const gregDay = gregorianDate.getDate();
+
+    let ethYear = gregYear - 8;
+    if (gregMonth < 9 || (gregMonth === 9 && gregDay < 11)) {
+        ethYear = gregYear - 8;
+    } else {
+        ethYear = gregYear - 7;
+    }
+
+    const startOfEthiopianYear = new Date(gregYear, 8, isGregorianLeap(gregYear) ? 12 : 11);
+    if (gregorianDate < startOfEthiopianYear) {
+       startOfEthiopianYear.setFullYear(gregYear - 1);
+       startOfEthiopianYear.setDate(isGregorianLeap(gregYear - 1) ? 12 : 11);
+    }
+    
+    const diffInDays = Math.floor((gregorianDate.getTime() - startOfEthiopianYear.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let ethMonth = Math.floor(diffInDays / 30) + 1;
+    let ethDay = (diffInDays % 30) + 1;
+    
+    if (ethMonth > 13) {
+      ethMonth = 13;
+      ethDay = diffInDays - 360 + 1;
+    }
+
+    const monthNames = [
+      'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
+      'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
+    ];
+    
+    const dayNames = ['Ihude', 'Segno', 'Maksegno', 'Erob', 'Hamus', 'Arb', 'Kidame'];
+
+    return {
+        year: ethYear,
+        month: ethMonth,
+        day: ethDay,
+        monthName: monthNames[ethMonth - 1],
+        dayName: dayNames[gregorianDate.getDay()]
+    };
+};
+
 
 // --- Original Date Utility Functions ---
 
