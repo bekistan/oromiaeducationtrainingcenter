@@ -1,7 +1,50 @@
 
 import { format, parseISO } from 'date-fns';
 import type { Timestamp } from 'firebase/firestore';
-import { toEthiopian } from 'ethiopian-calendar';
+
+// --- Self-contained Ethiopian Calendar Conversion Logic ---
+
+const GREGORIAN_EPOCH = 1721425.5;
+const ETHIOPIC_EPOCH = 2796;
+
+const toEthiopian = (gregorianDate: Date): { year: number, month: number, day: number, monthName: string, dayName: string } => {
+  const year = gregorianDate.getFullYear();
+  const month = gregorianDate.getMonth() + 1;
+  const day = gregorianDate.getDate();
+
+  const jd = GREGORIAN_EPOCH - 1 + 365 * (year - 1) + Math.floor((year - 1) / 4) - Math.floor((year - 1) / 100) + Math.floor((year - 1) / 400) + Math.floor((367 * month - 362) / 12 + (month <= 2 ? 0 : isGregorianLeap(year) ? -1 : -2) + day);
+  const r = (jd - ETHIOPIC_EPOCH) % 1461;
+  const n = (r % 365) + 365 * Math.floor(r / 1461);
+  let eYear = 4 * Math.floor((jd - ETHIOPIC_EPOCH) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
+  let eMonth = Math.floor(n / 30) + 1;
+  let eDay = (n % 30) + 1;
+  
+  if (eMonth > 13) {
+      eYear += 1;
+      eMonth = 1;
+  }
+
+  const monthNames = [
+    'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit', 
+    'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
+  ];
+
+  const dayNames = ['Ihude', 'Segno', 'Maksegno', 'Erob', 'Hamus', 'Arb', 'Kidame'];
+
+  return { 
+      year: eYear, 
+      month: eMonth, 
+      day: eDay,
+      monthName: monthNames[eMonth - 1],
+      dayName: dayNames[gregorianDate.getDay()]
+  };
+};
+
+const isGregorianLeap = (year: number) => {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+};
+
+// --- Original Date Utility Functions ---
 
 type DateInput = string | Date | Timestamp | undefined | null;
 
@@ -52,8 +95,7 @@ export const formatEthiopianDate = (
     if (!dateObj) return 'N/A';
 
     try {
-        const ethiopianDate = toEthiopian(dateObj); // Library is synchronous
-        
+        const ethiopianDate = toEthiopian(dateObj);
         const monthName = ethiopianDate.monthName;
 
         if (formatStr === 'full') {
