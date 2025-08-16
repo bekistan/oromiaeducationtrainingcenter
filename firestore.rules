@@ -1,124 +1,87 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Get user document helper function
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Check if a user has a specific role
-    function hasRole(userId, role) {
-      return getUserData(userId).role == role;
-    }
-
-    // Check if the user is a general admin (not assigned to a specific building)
-    function isGeneralAdmin(userId) {
-        let userData = getUserData(userId);
-        return userData.role == 'admin' && userData.buildingAssignment == null;
-    }
-
-    // Check if the user is a superadmin
-    function isSuperAdmin(userId) {
-      return hasRole(userId, 'superadmin');
+  
+    // Helper function to check user roles
+    function isUserInRole(roles) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
     }
     
-    // Check if user is an admin or superadmin
-    function isAdminOrSuperAdmin(userId) {
-      let userData = getUserData(userId);
-      return userData.role == 'admin' || userData.role == 'superadmin';
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Check if user is a keyholder
-    function isKeyholder(userId) {
-        return hasRole(userId, 'keyholder');
-    }
-
-    // Check if user is a store manager
-    function isStoreManager(userId) {
-        return hasRole(userId, 'store_manager');
-    }
-
-    // Users can read their own data, admins can read any.
-    // Users can update their own data. Only superadmins can create/delete or change roles.
-    match /users/{userId} {
-      allow read: if request.auth.uid == userId || isAdminOrSuperAdmin(request.auth.uid);
-      allow create: if isSuperAdmin(request.auth.uid);
-      allow update: if request.auth.uid == userId 
-                    || isAdminOrSuperAdmin(request.auth.uid); // Admins can update status, etc.
-      allow delete: if isSuperAdmin(request.auth.uid);
-    }
+    // -- PUBLICLY READABLE DATA --
     
-    // Public can read dormitories and halls. Only admins can modify them.
+    // Blog Posts: Anyone can read published posts. Admins manage.
+    match /blog/{postId} {
+      allow read: if resource.data.isPublished == true || isUserInRole(['admin', 'superadmin']);
+      allow create, update, delete: if request.auth != null && isUserInRole(['admin', 'superadmin']);
+    }
+
+    // Dormitories: Publicly readable for listings. Admins manage.
     match /dormitories/{dormId} {
       allow read: if true;
-      allow write: if request.auth != null && isAdminOrSuperAdmin(request.auth.uid);
+      allow create, update, delete: if request.auth != null && isUserInRole(['admin', 'superadmin']);
     }
-    
+
+    // Halls: Publicly readable for listings. Admins manage.
     match /halls/{hallId} {
       allow read: if true;
-      allow write: if request.auth != null && isAdminOrSuperAdmin(request.auth.uid);
+      allow create, update, delete: if request.auth != null && isUserInRole(['admin', 'superadmin']);
     }
 
-    // Authenticated users can create bookings.
-    // Users can read their own bookings. Admins can read all.
-    // Users can update specific fields on their bookings (payment proof, signed agreement).
-    // Admins can update any field. Keyholders can update keyStatus.
+    // Bookings: Public read is necessary for availability checks by anonymous users.
+    // Write operations are restricted.
     match /bookings/{bookingId} {
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdminOrSuperAdmin(request.auth.uid) || isKeyholder(request.auth.uid));
-      allow create: if request.auth != null;
+      allow read: if true; // Allow public read for availability checks
+      allow create: if request.auth != null; // Any authenticated user can create
       allow update: if request.auth != null && (
-                      // User updating their own booking with allowed fields
-                      (request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paymentScreenshotUrl', 'paymentStatus', 'agreementStatus', 'signedAgreementUrl', 'agreementSignedAt'])) ||
-                      // Admin can update anything
-                      isAdminOrSuperAdmin(request.auth.uid) ||
-                      // Keyholder can only update keyStatus
-                      (isKeyholder(request.auth.uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['keyStatus']))
+                      isOwner(resource.data.userId) || 
+                      isUserInRole(['admin', 'superadmin', 'keyholder'])
                     );
-      allow delete: if request.auth != null && isAdminOrSuperAdmin(request.auth.uid);
+      allow delete: if request.auth != null && isUserInRole(['admin', 'superadmin']);
     }
 
-    // Site configuration is read-only for public, writable by general admins/superadmins.
+    // -- SECURED DATA --
+
+    // User Profiles: Users can only read/write their own data. Admins have wider access.
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isUserInRole(['admin', 'superadmin']);
+      allow create: if request.auth.uid == userId;
+      allow update: if isOwner(userId) || isUserInRole(['admin', 'superadmin']);
+      allow delete: if isUserInRole(['superadmin']); // Only superadmin can delete user records
+    }
+    
+    // Site Configuration: Only specific admins should access these.
     match /site_configuration/{docId} {
-        allow read: if true;
-        allow write: if request.auth != null && (isGeneralAdmin(request.auth.uid) || isSuperAdmin(request.auth.uid));
+        allow read: if true; // Allow public read for settings like bank details, site content, etc.
+        allow write: if request.auth != null && isUserInRole(['admin', 'superadmin']);
     }
-
-    // Blog posts can be read by public if published. Writable only by admins.
-    match /blog/{postId} {
-        allow read: if resource.data.isPublished == true;
-        allow write: if request.auth != null && (isGeneralAdmin(request.auth.uid) || isSuperAdmin(request.auth.uid));
-    }
-
-    // Notifications can only be read by their intended recipients or admins.
+    
+    // Notifications: Only intended recipients or admins can read.
     match /notifications/{notificationId} {
-      allow read, update: if request.auth != null && 
-                      (resource.data.recipientId == request.auth.uid 
-                      || resource.data.recipientRole == getUserData(request.auth.uid).role
-                      || isAdminOrSuperAdmin(request.auth.uid));
-      allow create, delete: if request.auth != null && isAdminOrSuperAdmin(request.auth.uid); // Only backend/admins should create notifications
+      allow read, update: if request.auth != null && (
+                      resource.data.recipientId == request.auth.uid ||
+                      resource.data.recipientRole == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role ||
+                      isUserInRole(['admin', 'superadmin'])
+                    );
+      allow create: if true; // Allow server-side actions to create notifications
     }
     
-    // Store items can be read and modified by admins and store managers
+    // Store and Employee data: Only store managers and admins
     match /store_items/{itemId} {
-        allow read: if request.auth != null && (isAdminOrSuperAdmin(request.auth.uid) || isStoreManager(request.auth.uid));
-        allow write: if request.auth != null && (isAdminOrSuperAdmin(request.auth.uid) || isStoreManager(request.auth.uid));
+      allow read, write: if request.auth != null && isUserInRole(['store_manager', 'admin', 'superadmin']);
     }
     
-    // Store transactions can be read by admins/store managers. Only store managers can create them.
-    match /store_transactions/{transactionId} {
-        allow read: if request.auth != null && (isAdminOrSuperAdmin(request.auth.uid) || isStoreManager(request.auth.uid));
-        allow create: if request.auth != null && isStoreManager(request.auth.uid);
-        allow write: if false; // Transactions should be immutable
+    match /store_transactions/{txId} {
+       allow read, write: if request.auth != null && isUserInRole(['store_manager', 'admin', 'superadmin']);
     }
-
-    // Employees can be read by admins and store managers
+    
     match /employees/{employeeId} {
-        allow read: if request.auth != null && (isAdminOrSuperAdmin(request.auth.uid) || isStoreManager(request.auth.uid));
-        allow write: if request.auth != null && (isGeneralAdmin(request.auth.uid) || isSuperAdmin(request.auth.uid));
+       allow read, write: if request.auth != null && isUserInRole(['store_manager', 'admin', 'superadmin']);
     }
-
   }
 }
-    

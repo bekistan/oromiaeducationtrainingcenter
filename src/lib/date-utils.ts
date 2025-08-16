@@ -69,7 +69,10 @@ export const formatEthiopianDate = async (
         const data = await response.json();
         const ethiopianDateString: string = data.ethiopianDate; // e.g., "2016-12-25"
         
-        if (!ethiopianDateString) return formatDate(dateObj); // Fallback if format is unexpected
+        if (!ethiopianDateString || !/^\d{4}-\d{2}-\d{2}$/.test(ethiopianDateString)) {
+             console.error("Received unexpected date format from API:", ethiopianDateString);
+             return formatDate(dateObj); // Fallback if format is unexpected
+        }
 
         const [year, month, day] = ethiopianDateString.split('-');
         
