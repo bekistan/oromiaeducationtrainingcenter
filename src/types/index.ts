@@ -1,3 +1,4 @@
+
 import { STORE_ITEM_CATEGORIES } from '@/constants';
 
 export type Locale = 'en' | 'om' | 'am';
