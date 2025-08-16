@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -23,6 +24,27 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SignedAgreementPreviewDialog } from '@/components/shared/signed-agreement-preview';
 
 type BookingView = 'active' | 'due';
+
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function CompanyDashboardPage() {
   const { t } = useLanguage();
@@ -292,9 +314,9 @@ export default function CompanyDashboardPage() {
                     {displayedBookings.map((booking) => (
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs whitespace-nowrap">{booking.id.substring(0, 8)}...</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.bookedAt, 'full')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs"><FormattedDate dateInput={booking.bookedAt} format="full"/></TableCell>
                         <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                        <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs"><FormattedDate dateInput={booking.startDate} format="full"/> - <FormattedDate dateInput={booking.endDate} format="full"/></TableCell>
                         <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                         <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>
                         <TableCell>{getAgreementStatusBadge(booking.agreementStatus)}</TableCell>

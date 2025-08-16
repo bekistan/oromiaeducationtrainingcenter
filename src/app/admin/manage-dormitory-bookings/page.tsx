@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +74,27 @@ const fetchDormitoryBookingsFromDb = async (): Promise<Booking[]> => {
     } as Booking;
   });
 };
+
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function AdminManageDormitoryBookingsPage() {
   const { t } = useLanguage();
@@ -360,7 +382,7 @@ export default function AdminManageDormitoryBookingsPage() {
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt, 'full')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap"><FormattedDate dateInput={booking.bookedAt} format="full" /></TableCell>
                       <TableCell className="min-w-[150px]">{booking.guestName}<span className="text-xs text-muted-foreground block whitespace-nowrap"> {booking.phone || t('notProvided')}</span></TableCell>
                       <TableCell>
                         {booking.paymentScreenshotUrl ? (
@@ -402,7 +424,7 @@ export default function AdminManageDormitoryBookingsPage() {
                         )}
                       </TableCell>
                       <TableCell className="min-w-[200px]">{booking.items.map(item => item.name).join(', ')}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs"><FormattedDate dateInput={booking.startDate} format="full" /> - <FormattedDate dateInput={booking.endDate} format="full" /></TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

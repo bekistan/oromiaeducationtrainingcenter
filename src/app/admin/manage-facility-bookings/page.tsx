@@ -84,6 +84,26 @@ const fetchAgreementTemplate = async (): Promise<string> => {
     return DEFAULT_AGREEMENT_TERMS;
 };
 
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function AdminManageFacilityBookingsPage() {
   const { t } = useLanguage();
@@ -381,10 +401,10 @@ export default function AdminManageFacilityBookingsPage() {
                 <TableBody>
                   {displayedBookings.map((booking) => (
                     <TableRow key={booking.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt, 'full')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap"><FormattedDate dateInput={booking.bookedAt} format="full" /></TableCell>
                       <TableCell className="min-w-[150px]">{booking.companyName}{booking.userId && <span className="text-xs text-muted-foreground block whitespace-nowrap"> ({t('userIdAbbr')}: {booking.userId.substring(0,6)}...)</span>}</TableCell>
                       <TableCell className="min-w-[150px]">{booking.items.map(item => item.name).join(', ')} ({booking.items.length})</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs"><FormattedDate dateInput={booking.startDate} format="full" /> - <FormattedDate dateInput={booking.endDate} format="full" /></TableCell>
                       <TableCell className="whitespace-nowrap">{booking.totalCost} {t('currencySymbol')}</TableCell>
                       <TableCell>{getPaymentStatusBadge(booking.paymentStatus)}</TableCell>
                       <TableCell>{getApprovalStatusBadge(booking.approvalStatus)}</TableCell>

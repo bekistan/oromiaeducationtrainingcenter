@@ -36,12 +36,26 @@ export function DatePickerWithRange({
   const { t } = useLanguage();
   const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
+  const [ethiopianDisplay, setEthiopianDisplay] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (initialDate) {
       setDate(initialDate);
     }
   }, [initialDate]);
+
+  React.useEffect(() => {
+    const generateDisplay = async () => {
+      if (date?.from) {
+        const ethFrom = await formatEthiopianDate(date.from);
+        const ethTo = date.to ? await formatEthiopianDate(date.to) : '';
+        setEthiopianDisplay(ethTo ? `${ethFrom} - ${ethTo}` : ethFrom);
+      } else {
+        setEthiopianDisplay(null);
+      }
+    };
+    generateDisplay();
+  }, [date]);
 
 
   const handleSelect = (selectedDate: DateRange | undefined) => {
@@ -68,13 +82,9 @@ export function DatePickerWithRange({
         const gregTo = date.to ? formatDate(date.to, 'MMM d, yyyy') : '';
         const gregDisplay = gregTo ? `${gregFrom} - ${gregTo}` : gregFrom;
         
-        const ethFrom = formatEthiopianDate(date.from);
-        const ethTo = date.to ? formatEthiopianDate(date.to) : '';
-        const ethiopianDisplay = ethTo ? `${ethFrom} - ${ethTo}` : ethFrom;
-
         return (
           <div className="flex flex-col items-start text-left">
-            <span className="text-xs font-semibold">{ethiopianDisplay}</span>
+            <span className="text-xs font-semibold">{ethiopianDisplay || t('loading')}</span>
             <span className="text-xs text-muted-foreground">({t('gregorianAbbr')}: {gregDisplay})</span>
           </div>
         )

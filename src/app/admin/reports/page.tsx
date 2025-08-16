@@ -98,19 +98,19 @@ export default function AdminReportsPage() {
         }
     }
 
-    const reportData = bookings.map(b => ({ 
+    const reportData = await Promise.all(bookings.map(async b => ({ 
       [t('bookingId')]: b.id.substring(0,8), 
-      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'),
+      [t('bookedAt')]: await formatEthiopianDate(b.bookedAt, 'full'),
       [t('guestName')]: b.guestName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatEthiopianDate(b.startDate, 'full'),
-      [t('endDate')]: formatEthiopianDate(b.endDate, 'full'),
+      [t('startDate')]: await formatEthiopianDate(b.startDate, 'full'),
+      [t('endDate')]: await formatEthiopianDate(b.endDate, 'full'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
-    }));
+    })));
     return {
-      filename: `${t('userDormReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
+      filename: `${t('userDormReport')}_${await formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -145,12 +145,12 @@ export default function AdminReportsPage() {
     const summaryText = `
 ${t('financialSummaryReport')} (${currentUser.role === 'admin' && currentUser.buildingAssignment ? currentUser.buildingAssignment : t('allBuildings')})
 ---------------------------------
-${t('period')}: ${formatEthiopianDate(range.from, 'full')} - ${formatEthiopianDate(range.to, 'full')}
+${t('period')}: ${await formatEthiopianDate(range.from, 'full')} - ${await formatEthiopianDate(range.to, 'full')}
 ${t('totalRevenue')}: ${totalRevenue.toLocaleString()} ${t('currencySymbol')}
 ${t('bookingsCount')}: ${bookingsForReport.length}
     `;
     return {
-      filename: `${t('financialSummaryReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
+      filename: `${t('financialSummaryReport')}_${await formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -168,19 +168,19 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     );
     const snapshot = await getDocs(q);
     const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
-    const reportData = bookings.map(b => ({ 
+    const reportData = await Promise.all(bookings.map(async b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'), 
+      [t('bookedAt')]: await formatEthiopianDate(b.bookedAt, 'full'), 
       [t('companyName')]: b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('startDate')]: formatEthiopianDate(b.startDate, 'full'),
-      [t('endDate')]: formatEthiopianDate(b.endDate, 'full'),
+      [t('startDate')]: await formatEthiopianDate(b.startDate, 'full'),
+      [t('endDate')]: await formatEthiopianDate(b.endDate, 'full'),
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
-    }));
+    })));
     return {
-      filename: `${t('hallUtilizationReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
+      filename: `${t('hallUtilizationReport')}_${await formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -197,12 +197,12 @@ ${t('bookingsCount')}: ${bookingsForReport.length}
     const summaryText = `
 ${t('occupancyAnalyticsReport')}
 ---------------------------------
-${t('period')}: ${formatEthiopianDate(range.from, 'full')} - ${formatEthiopianDate(range.to, 'full')}
+${t('period')}: ${await formatEthiopianDate(range.from, 'full')} - ${await formatEthiopianDate(range.to, 'full')}
 ${t('dormitoryBookings')}: ${dormSnapshot.data().count}
 ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     `;
     return {
-      filename: `${t('occupancyAnalyticsReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
+      filename: `${t('occupancyAnalyticsReport')}_${await formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };
@@ -231,18 +231,18 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
         }
     }
 
-    const reportData = bookings.map(b => ({ 
+    const reportData = await Promise.all(bookings.map(async b => ({ 
       [t('bookingId')]: b.id.substring(0,8),
-      [t('bookedAt')]: formatEthiopianDate(b.bookedAt, 'full'),
+      [t('bookedAt')]: await formatEthiopianDate(b.bookedAt, 'full'),
       [category === 'dormitory' ? t('guestName') : t('companyName')]: category === 'dormitory' ? b.guestName : b.companyName || t('notAvailable'), 
       [t('item')]: b.items.map(i=>i.name).join(', '), 
-      [t('dates')]: `${formatEthiopianDate(b.startDate, 'full')} - ${formatEthiopianDate(b.endDate, 'full')}`,
+      [t('dates')]: `${await formatEthiopianDate(b.startDate, 'full')} - ${await formatEthiopianDate(b.endDate, 'full')}`,
       [t('totalCost')]: b.totalCost,
       [t('paymentStatus')]: t(b.paymentStatus),
       [t('approvalStatus')]: t(b.approvalStatus),
-    }));
+    })));
      return {
-      filename: `${t(periodTitleKey)}_${category}_${formatEthiopianDate(new Date(), 'full')}.csv`,
+      filename: `${t(periodTitleKey)}_${category}_${await formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -260,16 +260,16 @@ ${t('facilityBookings')}: ${facilitySnapshot.data().count}
     );
     const snapshot = await getDocs(companiesQuery);
     const companies = snapshot.docs.map(doc => doc.data() as AppUserType);
-    const reportData = companies.map(c => ({
+    const reportData = await Promise.all(companies.map(async c => ({
       [t('companyName')]: c.companyName || t('notAvailable'),
       [t('contactPerson')]: c.name || t('notAvailable'),
       [t('email')]: c.email,
       [t('phone')]: c.phone || t('notProvided'),
       [t('approvalStatus')]: t(c.approvalStatus || 'pending'),
-      [t('registrationDate')]: formatEthiopianDate(c.createdAt, 'full')
-    }));
+      [t('registrationDate')]: await formatEthiopianDate(c.createdAt, 'full')
+    })));
     return {
-      filename: `${t('companyRegistrationReport')}_${formatEthiopianDate(new Date(), 'full')}.csv`,
+      filename: `${t('companyRegistrationReport')}_${await formatEthiopianDate(new Date(), 'full')}.csv`,
       content: arrayToCsv(reportData),
       mimeType: 'text/csv',
     };
@@ -295,10 +295,10 @@ ${t('totalRegisteredCompanies')}: ${stats.total}
 ${t('approvedCompanies')}: ${stats.approved}
 ${t('pendingCompanies')}: ${stats.pending}
 ${t('rejectedCompanies')}: ${stats.rejected}
-${t('reportGeneratedOn')}: ${formatEthiopianDate(new Date(), 'full')}
+${t('reportGeneratedOn')}: ${await formatEthiopianDate(new Date(), 'full')}
     `;
      return {
-      filename: `${t('overallCompanyStatsReport')}_${formatEthiopianDate(new Date(), 'full')}.txt`,
+      filename: `${t('overallCompanyStatsReport')}_${await formatEthiopianDate(new Date(), 'full')}.txt`,
       content: summaryText.trim(),
       mimeType: 'text/plain',
     };

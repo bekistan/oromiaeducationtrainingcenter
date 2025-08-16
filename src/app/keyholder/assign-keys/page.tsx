@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,6 +18,27 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSimpleTable } from '@/hooks/use-simple-table';
 import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
+
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function KeyholderAssignKeysPage() {
   const { t } = useLanguage();
@@ -197,8 +219,8 @@ export default function KeyholderAssignKeysPage() {
                     <TableCell className="font-medium">{booking.guestName || t('notAvailable')}</TableCell>
                     <TableCell>{booking.phone || t('notAvailable')}</TableCell>
                     <TableCell>{booking.items.map(item => item.name).join(', ')}</TableCell>
-                    <TableCell className="text-xs">{formatEthiopianDate(booking.bookedAt)}</TableCell>
-                    <TableCell className="text-xs">{formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</TableCell>
+                    <TableCell className="text-xs"><FormattedDate dateInput={booking.bookedAt} /></TableCell>
+                    <TableCell className="text-xs"><FormattedDate dateInput={booking.startDate} format="full" /> - <FormattedDate dateInput={booking.endDate} format="full" /></TableCell>
                     <TableCell>{getKeyStatusBadge(booking.keyStatus)}</TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button 

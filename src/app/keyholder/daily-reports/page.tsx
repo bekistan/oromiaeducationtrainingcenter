@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -54,6 +54,27 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
            date1.getMonth() === date2.getMonth() &&
            date1.getDate() === date2.getDate();
 };
+
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function KeyholderDailyReportsPage() {
     const { t } = useLanguage();
@@ -122,15 +143,13 @@ export default function KeyholderDailyReportsPage() {
         return <p className="text-destructive">{t('errorLoadingDashboardData')}: {error.message}</p>;
     }
 
-    const todayFormatted = formatEthiopianDate(new Date(), 'full');
-
     return (
         <div className="space-y-6">
              <div>
                 <h1 className="text-3xl font-bold text-foreground">{t('dailyKeyReport')}</h1>
                 <p className="text-muted-foreground flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    {t('reportForDate', { date: todayFormatted })}
+                    {t('reportForDate', { date: '' })} <FormattedDate dateInput={new Date()} format="full" />
                 </p>
             </div>
             
@@ -200,7 +219,7 @@ export default function KeyholderDailyReportsPage() {
                                         <TableRow key={booking.id}>
                                             <TableCell>{booking.guestName}</TableCell>
                                             <TableCell>{booking.items.map(i => i.name).join(', ')}</TableCell>
-                                            <TableCell>{formatEthiopianDate(booking.endDate, 'full')}</TableCell>
+                                            <TableCell><FormattedDate dateInput={booking.endDate} format="full" /></TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

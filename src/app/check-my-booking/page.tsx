@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { PublicLayout } from "@/components/layout/public-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,27 @@ import { Loader2, Search, AlertCircle, BedDouble, CalendarDays, DollarSign, Uplo
 import { toDateObject, formatEthiopianDate } from '@/lib/date-utils';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+const FormattedDate = ({ dateInput, format = 'default' }: { dateInput: any, format?: 'full' | 'default' }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput, format as any);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, format, t]);
+
+  return <>{formattedDate}</>;
+}
+
 
 export default function CheckMyBookingPage() {
   const { t } = useLanguage();
@@ -211,7 +233,7 @@ export default function CheckMyBookingPage() {
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex items-center">
                     <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
-                    <span>{t('bookingDates')}: {formatEthiopianDate(booking.startDate, 'full')} - {formatEthiopianDate(booking.endDate, 'full')}</span>
+                    <span>{t('bookingDates')}: <FormattedDate dateInput={booking.startDate} format="full" /> - <FormattedDate dateInput={booking.endDate} format="full" /></span>
                   </div>
                   <div className="flex items-center">
                     <DollarSign className="mr-2 h-4 w-4 text-muted-foreground" />

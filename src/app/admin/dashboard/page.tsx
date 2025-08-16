@@ -31,6 +31,27 @@ interface DashboardStats {
   availableHalls: { available: number; total: number };
 }
 
+const FormattedDate = ({ dateInput }: { dateInput: any }) => {
+  const [formattedDate, setFormattedDate] = useState<string>('...');
+  const { t } = useLanguage();
+
+  useEffect(() => {
+    const getFormattedDate = async () => {
+      try {
+        const result = await formatEthiopianDate(dateInput);
+        setFormattedDate(result);
+      } catch (e) {
+        console.error("Failed to format date", e);
+        setFormattedDate(t('notAvailable'));
+      }
+    };
+    getFormattedDate();
+  }, [dateInput, t]);
+
+  return <>{formattedDate}</>;
+}
+
+
 export default function AdminDashboardPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -263,7 +284,7 @@ export default function AdminDashboardPage() {
                   <TableBody>
                     {displayedRecentBookings.map(booking => (
                       <TableRow key={booking.id}>
-                        <TableCell className="text-xs whitespace-nowrap">{formatEthiopianDate(booking.bookedAt)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap"><FormattedDate dateInput={booking.bookedAt} /></TableCell>
                         <TableCell>{booking.companyName || booking.guestName || t('notAvailable')}</TableCell>
                         <TableCell>{booking.items.map(item => item.name).join(', ').substring(0,25)}{booking.items.map(item => item.name).join(', ').length > 25 ? '...' : ''}</TableCell>
                         <TableCell>{t('currencySymbol')} {booking.totalCost.toLocaleString()}</TableCell>
