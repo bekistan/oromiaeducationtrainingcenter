@@ -73,8 +73,8 @@ export const formatEthiopianDate = async (
 
         const [year, month, day] = ethiopianDateString.split('-');
         
-        // Return date in YYYY-MM-DD format
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        // Return date in DD-MM-YYYY format
+        return `${String(day).padStart(2, '0')}-${String(month).padStart(2, '0')}-${year}`;
 
     } catch (error) {
         console.error("Error converting to Ethiopian date via API:", error);
