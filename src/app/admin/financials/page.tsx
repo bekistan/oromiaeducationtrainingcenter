@@ -36,7 +36,10 @@ const pricingSettingsSchema = z.object({
 type PricingSettingsFormValues = z.infer<typeof pricingSettingsSchema>;
 
 const fetchPricingSettings = async (): Promise<PricingSettings> => {
-  if (!db) return { ...DEFAULT_PRICING_SETTINGS, id: 'pricing_settings' };
+  if (!db) {
+    console.warn("Database not configured. Using default pricing settings.");
+    return { ...DEFAULT_PRICING_SETTINGS, id: 'pricing_settings' };
+  }
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -51,7 +54,9 @@ const fetchPricingSettings = async (): Promise<PricingSettings> => {
 };
 
 const updatePricingSettings = async (details: PricingSettingsFormValues): Promise<void> => {
-  if (!db) throw new Error("Database not configured.");
+  if (!db) {
+    throw new Error("Database not configured. Cannot update settings.");
+  }
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   await setDoc(docRef, { ...details, lastUpdated: serverTimestamp() }, { merge: true });
 };
@@ -163,7 +168,7 @@ export default function FinancialManagementPage() {
                 <FormField control={form.control} name="defaultDormitoryPricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultDormitoryPricePerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultHallRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultHallRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 3000" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultSectionRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultSectionRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 1500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</ShadFormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</FormDescription><FormMessage /></FormItem> )} />
               </div>
               
               <>
