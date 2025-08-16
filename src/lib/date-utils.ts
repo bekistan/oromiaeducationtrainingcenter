@@ -73,22 +73,8 @@ export const formatEthiopianDate = async (
 
         const [year, month, day] = ethiopianDateString.split('-');
         
-        const monthNames = [
-          'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
-          'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
-        ];
-        
-        const monthIndex = parseInt(month, 10) - 1;
-        if (monthIndex < 0 || monthIndex >= monthNames.length) {
-            return ethiopianDateString; // Fallback if month is out of bounds
-        }
-        
-        const monthName = monthNames[monthIndex];
-
-        if (formatStr === 'default') {
-            return `${monthName.substring(0, 3)} ${parseInt(day, 10)}, ${year}`;
-        }
-        return `${monthName} ${parseInt(day, 10)}, ${year}`;
+        // Return date in YYYY-MM-DD format
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
     } catch (error) {
         console.error("Error converting to Ethiopian date via API:", error);
