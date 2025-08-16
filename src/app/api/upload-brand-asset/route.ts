@@ -44,8 +44,7 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64String = buffer.toString('base64');
-    const dataUri = `data:${file.type};base64,${base64String}`;
+    const dataUri = `data:${file.type};base64,${buffer.toString('base64')}`;
 
     console.log('[API] Uploading new asset to Cloudinary using data URI...');
     
@@ -74,5 +73,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to process brand asset upload.', details: error.message }, { status: 500 });
   }
 }
-
     

@@ -43,7 +43,6 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const base64String = buffer.toString('base64');
     const dataUri = `data:${file.type};base64,${base64String}`;
 
     console.log('[API] Uploading agreement to Cloudinary with resource_type: auto...');
