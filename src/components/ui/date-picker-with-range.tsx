@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import * as React from "react"
@@ -27,28 +26,21 @@ interface DatePickerWithRangeProps extends React.HTMLAttributes<HTMLDivElement> 
 
 export function DatePickerWithRange({
   className,
-  date: initialDate,
+  date,
   onDateChange,
   disabled: propDisabled,
   disableFuture = false,
   disablePast = false,
 }: DatePickerWithRangeProps) {
   const { t } = useLanguage();
-  const [date, setDate] = React.useState<DateRange | undefined>(initialDate);
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
   const [ethiopianDisplay, setEthiopianDisplay] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (initialDate) {
-      setDate(initialDate);
-    }
-  }, [initialDate]);
-
-  React.useEffect(() => {
     const generateDisplay = async () => {
       if (date?.from) {
-        const ethFrom = await formatEthiopianDate(date.from);
-        const ethTo = date.to ? await formatEthiopianDate(date.to) : '';
+        const ethFrom = await formatEthiopianDate(date.from, 'default');
+        const ethTo = date.to ? await formatEthiopianDate(date.to, 'default') : '';
         setEthiopianDisplay(ethTo ? `${ethFrom} - ${ethTo}` : ethFrom);
       } else {
         setEthiopianDisplay(null);
@@ -59,10 +51,10 @@ export function DatePickerWithRange({
 
 
   const handleSelect = (selectedDate: DateRange | undefined) => {
-    setDate(selectedDate);
     if (onDateChange) {
       onDateChange(selectedDate);
     }
+    // Close the popover only when a full range is selected
     if (selectedDate?.from && selectedDate?.to) {
         setIsPopoverOpen(false);
     }
