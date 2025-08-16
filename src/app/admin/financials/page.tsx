@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo } from 'react';
-import { zodResolver } from "@hookform/resolvers";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -169,13 +169,15 @@ export default function FinancialManagementPage() {
                 <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</FormDescription><FormMessage /></FormItem> )} />
               </div>
               
-              <h3 className="text-lg font-medium pt-4 border-t">{t('cateringServiceCosts')} ({t('perPersonPerDay')})</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="lunchServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="lunchServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 250" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="refreshmentServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="refreshmentServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 100" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-              </div>
+              <>
+                <h3 className="text-lg font-medium pt-4 border-t">{t('cateringServiceCosts')} ({t('perPersonPerDay')})</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField control={form.control} name="lunchServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="lunchServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 250" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="refreshmentServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                  <FormField control={form.control} name="refreshmentServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 100" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                </div>
+              </>
               
               {currentPricingSettings?.lastUpdated && (
                 <p className="text-xs text-muted-foreground pt-4">
