@@ -36,6 +36,10 @@ const pricingSettingsSchema = z.object({
 type PricingSettingsFormValues = z.infer<typeof pricingSettingsSchema>;
 
 const fetchPricingSettings = async (): Promise<PricingSettings> => {
+  if (!db) {
+    console.warn("Database not configured. Using default pricing settings.");
+    return { ...DEFAULT_PRICING_SETTINGS, id: 'pricing_settings' };
+  }
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -50,6 +54,9 @@ const fetchPricingSettings = async (): Promise<PricingSettings> => {
 };
 
 const updatePricingSettings = async (details: PricingSettingsFormValues): Promise<void> => {
+  if (!db) {
+    throw new Error("Database not configured. Cannot update settings.");
+  }
   const docRef = doc(db, PRICING_SETTINGS_DOC_PATH);
   await setDoc(docRef, { ...details, lastUpdated: serverTimestamp() }, { merge: true });
 };
@@ -61,12 +68,7 @@ export default function FinancialManagementPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const canAccessPage = useMemo(() => {
-    if (!user) return false;
-    if (user.role === 'superadmin') return true;
-    if (user.role === 'admin' && !user.buildingAssignment) return true;
-    return false;
-  }, [user]);
+  const canAccessPage = user?.role === 'superadmin' || (user?.role === 'admin' && !user.buildingAssignment);
 
   const { data: currentPricingSettings, isLoading: isLoadingSettings, error: settingsError } = useQuery<PricingSettings, Error>({
     queryKey: [PRICING_SETTINGS_QUERY_KEY],
@@ -110,20 +112,24 @@ export default function FinancialManagementPage() {
   }
 
   if (authLoading || (isLoadingSettings && canAccessPage)) {
-    return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return (
+      <div className="flex justify-center items-center h-40">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   if (!canAccessPage) {
     return (
-         <Card className="w-full max-w-md mx-auto my-8">
-            <CardHeader>
-                <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>{t('financialsAccessRestricted')}</p>
-                 <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
-            </CardContent>
-         </Card>
+      <Card className="w-full max-w-md mx-auto my-8">
+        <CardHeader>
+          <CardTitle className="text-destructive flex items-center"><ShieldAlert className="mr-2"/>{t('accessDenied')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p>{t('financialsAccessRestricted')}</p>
+          <Button onClick={() => router.push('/admin/dashboard')} className="mt-4">{t('backToDashboard')}</Button>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -162,18 +168,16 @@ export default function FinancialManagementPage() {
                 <FormField control={form.control} name="defaultDormitoryPricePerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultDormitoryPricePerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultHallRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultHallRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 3000" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
                 <FormField control={form.control} name="defaultSectionRentalCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultSectionRentalCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 1500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</FormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="defaultLedProjectorCostPerDay" render={({ field }) => ( <FormItem><FormLabel>{t('defaultLedProjectorCostPerDay')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 500" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')} ({t('forSections')})</ShadFormDescription><FormMessage /></FormItem> )} />
               </div>
               
-              <>
-                <h3 className="text-lg font-medium pt-4 border-t">{t('cateringServiceCosts')} ({t('perPersonPerDay')})</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField control={form.control} name="lunchServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                  <FormField control={form.control} name="lunchServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 250" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                  <FormField control={form.control} name="refreshmentServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                  <FormField control={form.control} name="refreshmentServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 100" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
-                </div>
-              </>
+              <h3 className="text-lg font-medium pt-4 border-t">{t('cateringServiceCosts')} ({t('perPersonPerDay')})</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="lunchServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 150" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="lunchServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('lunchServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 250" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="refreshmentServiceCostLevel1" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel1')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 50" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+                <FormField control={form.control} name="refreshmentServiceCostLevel2" render={({ field }) => ( <FormItem><FormLabel>{t('refreshmentServiceCostLevel2')}</FormLabel><FormControl><Input type="number" placeholder="e.g., 100" {...field} /></FormControl><ShadFormDescription>{t('currencySymbol')}</ShadFormDescription><FormMessage /></FormItem> )} />
+              </div>
               
               {currentPricingSettings?.lastUpdated && (
                 <p className="text-xs text-muted-foreground pt-4">
