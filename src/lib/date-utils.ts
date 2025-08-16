@@ -5,38 +5,28 @@ import type { Timestamp } from 'firebase/firestore';
 // --- Self-contained Ethiopian Calendar Conversion Logic ---
 
 const toEthiopian = (gregorianDate: Date): { year: number, month: number, day: number, monthName: string, dayName: string } => {
-    // To avoid timezone issues, we'll work with UTC values
-    const gregYear = gregorianDate.getUTCFullYear();
-    const gregMonth = gregorianDate.getUTCMonth() + 1;
-    const gregDay = gregorianDate.getUTCDate();
+    // Function to convert Gregorian date to Julian day number
+    const toJulian = (year: number, month: number, day: number): number => {
+        let a = Math.floor((14 - month) / 12);
+        let y = year + 4800 - a;
+        let m = month + 12 * a - 3;
+        return day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+    };
+
+    // Use UTC to avoid timezone issues for date calculations
+    const jdn = toJulian(gregorianDate.getUTCFullYear(), gregorianDate.getUTCMonth() + 1, gregorianDate.getUTCDate());
+
+    // Ethiopian calendar epoch offset in Julian days
+    const ethiopianEpoch = 1724220.5;
+
+    const r = (jdn - ethiopianEpoch) % 1461;
+    const n = (r % 365) + 365 * Math.floor(r / 1460);
+
+    let ethYear = 4 * Math.floor((jdn - ethiopianEpoch) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
+    let ethMonth = Math.floor(n / 30) + 1;
+    let ethDay = (n % 30) + 1;
+    
     const dayOfWeek = gregorianDate.getUTCDay();
-
-    // The Ethiopian calendar is 7-8 years behind the Gregorian calendar.
-    // The new year starts on September 11th (or 12th in a leap year).
-    let ethYear = (gregMonth > 9 || (gregMonth === 9 && gregDay >= 12)) ? gregYear - 7 : gregYear - 8;
-
-    // The Ethiopian calendar has 12 months of 30 days and 1 month of 5 or 6 days (Pagume).
-    // The start of the Ethiopian year (Meskerem 1) corresponds to September 11th or 12th.
-    
-    // To calculate the day of the year in the Gregorian calendar
-    const startOfYear = new Date(Date.UTC(gregYear, 0, 1));
-    const dayOfYear = Math.floor((gregorianDate.getTime() - startOfYear.getTime()) / 86400000) + 1;
-
-    // The Ethiopian new year in the Gregorian calendar (day number)
-    const newYearDay = new Date(Date.UTC(gregYear, 8, 11)).getUTCFullYear() % 4 === 3 ? 255 : 254;
-
-    let ethDayOfYear;
-    if (dayOfYear > newYearDay) {
-        ethDayOfYear = dayOfYear - newYearDay;
-    } else {
-        ethYear = ethYear - 1; // It's still the previous Ethiopian year
-        const prevNewYearDay = new Date(Date.UTC(gregYear - 1, 8, 11)).getUTCFullYear() % 4 === 3 ? 255 : 254;
-        ethDayOfYear = dayOfYear + (365 - prevNewYearDay);
-    }
-    
-    const ethMonth = Math.floor((ethDayOfYear - 1) / 30) + 1;
-    const ethDay = ((ethDayOfYear - 1) % 30) + 1;
-
     const monthNames = [
       'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
       'Megabit', 'Miyazya', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Pagume'
